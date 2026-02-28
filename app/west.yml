@@ -15,3 +15,7 @@ manifest:
           - cmsis
           - cmsis_6
           - hal_nordic
+          - mbedtls
+          - segger
+          - nrfxlib
+          - trusted-firmware-m
