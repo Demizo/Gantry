@@ -18,6 +18,17 @@ config FLAGS_VALIDATION
 endmenu
 
 
+menu "Unit Testing"
+
+config UNIT_TESTING
+    bool "Enable unit testing build modifications"
+    default n
+    help
+      Changes the firmware to unit testing mode (e.g. exposing some static functions publicly).
+
+endmenu
+
+
 menu "Memory"
 
 config MEM_LOG_LEVEL

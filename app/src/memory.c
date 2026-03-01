@@ -17,6 +17,7 @@
 #include <zephyr/logging/log.h>
 
 #include "error.h"
+#include "static_unit.h"
 
 LOG_MODULE_REGISTER(mem_mgr, CONFIG_MEM_LOG_LEVEL);
 
@@ -58,7 +59,7 @@ typedef struct __attribute__((packed))
 
 static void* block_to_header(void* data);
 static void* header_to_block(void* block);
-static mem_block_header_t* validate_and_get_header(void* data);
+STATIC_UNIT mem_block_header_t* validate_and_get_header(void* data);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -112,12 +113,13 @@ static void* block_to_header(void* block) { return (uint8_t*)block - sizeof(mem_
 static void* header_to_block(void* header) { return (uint8_t*)header + sizeof(mem_block_header_t); }
 
 /**
- * @brief Validate that the block pointer points to a valid memory block and return the header
+ * @brief Validate that the block pointer points to a valid memory block and
+ * return the header
  *
  * @param block block pointer
  * @return pointer to the block header if the block was valid, otherwise NULL
  */
-static mem_block_header_t* validate_and_get_header(void* block)
+STATIC_UNIT mem_block_header_t* validate_and_get_header(void* block)
 {
     if (block == NULL) return NULL;
 
@@ -164,7 +166,8 @@ int mem_alloc(size_t size, void** block_ptr, const char* func, const char* file,
         return -EINVAL;
     }
 
-    // The total size must include room for the block header alongside the requested size
+    // The total size must include room for the block header alongside the
+    // requested size
     size_t total_size = size + sizeof(mem_block_header_t);
 
     uint32_t key = irq_lock();
