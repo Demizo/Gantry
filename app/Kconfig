@@ -1,0 +1,21 @@
+source "$ZEPHYR_BASE/Kconfig.zephyr"
+
+menu "ZDS"
+
+config MAIN_LOG_LEVEL
+    int "Main log level"
+    default 3
+
+
+menu "Flags"
+
+config FLAGS_VALIDATION
+    bool "Enable runtime flag validation"
+    default n if DEBUG
+    help
+      Whenever a flag changes validate the flag rules to catch invalid states at runtime.
+
+endmenu
+
+
+endmenu

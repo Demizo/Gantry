@@ -5,6 +5,12 @@ project(app)
 
 zephyr_cc_option(-Wfatal-errors)
 
-target_sources(app PRIVATE src/main.c)
+target_sources(app PRIVATE 
+    src/main.c
+)
+
+target_include_directories(app PRIVATE 
+    inc
+)
 
 target_compile_options(app PRIVATE -Wall -Wextra)
