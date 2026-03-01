@@ -8,6 +8,7 @@ zephyr_cc_option(-Wfatal-errors)
 target_sources(app PRIVATE 
     src/main.c
     src/memory.c
+    src/event.c
 )
 
 target_include_directories(app PRIVATE 

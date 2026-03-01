@@ -74,4 +74,13 @@ config MEM_LARGE_BLOCK_COUNT
 endmenu
 
 
+menu "Event"
+
+config EVENT_LOG_LEVEL
+    int "Event log level"
+    default 3
+
+endmenu
+
+
 endmenu

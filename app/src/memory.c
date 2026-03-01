@@ -1,5 +1,5 @@
 /**
- * @file manager.c
+ * @file memory.c
  * @author Demizo (demizodemazo@gmail.com)
  * @brief Memory module implementation
  * @version 0.1
