@@ -1,3 +1,4 @@
+# Generated from https://clang-format-configurator.site/ for clang-format 20.1.8
 ---
 BasedOnStyle: Google
 AccessModifierOffset: -1
@@ -87,11 +88,7 @@ AlwaysBreakAfterDefinitionReturnType: None
 AlwaysBreakBeforeMultilineStrings: true
 AttributeMacros:
   - __capability
-  - absl_nonnull
-  - absl_nullable
-  - absl_nullability_unknown
 BinPackArguments: true
-BinPackLongBracedList: true
 BinPackParameters: BinPack
 BitFieldColonSpacing: Both
 BraceWrapping:
@@ -113,7 +110,6 @@ BraceWrapping:
   SplitEmptyFunction: true
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
-BracedInitializerIndentWidth: -1
 BreakAdjacentStringLiterals: true
 BreakAfterAttributes: Leave
 BreakAfterJavaFieldAnnotations: false
@@ -123,7 +119,6 @@ BreakBeforeBinaryOperators: None
 BreakBeforeBraces: Allman
 BreakBeforeConceptDeclarations: Always
 BreakBeforeInlineASMColon: OnlyMultiline
-BreakBeforeTemplateCloser: false
 BreakBeforeTernaryOperators: true
 BreakBinaryOperations: Never
 BreakConstructorInitializers: BeforeColon
@@ -141,7 +136,6 @@ DerivePointerAlignment: false
 DisableFormat: false
 EmptyLineAfterAccessModifier: Never
 EmptyLineBeforeAccessModifier: LogicalBlock
-EnumTrailingComma: Leave
 ExperimentalAutoDetectBinPacking: false
 FixNamespaceComments: true
 ForEachMacros:
@@ -209,7 +203,6 @@ ObjCBlockIndentWidth: 2
 ObjCBreakBeforeNestedBlockParam: true
 ObjCSpaceAfterProperty: false
 ObjCSpaceBeforeProtocolList: true
-OneLineFormatOffRegex: ""
 PPIndentWidth: -1
 PackConstructorInitializers: NextLine
 PenaltyBreakAssignment: 2
@@ -267,14 +260,11 @@ RequiresExpressionIndentation: OuterScope
 SeparateDefinitionBlocks: Leave
 ShortNamespaceLines: 1
 SkipMacroDefinitionBody: false
-SortIncludes:
-  Enabled: true
-  IgnoreCase: false
+SortIncludes: CaseSensitive
 SortJavaStaticImport: Before
 SortUsingDeclarations: LexicographicNumeric
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
-SpaceAfterOperatorKeyword: false
 SpaceAfterTemplateKeyword: true
 SpaceAroundPointerQualifiers: Default
 SpaceBeforeAssignmentOperators: true
@@ -290,7 +280,6 @@ SpaceBeforeParensOptions:
   AfterFunctionDeclarationName: false
   AfterFunctionDefinitionName: false
   AfterIfMacros: true
-  AfterNot: false
   AfterOverloadedOperator: false
   AfterPlacementOperator: true
   AfterRequiresInClause: false
