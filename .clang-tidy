@@ -1,0 +1,1 @@
+Checks: "-*,bugprone-*,performance-*,modernize-*,-bugprone-easily-swappable-parameters,-modernize-macro-to-enum,-clang-diagnostic-error,clang-diagnostic-unused-parameter"
