@@ -7,6 +7,7 @@
   nrfutil,
   just,
   mcuboot-imgtool,
+  doxygen,
   lib,
 }:
 
@@ -24,5 +25,6 @@ mkShell {
     nrfutil
     just
     mcuboot-imgtool
+    doxygen
   ];
 }

@@ -17,3 +17,6 @@ CompileFlags:
     - "-fno-reorder-functions"
     - "-fdump-ipa-cgraph"
     - "-fno-printf-return-value"
+
+Documentation:
+  CommentFormat: Doxygen
