@@ -1,6 +1,6 @@
 /**
  * @file memory.h
- * @author Demizo (demizodemazo@gmail.com)
+ *
  * @brief Provides the ability to allocate, reference, and dereference blocks of memory.
  *
  * @details Memory blocks are allocated from pools of fixed-size memory blocks (e.g. small, medium, large). The caller
@@ -14,6 +14,7 @@
  * metadata is stored at the start of each memory block, but the caller is given a pointer directly after the block
  * header.
  *
+ * @author Demizo (demizodemazo@gmail.com)
  * @version 0.1
  * @date 2026-02-28
  *
@@ -26,6 +27,16 @@
 
 #include <stddef.h>
 #include <zephyr/kernel.h>
+
+/**
+ * @defgroup data_management Data Management
+ *
+ * @brief Data is shared by passing around reference counted events.
+ *
+ * @details For how memory is allocated, see @ref memory.h. For how events are used, see @ref event.h.
+ *
+ * @{
+ */
 
 //**********************************************************
 //* Definitions
@@ -66,6 +77,9 @@ int mem_alloc(size_t size, void** block_ptr, const char* func, const char* file,
 /**
  * @brief Increment the reference count of a memory block
  *
+ * @note It is recommended that you always use the MEM_REF macro which calls this function with the debug
+ * information filled in.
+ *
  * @param[in] block The memory block pointer to be reference counted
  * @param[in] file File name of the caller, used for debugging
  * @param[in] line Line number of the caller, used for debugging
@@ -78,6 +92,9 @@ int mem_ref(void* block, const char* file, int line);
 
 /**
  * @brief Dencrement the reference count of a memory block
+ *
+ * @note It is recommended that you always use the MEM_UNREF macro which calls this function with the debug
+ * information filled in.
  *
  * @note If block_ptr already points to a NULL pointer, this function will assume that the block was already freed and
  * return SUCCESS.
@@ -106,5 +123,9 @@ int mem_unref(void** block_ptr, const char* file, int line);
  * @brief Convenience macro for memory block unreferencing with automatic file/line tracking
  */
 #define MEM_UNREF(data) mem_unref(data, __FILE__, __LINE__)
+
+/**
+ * @}
+ */
 
 #endif  // MEMORY_H
