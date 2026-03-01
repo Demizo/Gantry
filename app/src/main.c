@@ -3,6 +3,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
+#include "memory.h"
+
 LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 
 //**********************************************************
@@ -29,15 +31,20 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 //* Public Function Definitions
 //**********************************************************
 
-int main(void) {
-  LOG_INF("Starting ZDS version %s", APP_VERSION_STRING);
+int main(void)
+{
+    LOG_INF("Starting ZDS version %s", APP_VERSION_STRING);
 
-  // Initialize modules
+    // Initialize modules
 
-  // Spawn threads
+    // Spawn threads
+    void* mem_block = NULL;
+    MEM_ALLOC(10, &mem_block);
+    MEM_UNREF(&mem_block);
 
-  while (1) {
-  }
+    while (1)
+    {
+    }
 
-  return 0;
+    return 0;
 }
