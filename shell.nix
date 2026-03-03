@@ -1,18 +1,10 @@
 {
-  mkShell,
+  pkgs,
   zephyr,
-  callPackage,
-  cmake,
-  ninja,
-  nrfutil,
-  just,
-  mcuboot-imgtool,
-  doxygen,
-  lib,
 }:
 
-mkShell {
-  packages = [
+pkgs.mkShell {
+  packages = with pkgs; [
     (zephyr.sdk.override {
       targets = [
         "arm-zephyr-eabi"

@@ -1,22 +1,17 @@
 {
-  description = "A project built with west & west2nix";
+  description = "ZDS Development Environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    flake-utils.url = "github:numtide/flake-utils";
 
     # Customize the version of Zephyr used by the flake here
     zephyr.url = "github:zephyrproject-rtos/zephyr/v4.3.0";
     zephyr.flake = false;
 
-    flake-utils.url = "github:numtide/flake-utils";
-
     zephyr-nix.url = "github:adisbladis/zephyr-nix";
     zephyr-nix.inputs.nixpkgs.follows = "nixpkgs";
     zephyr-nix.inputs.zephyr.follows = "zephyr";
-
-    west2nix.url = "github:adisbladis/west2nix";
-    west2nix.inputs.nixpkgs.follows = "nixpkgs";
-    west2nix.inputs.zephyr-nix.follows = "zephyr-nix";
   };
 
   outputs =
@@ -24,8 +19,9 @@
       self,
       nixpkgs,
       flake-utils,
+      zephyr-nix,
       ...
-    }@inputs:
+    }:
     (flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -41,17 +37,10 @@
           };
         };
 
-        callPackage = pkgs.newScope (
-          pkgs
-          // {
-            zephyr = inputs.zephyr-nix.packages.${system};
-            west2nix = callPackage inputs.west2nix.lib.mkWest2nix { };
-          }
-        );
+        zephyr = zephyr-nix.packages.${system};
       in
       {
-        packages.default = callPackage ./default.nix { };
-        devShells.default = callPackage ./shell.nix { };
+        devShells.default = import ./shell.nix { inherit pkgs zephyr; };
       }
     ));
 }
