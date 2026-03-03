@@ -7,3 +7,6 @@ modules
 # Doxygen output
 **/docs/html
 **/docs/latex
+
+# direnv cache
+.direnv
