@@ -16,3 +16,8 @@ rebuild:
 flash:
   west flash --runner openocd
 
+docs:
+  cd app && doxygen Doxyfile
+
+docs-open:
+  xdg-open app/docs/html/index.html
