@@ -41,16 +41,16 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1772047000,
-        "narHash": "sha256-7DaQVv4R97cii/Qdfy4tmDZMB2xxtyIvNGSwXBBhSmo=",
+        "lastModified": 1772433332,
+        "narHash": "sha256-izhTDFKsg6KeVBxJS9EblGeQ8y+O8eCa6RcW874vxEc=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "1267bb4920d0fc06ea916734c11b0bf004bbe17e",
+        "rev": "cf59864ef8aa2e178cccedbe2c178185b0365705",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-25.11",
+        "ref": "nixos-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -81,7 +81,8 @@
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs",
         "zephyr": "zephyr",
-        "zephyr-nix": "zephyr-nix"
+        "zephyr-nix": "zephyr-nix",
+        "zephyr-nix-nixpkgs": "zephyr-nix-nixpkgs"
       }
     },
     "systems": {
@@ -120,7 +121,7 @@
       "inputs": {
         "nix-github-actions": "nix-github-actions",
         "nixpkgs": [
-          "nixpkgs"
+          "zephyr-nix-nixpkgs"
         ],
         "pyproject-nix": "pyproject-nix",
         "zephyr": [
@@ -138,6 +139,22 @@
       "original": {
         "owner": "adisbladis",
         "repo": "zephyr-nix",
+        "type": "github"
+      }
+    },
+    "zephyr-nix-nixpkgs": {
+      "locked": {
+        "lastModified": 1772047000,
+        "narHash": "sha256-7DaQVv4R97cii/Qdfy4tmDZMB2xxtyIvNGSwXBBhSmo=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "1267bb4920d0fc06ea916734c11b0bf004bbe17e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-25.11",
+        "repo": "nixpkgs",
         "type": "github"
       }
     }

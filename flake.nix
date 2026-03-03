@@ -2,16 +2,22 @@
   description = "ZDS Development Environment";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
 
     # Customize the version of Zephyr used by the flake here
     zephyr.url = "github:zephyrproject-rtos/zephyr/v4.3.0";
     zephyr.flake = false;
 
-    zephyr-nix.url = "github:adisbladis/zephyr-nix";
-    zephyr-nix.inputs.nixpkgs.follows = "nixpkgs";
-    zephyr-nix.inputs.zephyr.follows = "zephyr";
+    zephyr-nix-nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    zephyr-nix = {
+      url = "github:adisbladis/zephyr-nix";
+      inputs = {
+        # Use stable nixpkgs which include python310 dependency
+        nixpkgs.follows = "zephyr-nix-nixpkgs";
+        zephyr.follows = "zephyr";
+      };
+    };
   };
 
   outputs =
