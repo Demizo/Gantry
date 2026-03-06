@@ -18,5 +18,6 @@ pkgs.mkShell {
     just
     mcuboot-imgtool
     doxygen
+    uv
   ];
 }
