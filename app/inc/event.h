@@ -29,6 +29,8 @@
 #include <stdint.h>
 #include <zephyr/kernel.h>
 
+#include "buffer.h"
+
 /**
  * @addtogroup data_management
  * @{
@@ -72,8 +74,7 @@ struct event_t
     struct k_msgq* return_queue; /**< Optional return queue for responses */
     event_format_t format;       /**< Event format */
     event_direction_t direction; /**< Event direction */
-    uint16_t len;                /**< Length of event data buffer */
-    uint8_t* buf;                /**< Event data buffer */
+    buffer_t data;               /**< Event data buffer */
 };
 
 //**********************************************************

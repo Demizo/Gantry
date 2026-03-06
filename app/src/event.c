@@ -122,6 +122,6 @@ void event_init(event_t* event, size_t size, event_direction_t direction, event_
     event->return_queue = NULL;
     event->direction = direction;
     event->format = format;
-    event->len = size;
-    event->buf = (uint8_t*)event + sizeof(event_t);
+    event->data.len = size;
+    event->data.buf = (uint8_t*)event + sizeof(event_t);
 }
