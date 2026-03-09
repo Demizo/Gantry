@@ -169,4 +169,8 @@ void event_init(event_t* event, size_t size, event_direction_t direction, event_
  */
 #define EVENT_UNREF(event) event_unref(event, __FILE__, __LINE__)
 
+/**
+ * @}
+ */
+
 #endif  // EVENT_H
