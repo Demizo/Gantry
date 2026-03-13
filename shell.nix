@@ -19,5 +19,6 @@ pkgs.mkShell {
     mcuboot-imgtool
     doxygen
     uv
+    cppcheck
   ];
 }
