@@ -12,6 +12,9 @@ build:
 
 rebuild:
   west build -p -b {{board}} app
+ 
+mem_leak:
+  spatch --sp-file memory_leak_check.cocci --dir app/src/ --no-includes --very-quiet
 
 flash:
   west flash --runner openocd

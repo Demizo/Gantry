@@ -45,4 +45,24 @@ else()
     message(WARNING "cppcheck not found!")
 endif()
 
+find_program(SPATCH_CMD NAMES spatch)
+if(SPATCH_CMD)
+    add_custom_target(
+        check_mem_leaks ALL
+
+        COMMAND ${SPATCH_CMD}
+            --sp-file "${CMAKE_CURRENT_SOURCE_DIR}/../memory_leak_check.cocci"
+            --dir "${CMAKE_CURRENT_SOURCE_DIR}/src/"
+            --no-includes
+            --very-quiet
+        
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Running memory leak check..."
+        VERBATIM
+    )
+    add_dependencies(app check_mem_leaks)
+else()
+    message(WARNING "spatch not found!")
+endif()
+
 target_compile_options(app PRIVATE -Wall -Wextra)
