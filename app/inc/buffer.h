@@ -31,4 +31,14 @@ typedef struct
     void* buf;    /**< Pointer to buffer data */
 } buffer_t;
 
+/**
+ * @brief Creates a buffer on the stack of a specified size
+ */
+#define STACK_BUFFER(name, size) \
+    uint8_t name##_data[(size)]; \
+    buffer_t name = {            \
+        .len = (size),           \
+        .buf = name##_data,      \
+    }
+
 #endif  // BUFFER_H
