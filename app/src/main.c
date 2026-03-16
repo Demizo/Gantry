@@ -3,6 +3,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
+#include "buffer.h"
 #include "datastore.h"
 #include "generated_datastore_items.h"
 #include "memory.h"
@@ -56,6 +57,16 @@ int main(void)
     LOG_INF("Device name %s", device_name);
     datastore_release(DATASTORE_ID_DEVICE_NAME, (void**)&device_name);
 
+    float test_float = 0;
+    datastore_get(DATASTORE_ID_TEST_FLOAT, (void**)&test_float);
+    LOG_INF("Test float %f", (double)test_float);
+    datastore_release(DATASTORE_ID_TEST_FLOAT, (void**)&test_float);
+
+    buffer_t* test_bytes = NULL;
+    datastore_get(DATASTORE_ID_TEST_BYTES, (void**)&test_bytes);
+    LOG_HEXDUMP_INF(test_bytes->buf, test_bytes->len, "Test bytes");
+    datastore_release(DATASTORE_ID_TEST_BYTES, (void**)&test_bytes);
+
     // Test setting datastore items
     int new_version_code = 2;
     (void)datastore_set(DATASTORE_ID_VERSION_CODE, (void*)&new_version_code);
@@ -67,6 +78,18 @@ int main(void)
     datastore_get(DATASTORE_ID_DEVICE_NAME, (void**)&device_name);
     LOG_INF("Device name %s", device_name);
     datastore_release(DATASTORE_ID_DEVICE_NAME, (void**)&device_name);
+
+    float new_test_float = 24.5f;
+    (void)datastore_set(DATASTORE_ID_TEST_FLOAT, (void*)&new_test_float);
+    datastore_get(DATASTORE_ID_TEST_FLOAT, (void**)&test_float);
+    LOG_INF("Test float %f", (double)test_float);
+    datastore_release(DATASTORE_ID_TEST_FLOAT, (void**)&test_float);
+
+    STACK_BUFFER(new_test_bytes, 6);
+    datastore_set(DATASTORE_ID_TEST_BYTES, (void*)&new_test_bytes);
+    (void)datastore_get(DATASTORE_ID_TEST_BYTES, (void**)&test_bytes);
+    LOG_HEXDUMP_INF(test_bytes->buf, test_bytes->len, "Test bytes");
+    datastore_release(DATASTORE_ID_TEST_BYTES, (void**)&test_bytes);
 
     while (1)
     {

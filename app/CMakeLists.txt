@@ -12,7 +12,9 @@ target_sources(app PRIVATE
     src/datastore/datastore.c
     src/datastore/generated_datastore_items.c
     src/datastore/types/datastore_type_int.c
+    src/datastore/types/datastore_type_float.c
     src/datastore/types/datastore_type_string.c
+    src/datastore/types/datastore_type_byte_array.c
 )
 
 target_include_directories(app PRIVATE 

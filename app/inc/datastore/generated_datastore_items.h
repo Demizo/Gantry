@@ -17,6 +17,7 @@
 #define GENERATED_DATASTORE_ITEMS_H
 
 #include <stddef.h>
+#include <stdint.h>
 #include <zephyr/kernel.h>
 
 #include "datastore_types.h"
@@ -46,6 +47,8 @@ enum datastore_item_id
     DATASTORE_ID_DATASTORE_HASH,
     DATASTORE_ID_DEVICE_NAME,
     DATASTORE_ID_VERSION_CODE,
+    DATASTORE_ID_TEST_FLOAT,
+    DATASTORE_ID_TEST_BYTES,
     DATASTORE_ID_COUNT
 };
 
@@ -57,6 +60,8 @@ struct datastore_values
     char datastore_hash[32]; /**< Hash of the datastore */
     char device_name[32];    /**< Device name */
     int version_code;        /**< Version code */
+    float test_float;        /**< Test float */
+    uint8_t test_bytes[6];   /**< Test bytes */
 };
 
 /**

@@ -15,7 +15,10 @@
 #include "generated_datastore_items.h"
 
 #include <limits.h>
+#include <stdint.h>
 
+#include "datastore_type_byte_array.h"
+#include "datastore_type_float.h"
 #include "datastore_type_int.h"
 #include "datastore_type_string.h"
 #include "datastore_types.h"
@@ -34,11 +37,23 @@
 
 static const char default_datastore_hash[] = "TODO";
 static const char default_device_name[] = "ZDS";
+static const uint8_t default_test_bytes[] = {
+    0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x00,
+};
 
 struct datastore_values datastore_values = {
     .datastore_hash = "TODO",
     .device_name = "ZDS",
     .version_code = 1,
+    .test_float = 0.5f,
+    .test_bytes = {
+        0xDE,
+        0xAD,
+        0xBE,
+        0xEF,
+        0x00,
+        0x00,
+    },
 };
 
 const struct datastore_item_const_metadata
@@ -95,6 +110,43 @@ const struct datastore_item_const_metadata
                                 .default_value = 1,
                                 .min = 0,
                                 .max = INT_MAX,
+                            },
+                    },
+            },
+        [DATASTORE_ID_TEST_FLOAT] =
+            {
+                .id =DATASTORE_ID_TEST_FLOAT,
+                .name = "TestFloat",
+                .storage_type = DATASTORE_STORAGE_EPHEMERAL,
+                .permissions = {0, 0},
+                .type = DATASTORE_ITEM_TYPE_FLOAT,
+                .interface = &datastore_float_interface,
+                .value_ptr = &datastore_values.test_float,
+                .type_info =
+                    {
+                        .float_info =
+                            {
+                                .default_value = 0.5f,
+                                .min = 0.0f,
+                                .max = 32.0f,
+                            },
+                    },
+            },
+        [DATASTORE_ID_TEST_BYTES] =
+            {
+                .id =DATASTORE_ID_TEST_BYTES,
+                .name = "TestBytes",
+                .storage_type = DATASTORE_STORAGE_EPHEMERAL,
+                .permissions = {0, 0},
+                .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY,
+                .interface = &datastore_byte_array_interface,
+                .value_ptr = &datastore_values.test_bytes,
+                .type_info =
+                    {
+                        .byte_array_info =
+                            {
+                                .default_value = default_test_bytes,
+                                .size = 6,
                             },
                     },
             },
