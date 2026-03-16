@@ -69,7 +69,7 @@ wheels = [
 [[package]]
 name = "zds"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "jinja2" },
 ]
