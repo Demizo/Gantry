@@ -65,9 +65,13 @@ typedef enum
 } event_format_t;
 
 /**
- * @brief Universal event structure
+ * @brief Forward declaration of universal event structure
  */
 typedef struct event_t event_t;
+
+/**
+ * @brief Universal event structure
+ */
 struct event_t
 {
     event_t* next_event;         /**< Linked event */
@@ -100,8 +104,9 @@ struct event_t
  *
  * @return result of @ref mem_alloc
  */
-int event_alloc(size_t size, event_direction_t direction, event_format_t format, event_t** event_ptr, const char* func,
-                const char* file, int line);
+int event_alloc(
+    size_t size, event_direction_t direction, event_format_t format, event_t** event_ptr, const char* func,
+    const char* file, int line);
 
 /**
  * @brief Increment the reference count of an event and all linked events

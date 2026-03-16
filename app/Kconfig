@@ -83,4 +83,21 @@ config EVENT_LOG_LEVEL
 endmenu
 
 
+menu "Datastore"
+
+config DATASTORE_LOG_LEVEL
+    int "Datastore log level"
+    default 3
+
+endmenu
+
+
+menu "Datastore Types"
+
+config DATASTORE_TYPES_LOG_LEVEL
+    int "Datastore type parsing log level"
+    default 3
+
+endmenu
+
 endmenu

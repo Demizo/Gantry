@@ -9,10 +9,16 @@ target_sources(app PRIVATE
     src/main.c
     src/memory.c
     src/event.c
+    src/datastore/datastore.c
+    src/datastore/generated_datastore_items.c
+    src/datastore/types/datastore_type_int.c
+    src/datastore/types/datastore_type_string.c
 )
 
 target_include_directories(app PRIVATE 
     inc
+    inc/datastore
+    inc/datastore/types
 )
 
 find_program(CPPCHECK_CMD NAMES cppcheck)

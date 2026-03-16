@@ -125,6 +125,11 @@ int mem_unref(void** block_ptr, const char* file, int line);
 #define MEM_UNREF(data) mem_unref(data, __FILE__, __LINE__)
 
 /**
+ * @brief Indicates to static analysis that ownership over the memory will be the responsibility of the caller
+ */
+#define PASS_OWNERSHIP(data)
+
+/**
  * @}
  */
 
