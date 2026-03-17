@@ -20,5 +20,6 @@ pkgs.mkShell {
     doxygen
     uv
     cppcheck
+    coccinelle
   ];
 }
