@@ -86,7 +86,7 @@ int main(void)
     datastore_release(DATASTORE_ID_TEST_FLOAT, (void**)&test_float);
 
     STACK_BUFFER(new_test_bytes, 6);
-    datastore_set(DATASTORE_ID_TEST_BYTES, (void*)&new_test_bytes);
+    datastore_set(DATASTORE_ID_TEST_BYTES, (void*)new_test_bytes);
     (void)datastore_get(DATASTORE_ID_TEST_BYTES, (void**)&test_bytes);
     LOG_HEXDUMP_INF(test_bytes->buf, test_bytes->len, "Test bytes");
     datastore_release(DATASTORE_ID_TEST_BYTES, (void**)&test_bytes);

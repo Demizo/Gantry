@@ -43,8 +43,9 @@ LOG_MODULE_REGISTER(event, CONFIG_EVENT_LOG_LEVEL);
 //* Public Function Definitions
 //**********************************************************
 
-int event_alloc(size_t size, event_direction_t direction, event_format_t format, event_t** event, const char* func,
-                const char* file, int line)
+int event_alloc(
+    size_t size, event_direction_t direction, event_format_t format, event_t** event, const char* func,
+    const char* file, int line)
 {
     int ret = SUCCESS;
 
@@ -123,5 +124,4 @@ void event_init(event_t* event, size_t size, event_direction_t direction, event_
     event->direction = direction;
     event->format = format;
     event->data.len = size;
-    event->data.buf = (uint8_t*)event + sizeof(event_t);
 }

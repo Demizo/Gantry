@@ -27,18 +27,20 @@
  */
 typedef struct
 {
-    uint16_t len; /**< Buffer length in bytes */
-    void* buf;    /**< Pointer to buffer data */
+    uint16_t len;  /**< Buffer length in bytes */
+    uint8_t buf[]; /**< Variable size buffer data */
 } buffer_t;
 
 /**
  * @brief Creates a buffer on the stack of a specified size
  */
-#define STACK_BUFFER(name, size) \
-    uint8_t name##_data[(size)]; \
-    buffer_t name = {            \
-        .len = (size),           \
-        .buf = name##_data,      \
-    }
+#define STACK_BUFFER(name, size)                        \
+    union                                               \
+    {                                                   \
+        buffer_t buffer;                                \
+        uint8_t name##_data[sizeof(buffer_t) + (size)]; \
+    } name##_storage = { 0 };                           \
+    buffer_t*(name) = &name##_storage.buffer;           \
+    (name)->len = (uint16_t)(size);
 
 #endif  // BUFFER_H

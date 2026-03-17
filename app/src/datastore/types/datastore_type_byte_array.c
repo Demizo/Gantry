@@ -67,7 +67,6 @@ static int get(const struct datastore_item_const_metadata* item, void** out_valu
     {
         buffer_t* buffer = (buffer_t*)*out_value;
         buffer->len = len;
-        buffer->buf = (uint8_t*)out_value + sizeof(buffer_t);
         memcpy(buffer->buf, item->value_ptr, len);
     }
 
