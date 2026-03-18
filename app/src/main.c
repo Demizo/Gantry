@@ -5,6 +5,7 @@
 
 #include "buffer.h"
 #include "datastore.h"
+#include "datastore_types.h"
 #include "generated_datastore_items.h"
 #include "memory.h"
 
@@ -47,49 +48,63 @@ int main(void)
     MEM_UNREF(&mem_block);
 
     // Test reading datastore items
-    int version_code = 0;
-    datastore_get(DATASTORE_ID_VERSION_CODE, (void**)&version_code);
-    LOG_INF("Version code %d", version_code);
-    datastore_release(DATASTORE_ID_VERSION_CODE, (void**)&version_code);
+    data_value_t version_code = { 0 };
+    datastore_get(DATASTORE_ID_VERSION_CODE, &version_code);
+    LOG_INF("Version code %d", version_code.data.int_value);
+    datastore_release(DATASTORE_ID_VERSION_CODE, &version_code);
 
-    char* device_name = NULL;
-    datastore_get(DATASTORE_ID_DEVICE_NAME, (void**)&device_name);
-    LOG_INF("Device name %s", device_name);
-    datastore_release(DATASTORE_ID_DEVICE_NAME, (void**)&device_name);
+    data_value_t device_name = { 0 };
+    datastore_get(DATASTORE_ID_DEVICE_NAME, &device_name);
+    LOG_INF("Device name %s", device_name.data.string_value);
+    datastore_release(DATASTORE_ID_DEVICE_NAME, &device_name);
 
-    float test_float = 0;
-    datastore_get(DATASTORE_ID_TEST_FLOAT, (void**)&test_float);
-    LOG_INF("Test float %f", (double)test_float);
-    datastore_release(DATASTORE_ID_TEST_FLOAT, (void**)&test_float);
+    data_value_t test_float = { 0 };
+    datastore_get(DATASTORE_ID_TEST_FLOAT, &test_float);
+    LOG_INF("Test float %f", (double)test_float.data.float_value);
+    datastore_release(DATASTORE_ID_TEST_FLOAT, &test_float);
 
-    buffer_t* test_bytes = NULL;
-    datastore_get(DATASTORE_ID_TEST_BYTES, (void**)&test_bytes);
-    LOG_HEXDUMP_INF(test_bytes->buf, test_bytes->len, "Test bytes");
-    datastore_release(DATASTORE_ID_TEST_BYTES, (void**)&test_bytes);
+    data_value_t test_bytes = { 0 };
+    datastore_get(DATASTORE_ID_TEST_BYTES, &test_bytes);
+    LOG_HEXDUMP_INF(test_bytes.data.buffer_value->buf, test_bytes.data.buffer_value->len, "Test bytes");
+    datastore_release(DATASTORE_ID_TEST_BYTES, &test_bytes);
 
     // Test setting datastore items
-    int new_version_code = 2;
-    (void)datastore_set(DATASTORE_ID_VERSION_CODE, (void*)&new_version_code);
-    datastore_get(DATASTORE_ID_VERSION_CODE, (void**)&version_code);
-    LOG_INF("Version code %d", version_code);
-    datastore_release(DATASTORE_ID_VERSION_CODE, (void**)&version_code);
+    data_value_t new_version_code = {
+        .type = DATASTORE_ITEM_TYPE_INT,
+        .data.int_value = 2,
+    };
+    (void)datastore_set(DATASTORE_ID_VERSION_CODE, new_version_code);
+    datastore_get(DATASTORE_ID_VERSION_CODE, &version_code);
+    LOG_INF("Version code %d", version_code.data.int_value);
+    datastore_release(DATASTORE_ID_VERSION_CODE, &version_code);
 
-    (void)datastore_set(DATASTORE_ID_DEVICE_NAME, (void*)"New ZDS awesome name!");
-    datastore_get(DATASTORE_ID_DEVICE_NAME, (void**)&device_name);
-    LOG_INF("Device name %s", device_name);
-    datastore_release(DATASTORE_ID_DEVICE_NAME, (void**)&device_name);
+    data_value_t new_device_name = {
+        .type = DATASTORE_ITEM_TYPE_STRING,
+        .data.string_value = "New ZDS awesome name!",
+    };
+    (void)datastore_set(DATASTORE_ID_DEVICE_NAME, new_device_name);
+    datastore_get(DATASTORE_ID_DEVICE_NAME, &device_name);
+    LOG_INF("Device name %s", device_name.data.string_value);
+    datastore_release(DATASTORE_ID_DEVICE_NAME, &device_name);
 
-    float new_test_float = 24.5f;
-    (void)datastore_set(DATASTORE_ID_TEST_FLOAT, (void*)&new_test_float);
-    datastore_get(DATASTORE_ID_TEST_FLOAT, (void**)&test_float);
-    LOG_INF("Test float %f", (double)test_float);
-    datastore_release(DATASTORE_ID_TEST_FLOAT, (void**)&test_float);
+    data_value_t new_test_float = {
+        .type = DATASTORE_ITEM_TYPE_FLOAT,
+        .data.float_value = 24.5f,
+    };
+    (void)datastore_set(DATASTORE_ID_TEST_FLOAT, new_test_float);
+    datastore_get(DATASTORE_ID_TEST_FLOAT, &test_float);
+    LOG_INF("Test float %f", (double)test_float.data.float_value);
+    datastore_release(DATASTORE_ID_TEST_FLOAT, &test_float);
 
-    STACK_BUFFER(new_test_bytes, 6);
-    datastore_set(DATASTORE_ID_TEST_BYTES, (void*)new_test_bytes);
-    (void)datastore_get(DATASTORE_ID_TEST_BYTES, (void**)&test_bytes);
-    LOG_HEXDUMP_INF(test_bytes->buf, test_bytes->len, "Test bytes");
-    datastore_release(DATASTORE_ID_TEST_BYTES, (void**)&test_bytes);
+    STACK_BUFFER(new_test_bytes_data, 6);
+    data_value_t new_test_bytes = {
+        .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY,
+        .data.buffer_value = new_test_bytes_data,
+    };
+    datastore_set(DATASTORE_ID_TEST_BYTES, new_test_bytes);
+    (void)datastore_get(DATASTORE_ID_TEST_BYTES, &test_bytes);
+    LOG_HEXDUMP_INF(test_bytes.data.buffer_value->buf, test_bytes.data.buffer_value->len, "Test bytes");
+    datastore_release(DATASTORE_ID_TEST_BYTES, &test_bytes);
 
     while (1)
     {

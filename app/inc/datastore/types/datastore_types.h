@@ -18,6 +18,8 @@
 #include <stdint.h>
 #include <zephyr/kernel.h>
 
+#include "buffer.h"
+
 /**
  * @addtogroup datastore
  * @{
@@ -45,6 +47,22 @@ enum datastore_item_type
     DATASTORE_ITEM_TYPE_DYNAMIC_BUFFER,
     DATASTORE_ITEM_TYPE_COUNT
 };
+
+/**
+ * @brief Tagged union representing a data item value
+ */
+typedef struct
+{
+    enum datastore_item_type type;
+    union
+    {
+        int int_value;
+        float float_value;
+        char* string_value;
+        buffer_t* buffer_value;
+        void* dynamic_value;
+    } data;
+} data_value_t;
 
 /**
  * @brief Storage types for datastore items
@@ -137,13 +155,15 @@ struct datastore_item_interface
 {
     bool (*validate)(
         const struct datastore_item_const_metadata* item,
-        const void* value); /**< Function to determine if a given value is valid */
+        data_value_t value); /**< Function to determine if a given value is valid */
     void (*set)(
-        const struct datastore_item_const_metadata* item, const void* value); /**< Function to set an item value */
+        const struct datastore_item_const_metadata* item, data_value_t value); /**< Function to set an item value */
     int (*get)(
-        const struct datastore_item_const_metadata* item, void** out_value); /**< Function to get an item value */
+        const struct datastore_item_const_metadata* item,
+        data_value_t* out_value); /**< Function to get an item value */
     int (*release)(
-        const struct datastore_item_const_metadata* item, void** value); /**< Function to release an item value */
+        const struct datastore_item_const_metadata* item,
+        data_value_t* value); /**< Function to release an item value */
     // TODO: Add encode and decode functions:
     // - Decode takes (metadata, decoder, void** out_data)
     // - Encode takes (metadata, encoder, void* data)

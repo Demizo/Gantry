@@ -99,13 +99,13 @@ void datastore_init(void);
  * @brief Set the value of a data item
  *
  * @param id Item ID to modify
- * @param value Pointer to the desired value
+ * @param value The desired value
  *
  * @return SUCCESS when the value is set
  * @return -EINVAL when the provided value or item ID is invalid
  * @return -ENOMEM when the value cannot be stored
  */
-int datastore_set(enum datastore_item_id id, const void* value);
+int datastore_set(enum datastore_item_id id, data_value_t value);
 
 /**
  * @brief Get the current value of a data item
@@ -117,7 +117,7 @@ int datastore_set(enum datastore_item_id id, const void* value);
  * @return -EINVAL when the provided item ID is invalid or the output pointer is NULL
  * @return -ENOMEM when the value cannot be retrieved
  */
-int datastore_get(enum datastore_item_id id, void** out_value);
+int datastore_get(enum datastore_item_id id, data_value_t* out_value);
 
 /**
  * @brief Release a previously retrieved data item value
@@ -126,12 +126,12 @@ int datastore_get(enum datastore_item_id id, void** out_value);
  * item values retrieved with @ref datastore_get should always be released.
  *
  * @param[in] id Item ID to release
- * @param[in,out] value Pointer to the value to release. This will be set to NULL after release.
+ * @param[in,out] value Pointer to the value to release.
  *
  * @return SUCCESS when the value was released
  * @return -EINVAL when the value could not be released
  */
-int datastore_release(enum datastore_item_id id, void** value);
+int datastore_release(enum datastore_item_id id, data_value_t* value);
 
 /**
  * @}

@@ -45,7 +45,7 @@ void datastore_init(void)
     return;
 }
 
-int datastore_set(enum datastore_item_id id, const void* value)
+int datastore_set(enum datastore_item_id id, data_value_t value)
 {
     int ret = SUCCESS;
     const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[id];
@@ -65,13 +65,13 @@ int datastore_set(enum datastore_item_id id, const void* value)
     return ret;
 }
 
-int datastore_get(enum datastore_item_id id, void** out_value)
+int datastore_get(enum datastore_item_id id, data_value_t* out_value)
 {
     const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[id];
     return item->interface->get(item, out_value);
 }
 
-int datastore_release(enum datastore_item_id id, void** value)
+int datastore_release(enum datastore_item_id id, data_value_t* value)
 {
     const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[id];
     return item->interface->release(item, value);

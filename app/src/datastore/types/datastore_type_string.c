@@ -32,10 +32,10 @@ LOG_MODULE_REGISTER(datastore_type_string, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 //* Static Function Declarations
 //**********************************************************
 
-static bool validate(const struct datastore_item_const_metadata* item, const void* value);
-static void set(const struct datastore_item_const_metadata* item, const void* value);
-static int get(const struct datastore_item_const_metadata* item, void** out_value);
-static int release(const struct datastore_item_const_metadata* item, void** value);
+static bool validate(const struct datastore_item_const_metadata* item, data_value_t value);
+static void set(const struct datastore_item_const_metadata* item, data_value_t value);
+static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
+static int release(const struct datastore_item_const_metadata* item, data_value_t* value);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -45,40 +45,48 @@ static int release(const struct datastore_item_const_metadata* item, void** valu
 //* Static Function Definitions
 //**********************************************************
 
-static bool validate(const struct datastore_item_const_metadata* item, const void* value)
+static bool validate(const struct datastore_item_const_metadata* item, data_value_t value)
 {
-    uint16_t len = strnlen((const char*)value, item->type_info.string_info.max_len);
+    ASSERT(value.type == DATASTORE_ITEM_TYPE_STRING, "Unexpected value type");
+    uint16_t len = strnlen(value.data.string_value, item->type_info.string_info.max_len);
     // The string must be less than the max length so that there is room for the null terminator
     return len < item->type_info.string_info.max_len;
 }
 
-static void set(const struct datastore_item_const_metadata* item, const void* value)
+static void set(const struct datastore_item_const_metadata* item, data_value_t value)
 {
-    strncpy((char*)item->value_ptr, (const char*)value, item->type_info.string_info.max_len);
+    ASSERT(value.type == DATASTORE_ITEM_TYPE_STRING, "Unexpected value type");
+    strncpy((char*)item->value_ptr, value.data.string_value, item->type_info.string_info.max_len);
     ((char*)(item->value_ptr))[item->type_info.string_info.max_len - 1] = '\0';
 }
 
-static int get(const struct datastore_item_const_metadata* item, void** out_value)
+static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value)
 {
     int ret = SUCCESS;
     uint16_t len = strnlen((const char*)item->value_ptr, item->type_info.string_info.max_len);
 
-    ret = MEM_ALLOC(len, out_value);
+    void* string_block = NULL;
+    ret = MEM_ALLOC(len, &string_block);
     if (ret == SUCCESS)
     {
-        strncpy((char*)*out_value, (const char*)item->value_ptr, len);
-        ((char*)*out_value)[len] = '\0';
+        strncpy((char*)string_block, (const char*)item->value_ptr, len);
+        ((char*)string_block)[len] = '\0';
+
+        out_value->type = DATASTORE_ITEM_TYPE_STRING;
+        out_value->data.string_value = string_block;
     }
 
-    PASS_OWNERSHIP(out_value);
+    PASS_OWNERSHIP(string_block);
     return ret;
 }
 
-static int release(const struct datastore_item_const_metadata* item, void** value)
+static int release(const struct datastore_item_const_metadata* item, data_value_t* value)
 {
     ARG_UNUSED(item);
+    ASSERT(value->type == DATASTORE_ITEM_TYPE_STRING, "Unexpected value type");
 
-    return MEM_UNREF(value);
+    void* string_block = value->data.string_value;
+    return MEM_UNREF(&string_block);
 }
 
 //**********************************************************
