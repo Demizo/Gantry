@@ -11,7 +11,7 @@
  * dereferencing events when finished. Modules may pass events to other modules via function calls, but it is the
  * receiving module's responsibility to reference count the event if it wishes to retain it.
  *
- * Events may be linked to other events. When an event is reference or dereferenced all events in the chain have their
+ * Events may be linked to other events. When an event is referenced or dereferenced all events in the chain have their
  * reference counts updated.
  *
  * @author Demizo (demizodemazo@gmail.com)
@@ -26,7 +26,6 @@
 #define EVENT_H
 
 #include <stddef.h>
-#include <stdint.h>
 #include <zephyr/kernel.h>
 
 #include "buffer.h"
