@@ -15,6 +15,7 @@ target_sources(app PRIVATE
     src/datastore/types/datastore_type_float.c
     src/datastore/types/datastore_type_string.c
     src/datastore/types/datastore_type_byte_array.c
+    src/datastore/types/datastore_type_buffer.c
 )
 
 target_include_directories(app PRIVATE 

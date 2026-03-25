@@ -17,6 +17,8 @@
 #include <limits.h>
 #include <stdint.h>
 
+#include "buffer.h"
+#include "datastore_type_buffer.h"
 #include "datastore_type_byte_array.h"
 #include "datastore_type_float.h"
 #include "datastore_type_int.h"
@@ -40,6 +42,10 @@ static const char default_device_name[] = "ZDS";
 static const uint8_t default_test_bytes[] = {
     0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x00,
 };
+static const buffer_t default_test_buffer = {
+    .len = 8,
+    .buf = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, },
+};
 
 struct datastore_values datastore_values = {
     .datastore_hash = "TODO",
@@ -54,6 +60,8 @@ struct datastore_values datastore_values = {
         0x00,
         0x00,
     },
+    // TODO: initialize on startup
+    .test_buffer = NULL,
 };
 
 const struct datastore_item_const_metadata
@@ -147,6 +155,25 @@ const struct datastore_item_const_metadata
                             {
                                 .default_value = default_test_bytes,
                                 .size = 6,
+                            },
+                    },
+            },
+        [DATASTORE_ID_TEST_BUFFER] =
+            {
+                .id =DATASTORE_ID_TEST_BUFFER,
+                .name = "TestBuffer",
+                .storage_type = DATASTORE_STORAGE_EPHEMERAL,
+                .permissions = {0, 0},
+                .type = DATASTORE_ITEM_TYPE_BYTE_BUFFER,
+                .interface = &datastore_buffer_interface,
+                .value_ptr = (void*)&datastore_values.test_buffer,
+                .type_info =
+                    {
+                        .byte_buffer_info =
+                            {
+                                .default_value = &default_test_buffer,
+                                .min_len = 6,
+                                .max_len = 8,
                             },
                     },
             },

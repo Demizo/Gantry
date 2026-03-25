@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <zephyr/kernel.h>
 
+#include "buffer.h"
 #include "datastore_types.h"
 
 /**
@@ -49,6 +50,7 @@ enum datastore_item_id
     DATASTORE_ID_VERSION_CODE,
     DATASTORE_ID_TEST_FLOAT,
     DATASTORE_ID_TEST_BYTES,
+    DATASTORE_ID_TEST_BUFFER,
     DATASTORE_ID_COUNT
 };
 
@@ -62,6 +64,7 @@ struct datastore_values
     int version_code;        /**< Version code */
     float test_float;        /**< Test float */
     uint8_t test_bytes[6];   /**< Test bytes */
+    buffer_t* test_buffer;   /**< Test buffer */
 };
 
 /**

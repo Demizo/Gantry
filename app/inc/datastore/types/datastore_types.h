@@ -134,15 +134,26 @@ struct datastore_byte_array_info
 };
 
 /**
+ * @brief Metadata for byte array items
+ */
+struct datastore_byte_buffer_info
+{
+    const buffer_t* default_value; /**< Default value */
+    uint16_t min_len;              /**< Minimum length in bytes */
+    uint16_t max_len;              /**< Maximum length in bytes */
+};
+
+/**
  * @brief Type specific item info
  */
 union datastore_type_info
 {
-    struct datastore_enum_info enum_info;             /**< Info for enum items */
-    struct datastore_int_info int_info;               /**< Info for int items */
-    struct datastore_float_info float_info;           /**< Info for float items */
-    struct datastore_string_info string_info;         /**< Info for string items */
-    struct datastore_byte_array_info byte_array_info; /**< Info for byte array items */
+    struct datastore_enum_info enum_info;               /**< Info for enum items */
+    struct datastore_int_info int_info;                 /**< Info for int items */
+    struct datastore_float_info float_info;             /**< Info for float items */
+    struct datastore_string_info string_info;           /**< Info for string items */
+    struct datastore_byte_array_info byte_array_info;   /**< Info for byte array items */
+    struct datastore_byte_buffer_info byte_buffer_info; /**< Info for byte buffer items */
 };
 
 // Forward declare constant datastore metadata
