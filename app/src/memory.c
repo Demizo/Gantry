@@ -65,7 +65,7 @@ STATIC_UNIT mem_block_header_t* validate_and_get_header(void* data);
 //* Static Variable Definitions
 //**********************************************************
 
-static const uint8_t magic[8] = {'M', 'E', 'M', 'B', 'L', 'O', 'C', 'K'};
+static const uint8_t magic[8] = { 'M', 'E', 'M', 'B', 'L', 'O', 'C', 'K' };
 
 K_MEM_SLAB_DEFINE_STATIC(small_slab, CONFIG_MEM_SMALL_BLOCK_SIZE, CONFIG_MEM_SMALL_BLOCK_COUNT, sizeof(void*));
 K_MEM_SLAB_DEFINE_STATIC(medium_slab, CONFIG_MEM_MEDIUM_BLOCK_SIZE, CONFIG_MEM_MEDIUM_BLOCK_COUNT, sizeof(void*));
@@ -214,8 +214,9 @@ int mem_alloc(size_t size, void** block_ptr, const char* func, const char* file,
 
             *block_ptr = header_to_block(block);
 
-            LOG_DBG("Allocated %zu bytes from pool %d, block: %p, ([%s:%d]: %s)", size, pool_size, *block_ptr,
-                    file ? file : "unknown", line, func ? func : "unknown");
+            LOG_DBG(
+                "Allocated %zu bytes from pool %d, block: %p, [%s:%d]: %s", size, pool_size, *block_ptr,
+                file ? file : "unknown", line, func ? func : "unknown");
             break;
         }
         else
@@ -261,8 +262,9 @@ int mem_ref(void* block, const char* file, int line)
 
     header->ref_count++;
 
-    LOG_DBG("Referenced block %p (count: %d), allocated by %s ([%s:%d])", block, header->ref_count,
-            header->func ? header->func : "unknown", file ? file : "unknown", line);
+    LOG_DBG(
+        "Referenced block %p (count: %d), allocated by %s [%s:%d]", block, header->ref_count,
+        header->func ? header->func : "unknown", file ? file : "unknown", line);
 
     irq_unlock(key);
 
@@ -303,14 +305,16 @@ int mem_unref(void** block_ptr, const char* file, int line)
         void* block_header = block_to_header(*block_ptr);
 
         k_mem_slab_free(pool->slab, block_header);
-        LOG_DBG("Freed block %p, allocated by %s ([%s:%d])", *block_ptr, header->func ? header->func : "unknown",
-                file ? file : "unknown", line);
+        LOG_DBG(
+            "Freed block %p, allocated by %s [%s:%d]", *block_ptr, header->func ? header->func : "unknown",
+            file ? file : "unknown", line);
         *block_ptr = NULL;
     }
     else
     {
-        LOG_DBG("Dereferenced block %p (count: %d), allocated by %s ([%s:%d])", *block_ptr, header->ref_count,
-                header->func ? header->func : "unknown", file ? file : "unknown", line);
+        LOG_DBG(
+            "Dereferenced block %p (count: %d), allocated by %s [%s:%d]", *block_ptr, header->ref_count,
+            header->func ? header->func : "unknown", file ? file : "unknown", line);
     }
 
     irq_unlock(key);
