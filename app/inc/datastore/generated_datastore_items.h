@@ -32,6 +32,9 @@
 //* Definitions
 //**********************************************************
 
+#define DATASTORE_HASH_MAX_LEN 16
+#define DEVICE_NAME_MAX_LEN 25
+
 //**********************************************************
 //* Typedefs, Enums, and Structs
 //**********************************************************
@@ -59,12 +62,12 @@ enum datastore_item_id
  */
 struct datastore_values
 {
-    char datastore_hash[32]; /**< Hash of the datastore */
-    char device_name[32];    /**< Device name */
-    int version_code;        /**< Version code */
-    float test_float;        /**< Test float */
-    uint8_t test_bytes[6];   /**< Test bytes */
-    buffer_t* test_buffer;   /**< Test buffer */
+    char datastore_hash[DATASTORE_HASH_MAX_LEN + 1]; /**< Hash of the datastore */
+    char device_name[DEVICE_NAME_MAX_LEN + 1];       /**< Device name */
+    int version_code;                                /**< Version code */
+    float test_float;                                /**< Test float */
+    uint8_t test_bytes[6];                           /**< Test bytes */
+    buffer_t* test_buffer;                           /**< Test buffer */
 };
 
 /**

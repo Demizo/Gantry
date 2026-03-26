@@ -48,16 +48,16 @@ static int release(const struct datastore_item_const_metadata* item, data_value_
 static bool validate(const struct datastore_item_const_metadata* item, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRING, "Unexpected value type");
-    uint16_t len = strnlen(value.data.string_value, item->type_info.string_info.max_len);
-    // The string must be less than the max length so that there is room for the null terminator
-    return len < item->type_info.string_info.max_len;
+    uint16_t len = strnlen(value.data.string_value, item->type_info.string_info.max_len + 1);
+    // The string buffer is one byte larger than max length so that there is room for the null terminator
+    return len <= item->type_info.string_info.max_len;
 }
 
 static void set(const struct datastore_item_const_metadata* item, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRING, "Unexpected value type");
     strncpy((char*)item->value_ptr, value.data.string_value, item->type_info.string_info.max_len);
-    ((char*)(item->value_ptr))[item->type_info.string_info.max_len - 1] = '\0';
+    ((char*)(item->value_ptr))[item->type_info.string_info.max_len] = '\0';
 }
 
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value)

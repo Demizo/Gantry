@@ -63,7 +63,7 @@ const struct datastore_item_const_metadata
                     {
                         .string_info =
                             {
-                                .max_len = 32,
+                                .max_len = DATASTORE_HASH_MAX_LEN,
                             },
                     },
             },
@@ -81,7 +81,7 @@ const struct datastore_item_const_metadata
                     {
                         .string_info =
                             {
-                                .max_len = 32,
+                                .max_len = DEVICE_NAME_MAX_LEN,
                             },
                     },
             },

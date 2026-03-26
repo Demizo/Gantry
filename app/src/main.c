@@ -85,7 +85,7 @@ int main(void)
 
     data_value_t new_device_name = {
         .type = DATASTORE_ITEM_TYPE_STRING,
-        .data.string_value = "New ZDS awesome name!",
+        .data.string_value = "New ZDS awesome name!!!!!",
     };
     (void)datastore_set(DATASTORE_ID_DEVICE_NAME, new_device_name);
     datastore_get(DATASTORE_ID_DEVICE_NAME, &device_name);
