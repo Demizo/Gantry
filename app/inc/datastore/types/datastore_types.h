@@ -49,19 +49,23 @@ enum datastore_item_type
 };
 
 /**
+ * @brief Union of raw values for each data type
+ */
+typedef union
+{
+    int int_value;
+    float float_value;
+    char* string_value;
+    buffer_t* buffer_value;
+} raw_data_value_t;
+
+/**
  * @brief Tagged union representing a data item value
  */
 typedef struct
 {
     enum datastore_item_type type;
-    union
-    {
-        int int_value;
-        float float_value;
-        char* string_value;
-        buffer_t* buffer_value;
-        void* dynamic_value;
-    } data;
+    raw_data_value_t data;
 } data_value_t;
 
 /**
@@ -186,7 +190,7 @@ struct datastore_item_const_metadata
     enum datastore_item_type type;                    /**< Type of the data item */
     const struct datastore_item_interface* interface; /**< Common interface for data items */
     void* value_ptr;                                  /**< Pointer to the item's value */
-    data_value_t default_value;                       /**< The item's default value */
+    const raw_data_value_t default_value;             /**< The item's default value */
     union datastore_type_info type_info;              /**< Type specific information */
 };
 

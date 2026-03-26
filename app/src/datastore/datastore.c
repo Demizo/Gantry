@@ -45,7 +45,11 @@ void datastore_init(void)
     for (int i = 0; i < DATASTORE_ID_COUNT; i++)
     {
         const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[i];
-        item->interface->set(item, item->default_value);
+        data_value_t value = {
+            .type = item->type,
+            .data = item->default_value,
+        };
+        item->interface->set(item, value);
     }
 
     // TODO: Load values from NVM storage
