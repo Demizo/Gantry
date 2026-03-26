@@ -90,9 +90,8 @@ struct datastore_item_permissions
  */
 struct datastore_enum_info
 {
-    uint8_t default_value; /**< Default value */
-    uint8_t min;           /**< Minimum value */
-    uint8_t max;           /**< Maximum value */
+    uint8_t min; /**< Minimum value */
+    uint8_t max; /**< Maximum value */
 };
 
 /**
@@ -100,9 +99,8 @@ struct datastore_enum_info
  */
 struct datastore_int_info
 {
-    int32_t default_value; /**< Default value */
-    int32_t min;           /**< Minimum value */
-    int32_t max;           /**< Maximum value */
+    int32_t min; /**< Minimum value */
+    int32_t max; /**< Maximum value */
 };
 
 /**
@@ -110,9 +108,8 @@ struct datastore_int_info
  */
 struct datastore_float_info
 {
-    float default_value; /**< Default value */
-    float min;           /**< Minimum value */
-    float max;           /**< Maximum value */
+    float min; /**< Minimum value */
+    float max; /**< Maximum value */
 };
 
 /**
@@ -120,8 +117,7 @@ struct datastore_float_info
  */
 struct datastore_string_info
 {
-    const char* default_value; /**< Default value */
-    uint16_t max_len;          /**< Maximum length */
+    uint16_t max_len; /**< Maximum length */
 };
 
 /**
@@ -129,8 +125,7 @@ struct datastore_string_info
  */
 struct datastore_byte_array_info
 {
-    const uint8_t* default_value; /**< Default value */
-    uint16_t size;                /**< Size in bytes */
+    uint16_t size; /**< Size in bytes */
 };
 
 /**
@@ -138,9 +133,8 @@ struct datastore_byte_array_info
  */
 struct datastore_byte_buffer_info
 {
-    const buffer_t* default_value; /**< Default value */
-    uint16_t min_len;              /**< Minimum length in bytes */
-    uint16_t max_len;              /**< Maximum length in bytes */
+    uint16_t min_len; /**< Minimum length in bytes */
+    uint16_t max_len; /**< Maximum length in bytes */
 };
 
 /**
@@ -192,6 +186,7 @@ struct datastore_item_const_metadata
     enum datastore_item_type type;                    /**< Type of the data item */
     const struct datastore_item_interface* interface; /**< Common interface for data items */
     void* value_ptr;                                  /**< Pointer to the item's value */
+    data_value_t default_value;                       /**< The item's default value */
     union datastore_type_info type_info;              /**< Type specific information */
 };
 

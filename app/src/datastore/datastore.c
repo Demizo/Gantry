@@ -41,6 +41,13 @@ LOG_MODULE_REGISTER(datastore, CONFIG_DATASTORE_LOG_LEVEL);
 
 void datastore_init(void)
 {
+    // Initialize default values
+    for (int i = 0; i < DATASTORE_ID_COUNT; i++)
+    {
+        const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[i];
+        item->interface->set(item, item->default_value);
+    }
+
     // TODO: Load values from NVM storage
     return;
 }

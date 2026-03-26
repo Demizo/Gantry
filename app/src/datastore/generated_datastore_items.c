@@ -15,7 +15,6 @@
 #include "generated_datastore_items.h"
 
 #include <limits.h>
-#include <stdint.h>
 
 #include "buffer.h"
 #include "datastore_type_buffer.h"
@@ -37,32 +36,16 @@
 //* Static Variable Definitions
 //**********************************************************
 
-static const char default_datastore_hash[] = "TODO";
-static const char default_device_name[] = "ZDS";
-static const uint8_t default_test_bytes[] = {
-    0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x00,
+static buffer_t default_test_bytes = {
+    .len = 6,
+    .buf = { 0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x00, },
 };
-static const buffer_t default_test_buffer = {
+static buffer_t default_test_buffer = {
     .len = 8,
     .buf = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, },
 };
 
-struct datastore_values datastore_values = {
-    .datastore_hash = "TODO",
-    .device_name = "ZDS",
-    .version_code = 1,
-    .test_float = 0.5f,
-    .test_bytes = {
-        0xDE,
-        0xAD,
-        0xBE,
-        0xEF,
-        0x00,
-        0x00,
-    },
-    // TODO: initialize on startup
-    .test_buffer = NULL,
-};
+struct datastore_values datastore_values = { 0 };
 
 const struct datastore_item_const_metadata
     g_datastore_const_metadata[DATASTORE_ID_COUNT] = {
@@ -75,11 +58,11 @@ const struct datastore_item_const_metadata
                 .type = DATASTORE_ITEM_TYPE_STRING,
                 .interface = &datastore_string_interface,
                 .value_ptr = &datastore_values.datastore_hash,
+                .default_value = {.type = DATASTORE_ITEM_TYPE_STRING, .data.string_value = "TODO",},
                 .type_info =
                     {
                         .string_info =
                             {
-                                .default_value = default_datastore_hash,
                                 .max_len = 32,
                             },
                     },
@@ -93,11 +76,11 @@ const struct datastore_item_const_metadata
                 .type = DATASTORE_ITEM_TYPE_STRING,
                 .interface = &datastore_string_interface,
                 .value_ptr = &datastore_values.device_name,
+                .default_value = {.type = DATASTORE_ITEM_TYPE_STRING, .data.string_value = "ZDS"},
                 .type_info =
                     {
                         .string_info =
                             {
-                                .default_value = default_device_name,
                                 .max_len = 32,
                             },
                     },
@@ -111,11 +94,11 @@ const struct datastore_item_const_metadata
                 .type = DATASTORE_ITEM_TYPE_INT,
                 .interface = &datastore_int_interface,
                 .value_ptr = &datastore_values.version_code,
+                .default_value = {.type = DATASTORE_ITEM_TYPE_INT, .data.int_value = 1},
                 .type_info =
                     {
                         .int_info =
                             {
-                                .default_value = 1,
                                 .min = 0,
                                 .max = INT_MAX,
                             },
@@ -130,11 +113,11 @@ const struct datastore_item_const_metadata
                 .type = DATASTORE_ITEM_TYPE_FLOAT,
                 .interface = &datastore_float_interface,
                 .value_ptr = &datastore_values.test_float,
+                .default_value = {.type = DATASTORE_ITEM_TYPE_FLOAT, .data.float_value = 0.5f,},
                 .type_info =
                     {
                         .float_info =
                             {
-                                .default_value = 0.5f,
                                 .min = 0.0f,
                                 .max = 32.0f,
                             },
@@ -149,11 +132,11 @@ const struct datastore_item_const_metadata
                 .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY,
                 .interface = &datastore_byte_array_interface,
                 .value_ptr = &datastore_values.test_bytes,
+                .default_value = {.type = DATASTORE_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = &default_test_bytes,},
                 .type_info =
                     {
                         .byte_array_info =
                             {
-                                .default_value = default_test_bytes,
                                 .size = 6,
                             },
                     },
@@ -167,11 +150,11 @@ const struct datastore_item_const_metadata
                 .type = DATASTORE_ITEM_TYPE_BYTE_BUFFER,
                 .interface = &datastore_buffer_interface,
                 .value_ptr = (void*)&datastore_values.test_buffer,
+                .default_value = {.type = DATASTORE_ITEM_TYPE_BYTE_BUFFER, .data.buffer_value = &default_test_buffer,},
                 .type_info =
                     {
                         .byte_buffer_info =
                             {
-                                .default_value = &default_test_buffer,
                                 .min_len = 6,
                                 .max_len = 8,
                             },
