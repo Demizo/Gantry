@@ -46,16 +46,16 @@ static int release(const struct datastore_item_const_metadata* item, data_value_
 
 static bool validate(const struct datastore_item_const_metadata* item, data_value_t value)
 {
-    ASSERT(value.type == DATASTORE_ITEM_TYPE_BYTE_BUFFER, "Unexpected value type");
+    ASSERT(value.type == DATASTORE_ITEM_TYPE_BUFFER, "Unexpected value type");
     const buffer_t* new_value = value.data.buffer_value;
     return (
-        (new_value->len >= item->type_info.byte_buffer_info.min_len) &&
-        (new_value->len <= item->type_info.byte_buffer_info.max_len));
+        (new_value->len >= item->type_info.buffer_info.min_len) &&
+        (new_value->len <= item->type_info.buffer_info.max_len));
 }
 
 static void set(const struct datastore_item_const_metadata* item, data_value_t value)
 {
-    ASSERT(value.type == DATASTORE_ITEM_TYPE_BYTE_BUFFER, "Unexpected value type");
+    ASSERT(value.type == DATASTORE_ITEM_TYPE_BUFFER, "Unexpected value type");
     int ret = SUCCESS;
     buffer_t* buffer = value.data.buffer_value;
 
@@ -91,7 +91,7 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
     ret = MEM_REF(current_buffer_block);
     if (ret == SUCCESS)
     {
-        out_value->type = DATASTORE_ITEM_TYPE_BYTE_BUFFER;
+        out_value->type = DATASTORE_ITEM_TYPE_BUFFER;
         out_value->data.buffer_value = current_buffer_block;
     }
 
@@ -102,7 +102,7 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
 static int release(const struct datastore_item_const_metadata* item, data_value_t* value)
 {
     ARG_UNUSED(item);
-    ASSERT(value->type == DATASTORE_ITEM_TYPE_BYTE_BUFFER, "Unexpected value type");
+    ASSERT(value->type == DATASTORE_ITEM_TYPE_BUFFER, "Unexpected value type");
 
     void* buffer_block = value->data.buffer_value;
     return MEM_UNREF(&buffer_block);

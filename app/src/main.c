@@ -114,7 +114,7 @@ int main(void)
     STACK_BUFFER(new_test_buffer_data, 6);
     new_test_buffer_data->buf[0] = 0xB5;
     data_value_t new_test_buffer = {
-        .type = DATASTORE_ITEM_TYPE_BYTE_BUFFER,
+        .type = DATASTORE_ITEM_TYPE_BUFFER,
         .data.buffer_value = new_test_buffer_data,
     };
     datastore_set(DATASTORE_ID_TEST_BUFFER, new_test_buffer);

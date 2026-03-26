@@ -147,13 +147,13 @@ const struct datastore_item_const_metadata
                 .name = "TestBuffer",
                 .storage_type = DATASTORE_STORAGE_EPHEMERAL,
                 .permissions = {0, 0},
-                .type = DATASTORE_ITEM_TYPE_BYTE_BUFFER,
+                .type = DATASTORE_ITEM_TYPE_BUFFER,
                 .interface = &datastore_buffer_interface,
                 .value_ptr = (void*)&datastore_values.test_buffer,
                 .default_value = {.buffer_value = &default_test_buffer,},
                 .type_info =
                     {
-                        .byte_buffer_info =
+                        .buffer_info =
                             {
                                 .min_len = 6,
                                 .max_len = 8,

@@ -43,8 +43,7 @@ enum datastore_item_type
     DATASTORE_ITEM_TYPE_FLOAT,
     DATASTORE_ITEM_TYPE_STRING,
     DATASTORE_ITEM_TYPE_BYTE_ARRAY,
-    DATASTORE_ITEM_TYPE_BYTE_BUFFER,
-    DATASTORE_ITEM_TYPE_DYNAMIC_BUFFER,
+    DATASTORE_ITEM_TYPE_BUFFER,
     DATASTORE_ITEM_TYPE_COUNT
 };
 
@@ -56,6 +55,7 @@ typedef union
     int int_value;
     float float_value;
     char* string_value;
+    buffer_t* bytes_value;
     buffer_t* buffer_value;
 } raw_data_value_t;
 
@@ -133,9 +133,9 @@ struct datastore_byte_array_info
 };
 
 /**
- * @brief Metadata for byte array items
+ * @brief Metadata for buffer items
  */
-struct datastore_byte_buffer_info
+struct datastore_buffer_info
 {
     uint16_t min_len; /**< Minimum length in bytes */
     uint16_t max_len; /**< Maximum length in bytes */
@@ -146,12 +146,12 @@ struct datastore_byte_buffer_info
  */
 union datastore_type_info
 {
-    struct datastore_enum_info enum_info;               /**< Info for enum items */
-    struct datastore_int_info int_info;                 /**< Info for int items */
-    struct datastore_float_info float_info;             /**< Info for float items */
-    struct datastore_string_info string_info;           /**< Info for string items */
-    struct datastore_byte_array_info byte_array_info;   /**< Info for byte array items */
-    struct datastore_byte_buffer_info byte_buffer_info; /**< Info for byte buffer items */
+    struct datastore_enum_info enum_info;             /**< Info for enum items */
+    struct datastore_int_info int_info;               /**< Info for int items */
+    struct datastore_float_info float_info;           /**< Info for float items */
+    struct datastore_string_info string_info;         /**< Info for string items */
+    struct datastore_byte_array_info byte_array_info; /**< Info for byte array items */
+    struct datastore_buffer_info buffer_info;         /**< Info for byte buffer items */
 };
 
 // Forward declare constant datastore metadata
