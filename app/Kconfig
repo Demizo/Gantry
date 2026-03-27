@@ -11,7 +11,7 @@ menu "Flags"
 
 config FLAGS_VALIDATION
     bool "Enable runtime flag validation"
-    default n if DEBUG
+    default y if DEBUG
     help
       Whenever a flag changes validate the flag rules to catch invalid states at runtime.
 
@@ -34,6 +34,12 @@ menu "Memory"
 config MEM_LOG_LEVEL
     int "Memory log level"
     default 3
+
+config MEM_TRACE
+    bool "Trace where memory is being managed"
+    default y if DEBUG
+    help
+      Trace where memory is being allocated, referenced, and dereferenced
 
 config MEM_SMALL_BLOCK_SIZE
     int "Small memory block size in bytes"

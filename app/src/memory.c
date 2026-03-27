@@ -49,8 +49,10 @@ typedef struct __attribute__((packed))
 {
     uint8_t magic[8];      // Magic number for block validation
     mem_pool_size_t pool;  // Pool the block belongs to
-    const char* func;      // Function name that allocated the block
-    uint32_t ref_count;    // Reference count
+#ifdef CONFIG_MEM_TRACE
+    const char* func;  // Function name that allocated the block
+#endif
+    uint32_t ref_count;  // Reference count
 } mem_block_header_t;
 
 //**********************************************************
@@ -143,7 +145,7 @@ STATIC_UNIT mem_block_header_t* validate_and_get_header(void* block)
 //* Public Function Definitions
 //**********************************************************
 
-int mem_alloc(size_t size, void** block_ptr, const char* func, const char* file, int line)
+int mem_alloc(size_t size, void** block_ptr _ALLOC_TRACE)
 {
     int ret = SUCCESS;
     void* block = NULL;
@@ -209,14 +211,18 @@ int mem_alloc(size_t size, void** block_ptr, const char* func, const char* file,
             mem_block_header_t* header = (mem_block_header_t*)block;
             memcpy(header->magic, magic, sizeof(magic));
             header->pool = pool_size;
+#ifdef CONFIG_MEM_TRACE
             header->func = func;
+#endif
             header->ref_count = 1;
 
             *block_ptr = header_to_block(block);
 
+#ifdef CONFIG_MEM_TRACE
             LOG_DBG(
                 "Allocated %zu bytes from pool %d, block: %p, [%s:%d]: %s", size, pool_size, *block_ptr,
                 file ? file : "unknown", line, func ? func : "unknown");
+#endif
             break;
         }
         else
@@ -235,7 +241,7 @@ int mem_alloc(size_t size, void** block_ptr, const char* func, const char* file,
     return SUCCESS;
 }
 
-int mem_ref(void* block, const char* file, int line)
+int mem_ref(void* block _REF_TRACE)
 {
     if (block == NULL)
     {
@@ -262,16 +268,18 @@ int mem_ref(void* block, const char* file, int line)
 
     header->ref_count++;
 
+#ifdef CONFIG_MEM_TRACE
     LOG_DBG(
         "Referenced block %p (count: %d), allocated by %s [%s:%d]", block, header->ref_count,
         header->func ? header->func : "unknown", file ? file : "unknown", line);
+#endif
 
     irq_unlock(key);
 
     return SUCCESS;
 }
 
-int mem_unref(void** block_ptr, const char* file, int line)
+int mem_unref(void** block_ptr _REF_TRACE)
 {
     if (block_ptr == NULL)
     {
@@ -305,16 +313,20 @@ int mem_unref(void** block_ptr, const char* file, int line)
         void* block_header = block_to_header(*block_ptr);
 
         k_mem_slab_free(pool->slab, block_header);
+#ifdef CONFIG_MEM_TRACE
         LOG_DBG(
             "Freed block %p, allocated by %s [%s:%d]", *block_ptr, header->func ? header->func : "unknown",
             file ? file : "unknown", line);
+#endif
         *block_ptr = NULL;
     }
     else
     {
+#ifdef CONFIG_MEM_TRACE
         LOG_DBG(
             "Dereferenced block %p (count: %d), allocated by %s [%s:%d]", *block_ptr, header->ref_count,
             header->func ? header->func : "unknown", file ? file : "unknown", line);
+#endif
     }
 
     irq_unlock(key);

@@ -43,15 +43,13 @@ LOG_MODULE_REGISTER(event, CONFIG_EVENT_LOG_LEVEL);
 //* Public Function Definitions
 //**********************************************************
 
-int event_alloc(
-    size_t size, event_direction_t direction, event_format_t format, event_t** event, const char* func,
-    const char* file, int line)
+int event_alloc(size_t size, event_direction_t direction, event_format_t format, event_t** event _ALLOC_TRACE)
 {
     int ret = SUCCESS;
 
     // Account for event header size in total size
     size_t total_size = sizeof(event_t) + size;
-    ret = mem_alloc(total_size, (void**)event, func, file, line);
+    ret = mem_alloc(total_size, (void**)event _ALLOC_TRACE_PASSTHROUGH);
     if (ret)
     {
         LOG_ERR("Failed to allocate event: %d", ret);
@@ -64,7 +62,7 @@ int event_alloc(
     return SUCCESS;
 }
 
-int event_ref(event_t* event, const char* file, int line)
+int event_ref(event_t* event _REF_TRACE)
 {
     int ret = SUCCESS;
     event_t* current = NULL;
@@ -73,7 +71,7 @@ int event_ref(event_t* event, const char* file, int line)
     current = event;
     while (current != NULL)
     {
-        ret = mem_ref(current, file, line);
+        ret = mem_ref(current _REF_TRACE_PASSTHROUGH);
         if (ret)
         {
             LOG_ERR("Failed to reference event: %d", ret);
@@ -87,7 +85,7 @@ int event_ref(event_t* event, const char* file, int line)
     return SUCCESS;
 }
 
-int event_unref(event_t** event, const char* file, int line)
+int event_unref(event_t** event _REF_TRACE)
 {
     int ret = SUCCESS;
     event_t* current = NULL;
@@ -101,7 +99,7 @@ int event_unref(event_t** event, const char* file, int line)
         // Get the linked event first in case the block is freed
         next = current->next_event;
 
-        ret = mem_unref((void**)&current, file, line);
+        ret = mem_unref((void**)&current _REF_TRACE_PASSTHROUGH);
         if (ret)
         {
             LOG_ERR("Failed to dereference event: %d", ret);

@@ -42,6 +42,24 @@
 //* Definitions
 //**********************************************************
 
+#ifdef CONFIG_MEM_TRACE
+#define _ALLOC_TRACE , const char *func, const char *file, int line
+#define _ALLOC_TRACE_INPUT , __func__, __FILE__, __LINE__
+#define _ALLOC_TRACE_PASSTHROUGH , func, file, line
+
+#define _REF_TRACE , const char *file, int line
+#define _REF_TRACE_INPUT , __FILE__, __LINE__
+#define _REF_TRACE_PASSTHROUGH , file, line
+#else
+#define _ALLOC_TRACE
+#define _ALLOC_TRACE_INPUT
+#define _ALLOC_TRACE_PASSTHROUGH
+
+#define _REF_TRACE
+#define _REF_TRACE_INPUT
+#define _REF_TRACE_PASSTHROUGH
+#endif
+
 //**********************************************************
 //* Typedefs, Enums, and Structs
 //**********************************************************
@@ -62,9 +80,7 @@
  * @param[in] size The requested buffer size in bytes
  * @param[out] block_ptr Pointer to be populated with the address of memory block. This pointer must point to a NULL
  * pointer when this function is called. It is only populated when the allocation succeeds.
- * @param[in] func Function name of caller, used for debugging
- * @param[in] file File name of the caller, used for debugging
- * @param[in] line Line number of the caller, used for debugging
+ * @param[in] _ALLOC_TRACE Trace information used for debugging
  *
  * @return SUCCESS when the allocation is successful.
  * @return -EINVAL the provided pointer was NULL, a size of 0 was requested, or the requested size was larger than the
@@ -72,7 +88,7 @@
  * @return -ENOTEMPTY the block pointer was not pointing to a NULL pointer.
  * @return -ENOMEM No blocks were available that could fit the requested size.
  */
-int mem_alloc(size_t size, void** block_ptr, const char* func, const char* file, int line);
+int mem_alloc(size_t size, void** block_ptr _ALLOC_TRACE);
 
 /**
  * @brief Increment the reference count of a memory block
@@ -81,14 +97,13 @@ int mem_alloc(size_t size, void** block_ptr, const char* func, const char* file,
  * information filled in.
  *
  * @param[in] block The memory block pointer to be reference counted
- * @param[in] file File name of the caller, used for debugging
- * @param[in] line Line number of the caller, used for debugging
+ * @param[in] _REF_TRACE Trace information used for debugging
  *
  * @return SUCCESS when the block's reference count was incremented
  * @return -EINVAL when the provided pointer was not a valid memory block
  * @return -ENOMEM when the block already has the maximum number of references
  */
-int mem_ref(void* block, const char* file, int line);
+int mem_ref(void* block _REF_TRACE);
 
 /**
  * @brief Dencrement the reference count of a memory block
@@ -101,28 +116,27 @@ int mem_ref(void* block, const char* file, int line);
  *
  * @param[in,out] block_ptr A pointer to the memory block pointer to be dereferenced. If the reference count reaches 0,
  * the block pointer will be set to NULL.
- * @param[in] file File name of the caller, used for debugging
- * @param[in] line Line number of the caller, used for debugging
+ * @param[in] _REF_TRACE Trace information used for debugging
  *
  * @return SUCCESS when the block's reference count was decremented.
  * @return -EINVAL when the provided pointer was not a valid memory block
  */
-int mem_unref(void** block_ptr, const char* file, int line);
+int mem_unref(void** block_ptr _REF_TRACE);
 
 /**
  * @brief Convenience macro for memory block allocation with automatic function/file/line tracking
  */
-#define MEM_ALLOC(size, data) mem_alloc(size, data, __func__, __FILE__, __LINE__)
+#define MEM_ALLOC(size, data) mem_alloc(size, data _ALLOC_TRACE_INPUT)
 
 /**
  * @brief Convenience macro for memory block referencing with automatic file/line tracking
  */
-#define MEM_REF(data) mem_ref(data, __FILE__, __LINE__)
+#define MEM_REF(data) mem_ref(data _REF_TRACE_INPUT)
 
 /**
  * @brief Convenience macro for memory block unreferencing with automatic file/line tracking
  */
-#define MEM_UNREF(data) mem_unref(data, __FILE__, __LINE__)
+#define MEM_UNREF(data) mem_unref(data _REF_TRACE_INPUT)
 
 /**
  * @brief Indicates to static analysis that ownership over the memory will be the responsibility of the caller
