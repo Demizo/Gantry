@@ -11,6 +11,7 @@
 
 #include "datastore_type_buffer.h"
 
+#include <string.h>
 #include <sys/errno.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -35,6 +36,7 @@ static bool validate(const struct datastore_item_const_metadata* item, data_valu
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static int release(const struct datastore_item_const_metadata* item, data_value_t* value);
+static bool is_default(const struct datastore_item_const_metadata* item);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -108,6 +110,15 @@ static int release(const struct datastore_item_const_metadata* item, data_value_
     return MEM_UNREF(&buffer_block);
 }
 
+static bool is_default(const struct datastore_item_const_metadata* item)
+{
+    buffer_t* current_value = *(buffer_t**)item->value_ptr;
+    buffer_t* default_value = item->default_value.buffer_value;
+
+    if (current_value->len != default_value->len) return false;
+    return (memcmp(current_value->buf, default_value->buf, default_value->len) == 0);
+}
+
 //**********************************************************
 //* Public Function Definitions
 //**********************************************************
@@ -117,4 +128,5 @@ const struct datastore_item_interface datastore_buffer_interface = {
     .set = set,
     .get = get,
     .release = release,
+    .is_default = is_default,
 };

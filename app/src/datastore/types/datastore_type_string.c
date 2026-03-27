@@ -36,6 +36,7 @@ static bool validate(const struct datastore_item_const_metadata* item, data_valu
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static int release(const struct datastore_item_const_metadata* item, data_value_t* value);
+static bool is_default(const struct datastore_item_const_metadata* item);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -89,6 +90,14 @@ static int release(const struct datastore_item_const_metadata* item, data_value_
     return MEM_UNREF(&string_block);
 }
 
+static bool is_default(const struct datastore_item_const_metadata* item)
+{
+    char* current_value = (char*)item->value_ptr;
+    char* default_value = item->default_value.string_value;
+
+    return (strncmp(current_value, default_value, item->type_info.string_info.max_len) == 0);
+}
+
 //**********************************************************
 //* Public Function Definitions
 //**********************************************************
@@ -98,4 +107,5 @@ const struct datastore_item_interface datastore_string_interface = {
     .set = set,
     .get = get,
     .release = release,
+    .is_default = is_default,
 };

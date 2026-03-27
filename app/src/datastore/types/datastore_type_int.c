@@ -33,6 +33,7 @@ static bool validate(const struct datastore_item_const_metadata* item, data_valu
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static int release(const struct datastore_item_const_metadata* item, data_value_t* value);
+static bool is_default(const struct datastore_item_const_metadata* item);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -70,6 +71,14 @@ static int release(const struct datastore_item_const_metadata* item, data_value_
     return SUCCESS;
 }
 
+static bool is_default(const struct datastore_item_const_metadata* item)
+{
+    int current_value = *(int*)item->value_ptr;
+    int default_value = item->default_value.int_value;
+
+    return current_value == default_value;
+}
+
 //**********************************************************
 //* Public Function Definitions
 //**********************************************************
@@ -79,4 +88,5 @@ const struct datastore_item_interface datastore_int_interface = {
     .set = set,
     .get = get,
     .release = release,
+    .is_default = is_default,
 };

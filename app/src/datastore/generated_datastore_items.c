@@ -41,8 +41,7 @@ static buffer_t default_test_bytes = {
     .buf = { 0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x00, },
 };
 static buffer_t default_test_buffer = {
-    .len = 8,
-    .buf = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, },
+    .len = 0,
 };
 
 struct datastore_values datastore_values = { 0 };
@@ -137,7 +136,8 @@ const struct datastore_item_const_metadata
                     {
                         .byte_array_info =
                             {
-                                .size = 6,
+                                .min_len = TEST_BYTES_MIN_LEN,
+                                .max_len = TEST_BYTES_MAX_LEN,
                             },
                     },
             },
@@ -155,8 +155,8 @@ const struct datastore_item_const_metadata
                     {
                         .buffer_info =
                             {
-                                .min_len = 6,
-                                .max_len = 8,
+                                .min_len = TEST_BUFFER_MIN_LEN,
+                                .max_len = TEST_BUFFER_MAX_LEN,
                             },
                     },
             },

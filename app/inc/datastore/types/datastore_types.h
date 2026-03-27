@@ -129,7 +129,8 @@ struct datastore_string_info
  */
 struct datastore_byte_array_info
 {
-    uint16_t size; /**< Size in bytes */
+    uint16_t min_len; /**< Minimum length */
+    uint16_t max_len; /**< Maximum length */
 };
 
 /**
@@ -137,8 +138,8 @@ struct datastore_byte_array_info
  */
 struct datastore_buffer_info
 {
-    uint16_t min_len; /**< Minimum length in bytes */
-    uint16_t max_len; /**< Maximum length in bytes */
+    uint16_t min_len; /**< Minimum length */
+    uint16_t max_len; /**< Maximum length */
 };
 
 /**
@@ -173,6 +174,8 @@ struct datastore_item_interface
     int (*release)(
         const struct datastore_item_const_metadata* item,
         data_value_t* value); /**< Function to release an item value */
+    bool (*is_default)(
+        const struct datastore_item_const_metadata* item); /**< Function to check if an item is at its default value */
     // TODO: Add encode and decode functions:
     // - Decode takes (metadata, decoder, void** out_data)
     // - Encode takes (metadata, encoder, void* data)
