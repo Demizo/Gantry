@@ -60,8 +60,9 @@ const struct datastore_item_const_metadata
                 .default_value = {.string_value = "TODO",},
                 .type_info =
                     {
-                        .string_info =
+                        .buffer_info =
                             {
+                                .min_len = DATASTORE_HASH_MIN_LEN,
                                 .max_len = DATASTORE_HASH_MAX_LEN,
                             },
                     },
@@ -78,8 +79,9 @@ const struct datastore_item_const_metadata
                 .default_value = {.string_value = "ZDS"},
                 .type_info =
                     {
-                        .string_info =
+                        .buffer_info =
                             {
+                                .min_len = DEVICE_NAME_MIN_LEN,
                                 .max_len = DEVICE_NAME_MAX_LEN,
                             },
                     },
@@ -98,8 +100,8 @@ const struct datastore_item_const_metadata
                     {
                         .int_info =
                             {
-                                .min = 0,
-                                .max = INT_MAX,
+                                .min = VERSION_CODE_MIN,
+                                .max = VERSION_CODE_MAX,
                             },
                     },
             },
@@ -117,8 +119,8 @@ const struct datastore_item_const_metadata
                     {
                         .float_info =
                             {
-                                .min = 0.0f,
-                                .max = 32.0f,
+                                .min = TEST_FLOAT_MIN,
+                                .max = TEST_FLOAT_MAX,
                             },
                     },
             },
@@ -134,7 +136,7 @@ const struct datastore_item_const_metadata
                 .default_value = {.buffer_value = &default_test_bytes,},
                 .type_info =
                     {
-                        .byte_array_info =
+                        .buffer_info =
                             {
                                 .min_len = TEST_BYTES_MIN_LEN,
                                 .max_len = TEST_BYTES_MAX_LEN,

@@ -32,8 +32,14 @@
 //* Definitions
 //**********************************************************
 
+#define DATASTORE_HASH_MIN_LEN 0
 #define DATASTORE_HASH_MAX_LEN 16
+#define DEVICE_NAME_MIN_LEN 1
 #define DEVICE_NAME_MAX_LEN 25
+#define VERSION_CODE_MIN 0
+#define VERSION_CODE_MAX INT_MAX
+#define TEST_FLOAT_MIN 0.0f
+#define TEST_FLOAT_MAX 32.0f
 #define TEST_BYTES_MIN_LEN 6
 #define TEST_BYTES_MAX_LEN 6
 #define TEST_BUFFER_MIN_LEN 0

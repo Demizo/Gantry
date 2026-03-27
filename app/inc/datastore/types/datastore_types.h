@@ -90,15 +90,6 @@ struct datastore_item_permissions
 };
 
 /**
- * @brief Metadata for enum items
- */
-struct datastore_enum_info
-{
-    uint8_t min; /**< Minimum value */
-    uint8_t max; /**< Maximum value */
-};
-
-/**
  * @brief Metadata for int items
  */
 struct datastore_int_info
@@ -117,24 +108,7 @@ struct datastore_float_info
 };
 
 /**
- * @brief Metadata for string items
- */
-struct datastore_string_info
-{
-    uint16_t max_len; /**< Maximum length */
-};
-
-/**
- * @brief Metadata for byte array items
- */
-struct datastore_byte_array_info
-{
-    uint16_t min_len; /**< Minimum length */
-    uint16_t max_len; /**< Maximum length */
-};
-
-/**
- * @brief Metadata for buffer items
+ * @brief Metadata for variable length buffer items
  */
 struct datastore_buffer_info
 {
@@ -147,12 +121,9 @@ struct datastore_buffer_info
  */
 union datastore_type_info
 {
-    struct datastore_enum_info enum_info;             /**< Info for enum items */
-    struct datastore_int_info int_info;               /**< Info for int items */
-    struct datastore_float_info float_info;           /**< Info for float items */
-    struct datastore_string_info string_info;         /**< Info for string items */
-    struct datastore_byte_array_info byte_array_info; /**< Info for byte array items */
-    struct datastore_buffer_info buffer_info;         /**< Info for byte buffer items */
+    struct datastore_int_info int_info;       /**< Info for int items */
+    struct datastore_float_info float_info;   /**< Info for float items */
+    struct datastore_buffer_info buffer_info; /**< Info for variable length buffer types (string, bytes, buffers) */
 };
 
 // Forward declare constant datastore metadata
