@@ -47,7 +47,8 @@ static bool validate(const struct datastore_item_const_metadata* item, data_valu
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_INT, "Unexpected value type");
     const int new_value = value.data.int_value;
-    return ((new_value >= item->type_info.int_info.min) && (new_value <= item->type_info.int_info.max));
+    return (
+        (new_value >= item->constraints.int_constraints.min) && (new_value <= item->constraints.int_constraints.max));
 }
 
 static void set(const struct datastore_item_const_metadata* item, data_value_t value)

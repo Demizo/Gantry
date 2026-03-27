@@ -90,40 +90,41 @@ struct datastore_item_permissions
 };
 
 /**
- * @brief Metadata for int items
+ * @brief Constraints for int items
  */
-struct datastore_int_info
+struct datastore_int_constraints
 {
     int32_t min; /**< Minimum value */
     int32_t max; /**< Maximum value */
 };
 
 /**
- * @brief Metadata for float items
+ * @brief Constraints for float items
  */
-struct datastore_float_info
+struct datastore_float_constraints
 {
     float min; /**< Minimum value */
     float max; /**< Maximum value */
 };
 
 /**
- * @brief Metadata for variable length buffer items
+ * @brief Constraints for variable length buffer items
  */
-struct datastore_buffer_info
+struct datastore_buffer_constraints
 {
     uint16_t min_len; /**< Minimum length */
     uint16_t max_len; /**< Maximum length */
 };
 
 /**
- * @brief Type specific item info
+ * @brief Constraints for item value
  */
-union datastore_type_info
+union datastore_constraints
 {
-    struct datastore_int_info int_info;       /**< Info for int items */
-    struct datastore_float_info float_info;   /**< Info for float items */
-    struct datastore_buffer_info buffer_info; /**< Info for variable length buffer types (string, bytes, buffers) */
+    struct datastore_int_constraints int_constraints;     /**< Constraints for int items */
+    struct datastore_float_constraints float_constraints; /**< Constraints for float items */
+    struct datastore_buffer_constraints
+        buffer_constraints; /**< Constraints for variable length buffer types (string, bytes, buffers) */
 };
 
 // Forward declare constant datastore metadata
@@ -165,7 +166,7 @@ struct datastore_item_const_metadata
     const struct datastore_item_interface* interface; /**< Common interface for data items */
     void* value_ptr;                                  /**< Pointer to the item's value */
     const raw_data_value_t default_value;             /**< The item's default value */
-    union datastore_type_info type_info;              /**< Type specific information */
+    union datastore_constraints constraints;          /**< The item's value constraints */
 };
 
 //**********************************************************

@@ -49,22 +49,23 @@ static bool is_default(const struct datastore_item_const_metadata* item);
 static bool validate(const struct datastore_item_const_metadata* item, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRING, "Unexpected value type");
-    uint16_t len = strnlen(value.data.string_value, item->type_info.buffer_info.max_len + 1);
+    uint16_t len = strnlen(value.data.string_value, item->constraints.buffer_constraints.max_len + 1);
     // The string buffer is one byte larger than max length so that there is room for the null terminator
-    return ((len >= item->type_info.buffer_info.min_len) && (len <= item->type_info.buffer_info.max_len));
+    return (
+        (len >= item->constraints.buffer_constraints.min_len) && (len <= item->constraints.buffer_constraints.max_len));
 }
 
 static void set(const struct datastore_item_const_metadata* item, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRING, "Unexpected value type");
-    strncpy((char*)item->value_ptr, value.data.string_value, item->type_info.buffer_info.max_len);
-    ((char*)(item->value_ptr))[item->type_info.buffer_info.max_len] = '\0';
+    strncpy((char*)item->value_ptr, value.data.string_value, item->constraints.buffer_constraints.max_len);
+    ((char*)(item->value_ptr))[item->constraints.buffer_constraints.max_len] = '\0';
 }
 
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value)
 {
     int ret = SUCCESS;
-    uint16_t len = strnlen((const char*)item->value_ptr, item->type_info.buffer_info.max_len);
+    uint16_t len = strnlen((const char*)item->value_ptr, item->constraints.buffer_constraints.max_len);
 
     void* string_block = NULL;
     ret = MEM_ALLOC(len, &string_block);
@@ -95,7 +96,7 @@ static bool is_default(const struct datastore_item_const_metadata* item)
     char* current_value = (char*)item->value_ptr;
     char* default_value = item->default_value.string_value;
 
-    return (strncmp(current_value, default_value, item->type_info.buffer_info.max_len) == 0);
+    return (strncmp(current_value, default_value, item->constraints.buffer_constraints.max_len) == 0);
 }
 
 //**********************************************************

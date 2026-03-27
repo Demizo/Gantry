@@ -51,8 +51,8 @@ static bool validate(const struct datastore_item_const_metadata* item, data_valu
     ASSERT(value.type == DATASTORE_ITEM_TYPE_BUFFER, "Unexpected value type");
     const buffer_t* new_value = value.data.buffer_value;
     return (
-        (new_value->len >= item->type_info.buffer_info.min_len) &&
-        (new_value->len <= item->type_info.buffer_info.max_len));
+        (new_value->len >= item->constraints.buffer_constraints.min_len) &&
+        (new_value->len <= item->constraints.buffer_constraints.max_len));
 }
 
 static void set(const struct datastore_item_const_metadata* item, data_value_t value)

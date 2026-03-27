@@ -58,9 +58,9 @@ const struct datastore_item_const_metadata
                 .interface = &datastore_string_interface,
                 .value_ptr = &datastore_values.datastore_hash,
                 .default_value = {.string_value = "TODO",},
-                .type_info =
+                .constraints =
                     {
-                        .buffer_info =
+                        .buffer_constraints =
                             {
                                 .min_len = DATASTORE_HASH_MIN_LEN,
                                 .max_len = DATASTORE_HASH_MAX_LEN,
@@ -77,9 +77,9 @@ const struct datastore_item_const_metadata
                 .interface = &datastore_string_interface,
                 .value_ptr = &datastore_values.device_name,
                 .default_value = {.string_value = "ZDS"},
-                .type_info =
+                .constraints =
                     {
-                        .buffer_info =
+                        .buffer_constraints =
                             {
                                 .min_len = DEVICE_NAME_MIN_LEN,
                                 .max_len = DEVICE_NAME_MAX_LEN,
@@ -96,9 +96,9 @@ const struct datastore_item_const_metadata
                 .interface = &datastore_int_interface,
                 .value_ptr = &datastore_values.version_code,
                 .default_value = {.int_value = 1},
-                .type_info =
+                .constraints =
                     {
-                        .int_info =
+                        .int_constraints =
                             {
                                 .min = VERSION_CODE_MIN,
                                 .max = VERSION_CODE_MAX,
@@ -115,9 +115,9 @@ const struct datastore_item_const_metadata
                 .interface = &datastore_float_interface,
                 .value_ptr = &datastore_values.test_float,
                 .default_value = {.float_value = 0.5f,},
-                .type_info =
+                .constraints =
                     {
-                        .float_info =
+                        .float_constraints =
                             {
                                 .min = TEST_FLOAT_MIN,
                                 .max = TEST_FLOAT_MAX,
@@ -134,9 +134,9 @@ const struct datastore_item_const_metadata
                 .interface = &datastore_byte_array_interface,
                 .value_ptr = &datastore_values.test_bytes,
                 .default_value = {.buffer_value = &default_test_bytes,},
-                .type_info =
+                .constraints =
                     {
-                        .buffer_info =
+                        .buffer_constraints =
                             {
                                 .min_len = TEST_BYTES_MIN_LEN,
                                 .max_len = TEST_BYTES_MAX_LEN,
@@ -153,9 +153,9 @@ const struct datastore_item_const_metadata
                 .interface = &datastore_buffer_interface,
                 .value_ptr = (void*)&datastore_values.test_buffer,
                 .default_value = {.buffer_value = &default_test_buffer,},
-                .type_info =
+                .constraints =
                     {
-                        .buffer_info =
+                        .buffer_constraints =
                             {
                                 .min_len = TEST_BUFFER_MIN_LEN,
                                 .max_len = TEST_BUFFER_MAX_LEN,
