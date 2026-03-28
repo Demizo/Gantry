@@ -32,8 +32,6 @@ if(CPPCHECK_CMD)
         COMMAND ${CPPCHECK_CMD}
             --quiet
             --enable=warning,performance,portability
-            --library=${CMAKE_CURRENT_SOURCE_DIR}/../cppcheck.cfg
-            --suppress=autovarInvalidDeallocation
             --check-level=exhaustive
             --error-exitcode=1
             --inconclusive
@@ -54,7 +52,7 @@ if(SPATCH_CMD)
         check_mem_leaks ALL
 
         COMMAND ${SPATCH_CMD}
-            --sp-file "${CMAKE_CURRENT_SOURCE_DIR}/../memory_leak_check.cocci"
+            --sp-file "${CMAKE_CURRENT_SOURCE_DIR}/../tools/memory_analysis/generated_leak_check.cocci"
             --dir "${CMAKE_CURRENT_SOURCE_DIR}/src/"
             --no-includes
             --very-quiet

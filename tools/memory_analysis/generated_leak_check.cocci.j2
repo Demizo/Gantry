@@ -14,30 +14,19 @@ expression E;
 position p;
 @@
 (
-    MEM_ALLOC(..., E)@p
+{% for f in alloc_functions + dealloc_functions %}
+    {{ f.name }}({% if not f.single_param %}..., {% endif %}E)@p
+    {% if not loop.last %}
 |
-    MEM_REF(E)@p
-|
-    MEM_UNREF(E)@p
-|
-    EVENT_ALLOC(..., E)@p
-|
-    EVENT_REF(E)@p
-|
-    EVENT_UNREF(E)@p
-|
-    datastore_get(..., E)@p
-|
-    datastore_decode(..., E)@p
-|
-    datastore_release(..., E)@p
+    {% endif %}
+{% endfor %}
 )
 
 @script:python@
 e << api_check.E;
 p << api_check.p;
 @@
-if "->" in e or "." in e or "[" in e:
+if "->" in e or "." in e or "[" in e or "(" in e:
     global errors
     errors += 1
     print(f"[{p[0].file}:{p[0].line}] POLICY ERROR: Used an expression ({e}) instead of an identifier. Static analysis requires the use of identifiers!")
@@ -53,52 +42,23 @@ position p1, p2;
 @@
 
 (
-    MEM_ALLOC(..., (T)&ptr)@p1
+{% for f in alloc_functions %}
+    {{ f.name }}({% if not f.single_param %}..., {% endif %}(T)&ptr)@p1
 |
-    MEM_ALLOC(..., &ptr)@p1
+    {{ f.name }}({% if not f.single_param %}..., {% endif %}&ptr)@p1
 |
-    MEM_ALLOC(..., ptr)@p1
+    {{ f.name }}({% if not f.single_param %}..., {% endif %}ptr)@p1
+    {% if not loop.last %}
 |
-    MEM_REF((T)&ptr)@p1
-|
-    MEM_REF(&ptr)@p1
-|
-    MEM_REF(ptr)@p1
-|
-    EVENT_ALLOC(..., (T)&ptr)@p1
-|
-    EVENT_ALLOC(..., &ptr)@p1
-|
-    EVENT_ALLOC(..., ptr)@p1
-|
-    EVENT_REF((T)&ptr)@p1
-|
-    EVENT_REF(&ptr)@p1
-|
-    EVENT_REF(ptr)@p1
-|
-    datastore_get(..., (T)&ptr)@p1
-|
-    datastore_get(..., &ptr)@p1
-|
-    datastore_get(..., ptr)@p1
-|
-    datastore_decode(..., (T)&ptr)@p1
-|
-    datastore_decode(..., &ptr)@p1
-|
-    datastore_decode(..., ptr)@p1
+    {% endif %}
+{% endfor %}
 )
-... 
-when != MEM_UNREF(&ptr)
-when != MEM_UNREF(ptr)
-when != EVENT_UNREF(&ptr)
-when != EVENT_UNREF(ptr)
-when != datastore_release(..., (T)&ptr)
-when != datastore_release(..., &ptr)
-when != datastore_release(..., ptr)
-when != PASS_OWNERSHIP(&ptr)
-when != PASS_OWNERSHIP(ptr)
+...
+{% for f in dealloc_functions %}
+when != {{ f.name }}({% if not f.single_param %}..., {% endif %}(T)&ptr)
+when != {{ f.name }}({% if not f.single_param %}..., {% endif %}&ptr)
+when != {{ f.name }}({% if not f.single_param %}..., {% endif %}ptr)
+{% endfor %}
 return ...;@p2
 
 @script:python@
