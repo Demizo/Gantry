@@ -19,6 +19,7 @@
 #include "buffer.h"
 #include "datastore_type_buffer.h"
 #include "datastore_type_byte_array.h"
+#include "datastore_type_enum.h"
 #include "datastore_type_float.h"
 #include "datastore_type_int.h"
 #include "datastore_type_string.h"
@@ -42,6 +43,17 @@ static buffer_t default_test_bytes = {
 };
 static buffer_t default_test_buffer = {
     .len = 0,
+};
+
+static const struct data_enum_value Toggle_enum_values[2] = {
+    {
+        .value = 0,
+        .name = "DISABLED",
+    },
+    {
+        .value = 1,
+        .name = "ENABLED",
+    },
 };
 
 struct datastore_values datastore_values = { 0 };
@@ -159,6 +171,25 @@ const struct datastore_item_const_metadata
                             {
                                 .min_len = TEST_BUFFER_MIN_LEN,
                                 .max_len = TEST_BUFFER_MAX_LEN,
+                            },
+                    },
+            },
+        [DATASTORE_ID_TEST_ENUM] =
+            {
+                .id =DATASTORE_ID_TEST_ENUM,
+                .name = "TestEnum",
+                .storage_type = DATASTORE_STORAGE_EPHEMERAL,
+                .permissions = {0, 0},
+                .type = DATASTORE_ITEM_TYPE_ENUM,
+                .interface = &datastore_enum_interface,
+                .value_ptr = &datastore_values.test_enum,
+                .default_value = {.int_value = Toggle_DISABLED,},
+                .constraints =
+                    {
+                        .enum_constraints =
+                            {
+                                .value_count = 2,
+                                .values = Toggle_enum_values,
                             },
                     },
             },

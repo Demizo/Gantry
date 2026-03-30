@@ -49,6 +49,12 @@
 //* Typedefs, Enums, and Structs
 //**********************************************************
 
+enum Toggle
+{
+    Toggle_DISABLED = 0,
+    Toggle_ENABLED = 1,
+};
+
 /**
  * @brief ID for each datastore item
  *
@@ -64,6 +70,7 @@ enum datastore_item_id
     DATASTORE_ID_TEST_FLOAT,
     DATASTORE_ID_TEST_BYTES,
     DATASTORE_ID_TEST_BUFFER,
+    DATASTORE_ID_TEST_ENUM,
     DATASTORE_ID_COUNT
 };
 
@@ -78,6 +85,7 @@ struct datastore_values
     float test_float;                                          /**< Test float */
     uint8_t test_bytes[sizeof(buffer_t) + TEST_BYTES_MAX_LEN]; /**< Test bytes */
     buffer_t* test_buffer;                                     /**< Test buffer */
+    int test_enum;                                             /**< Test enum */
 };
 
 /**

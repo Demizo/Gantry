@@ -55,7 +55,6 @@ typedef union
     int int_value;
     float float_value;
     char* string_value;
-    buffer_t* bytes_value;
     buffer_t* buffer_value;
 } raw_data_value_t;
 
@@ -90,6 +89,24 @@ struct datastore_item_permissions
 };
 
 /**
+ * @brief Value and name pair for an enum value
+ */
+struct data_enum_value
+{
+    int value;  /**< Numeric enum value */
+    char* name; /**< Name of the enum value */
+};
+
+/**
+ * @brief Constraints for enum items
+ */
+struct datastore_enum_constraints
+{
+    const uint16_t value_count;           /**< Number of possible enum values */
+    const struct data_enum_value* values; /**< Possible enum values */
+};
+
+/**
  * @brief Constraints for int items
  */
 struct datastore_int_constraints
@@ -121,6 +138,7 @@ struct datastore_buffer_constraints
  */
 union datastore_constraints
 {
+    struct datastore_enum_constraints enum_constraints;   /**< Constraints for enum items */
     struct datastore_int_constraints int_constraints;     /**< Constraints for int items */
     struct datastore_float_constraints float_constraints; /**< Constraints for float items */
     struct datastore_buffer_constraints

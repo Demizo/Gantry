@@ -5,6 +5,7 @@
 
 #include "buffer.h"
 #include "datastore.h"
+#include "datastore_type_enum.h"
 #include "datastore_types.h"
 #include "generated_datastore_items.h"
 #include "memory.h"
@@ -73,6 +74,14 @@ int main(void)
     LOG_HEXDUMP_INF(test_buffer.data.buffer_value->buf, test_buffer.data.buffer_value->len, "Test buffer");
     datastore_release(DATASTORE_ID_TEST_BUFFER, &test_buffer);
 
+    data_value_t test_enum = { 0 };
+    datastore_get(DATASTORE_ID_TEST_ENUM, &test_enum);
+    char* name = NULL;
+    (void)enum_get_name_from_value(
+        &g_datastore_const_metadata[DATASTORE_ID_TEST_ENUM], test_enum.data.int_value, &name);
+    LOG_INF("Test enum %d (%s)", test_enum.data.int_value, name);
+    datastore_release(DATASTORE_ID_TEST_ENUM, &test_enum);
+
     // Test setting datastore items
     data_value_t new_version_code = {
         .type = DATASTORE_ITEM_TYPE_INT,
@@ -121,6 +130,18 @@ int main(void)
     (void)datastore_get(DATASTORE_ID_TEST_BUFFER, &test_buffer);
     LOG_HEXDUMP_INF(test_buffer.data.buffer_value->buf, test_buffer.data.buffer_value->len, "Test buffer");
     datastore_release(DATASTORE_ID_TEST_BUFFER, &test_buffer);
+
+    data_value_t new_test_enum = {
+        .type = DATASTORE_ITEM_TYPE_ENUM,
+        .data.int_value = 1,
+    };
+    (void)datastore_set(DATASTORE_ID_TEST_ENUM, new_test_enum);
+    datastore_get(DATASTORE_ID_TEST_ENUM, &test_enum);
+    char* new_name = NULL;
+    (void)enum_get_name_from_value(
+        &g_datastore_const_metadata[DATASTORE_ID_TEST_ENUM], test_enum.data.int_value, &new_name);
+    LOG_INF("Test enum %d (%s)", test_enum.data.int_value, new_name);
+    datastore_release(DATASTORE_ID_TEST_ENUM, &test_enum);
 
     while (1)
     {
