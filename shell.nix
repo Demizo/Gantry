@@ -21,5 +21,6 @@ pkgs.mkShell {
     uv
     cppcheck
     coccinelle
+    clang-tools
   ];
 }

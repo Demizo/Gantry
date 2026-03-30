@@ -33,6 +33,10 @@ analyze:
   spatch --sp-file tools/memory_analysis/generated_leak_check.cocci --dir app/src/ --no-includes --very-quiet
   cppcheck --quiet --enable=warning,performance,portability --check-level=exhaustive --error-exitcode=1 --inconclusive app/src/
 
+# Format all files
+format:
+  find app -iname "*.c" -o -iname "*.h" | xargs clang-format -i 
+
 # Generate documentation
 docs:
   cd app && doxygen Doxyfile
