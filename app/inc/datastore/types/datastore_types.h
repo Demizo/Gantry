@@ -72,7 +72,6 @@ typedef struct
  */
 enum datastore_storage_type
 {
-    DATASTORE_STORAGE_CONSTANT,   /**< Value is defined at compile time and cannot be changed */
     DATASTORE_STORAGE_EPHEMERAL,  /**< Items are reset to their default value upon reboot */
     DATASTORE_STORAGE_PERSISTENT, /**< Items are stored in non-volatile storage. Their values persist across reboots. */
     DATASTORE_STORAGE_TOFU,       /**< Item can be written while at its default value. It cannot be changed again. */
@@ -80,12 +79,24 @@ enum datastore_storage_type
 };
 
 /**
+ * @brief Authentication levels
+ */
+enum datastore_auth_level
+{
+    AUTH_NONE,     /**< Access does not require authentication */
+    AUTH_SESSION,  /**< Access requires a authenticated session */
+    AUTH_DEV,      /**< Only dev sessions have access */
+    AUTH_INTERNAL, /**< Only internal modules have access */
+    AUTH_NO_ACCESS /**< No access permitted */
+};
+
+/**
  * @brief Permission levels required to read or write an associated data item
  */
-struct datastore_item_permissions
+struct datastore_permissions
 {
-    uint8_t read_permissions;  /**< Permission level required to read the item value */
-    uint8_t write_permissions; /**< Permission level required to write the item value */
+    enum datastore_auth_level read_permissions;  /**< Permission level required to read the item value */
+    enum datastore_auth_level write_permissions; /**< Permission level required to write the item value */
 };
 
 /**
@@ -179,7 +190,7 @@ struct datastore_item_const_metadata
     uint32_t id;      /**< A datastore item ID, see @ref datastore_item_id */
     const char* name; /**< Name of the item. This must be unique, including across firmware versions */
     enum datastore_storage_type storage_type;         /**< Storage type of the data item */
-    struct datastore_item_permissions permissions;    /**< Read/write permissions for the data item */
+    struct datastore_permissions permissions;         /**< Read/write permissions for the data item */
     enum datastore_item_type type;                    /**< Type of the data item */
     const struct datastore_item_interface* interface; /**< Common interface for data items */
     void* value_ptr;                                  /**< Pointer to the item's value */

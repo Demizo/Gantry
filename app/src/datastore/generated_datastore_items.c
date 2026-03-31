@@ -64,7 +64,7 @@ const struct datastore_item_const_metadata
             {
                 .id = DATASTORE_ID_DATASTORE_HASH,
                 .name = "DatastoreHash",
-                .storage_type = DATASTORE_STORAGE_CONSTANT,
+                .storage_type = DATASTORE_STORAGE_EPHEMERAL,
                 .permissions = {0, 0},
                 .type = DATASTORE_ITEM_TYPE_STRING,
                 .interface = &datastore_string_interface,
@@ -102,7 +102,7 @@ const struct datastore_item_const_metadata
             {
                 .id = DATASTORE_ID_VERSION_CODE,
                 .name = "VersionCode",
-                .storage_type = DATASTORE_STORAGE_PERSISTENT,
+                .storage_type = DATASTORE_STORAGE_TOFU,
                 .permissions = {0, 0},
                 .type = DATASTORE_ITEM_TYPE_INT,
                 .interface = &datastore_int_interface,

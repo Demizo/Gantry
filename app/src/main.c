@@ -50,32 +50,32 @@ int main(void)
 
     // Test reading datastore items
     data_value_t version_code = { 0 };
-    datastore_get(DATASTORE_ID_VERSION_CODE, &version_code);
+    datastore_get(AUTH_INTERNAL, DATASTORE_ID_VERSION_CODE, &version_code);
     LOG_INF("Version code %d", version_code.data.int_value);
     datastore_release(DATASTORE_ID_VERSION_CODE, &version_code);
 
     data_value_t device_name = { 0 };
-    datastore_get(DATASTORE_ID_DEVICE_NAME, &device_name);
+    datastore_get(AUTH_INTERNAL, DATASTORE_ID_DEVICE_NAME, &device_name);
     LOG_INF("Device name %s", device_name.data.string_value);
     datastore_release(DATASTORE_ID_DEVICE_NAME, &device_name);
 
     data_value_t test_float = { 0 };
-    datastore_get(DATASTORE_ID_TEST_FLOAT, &test_float);
+    datastore_get(AUTH_INTERNAL, DATASTORE_ID_TEST_FLOAT, &test_float);
     LOG_INF("Test float %f", (double)test_float.data.float_value);
     datastore_release(DATASTORE_ID_TEST_FLOAT, &test_float);
 
     data_value_t test_bytes = { 0 };
-    datastore_get(DATASTORE_ID_TEST_BYTES, &test_bytes);
+    datastore_get(AUTH_INTERNAL, DATASTORE_ID_TEST_BYTES, &test_bytes);
     LOG_HEXDUMP_INF(test_bytes.data.buffer_value->buf, test_bytes.data.buffer_value->len, "Test bytes");
     datastore_release(DATASTORE_ID_TEST_BYTES, &test_bytes);
 
     data_value_t test_buffer = { 0 };
-    datastore_get(DATASTORE_ID_TEST_BUFFER, &test_buffer);
+    datastore_get(AUTH_INTERNAL, DATASTORE_ID_TEST_BUFFER, &test_buffer);
     LOG_HEXDUMP_INF(test_buffer.data.buffer_value->buf, test_buffer.data.buffer_value->len, "Test buffer");
     datastore_release(DATASTORE_ID_TEST_BUFFER, &test_buffer);
 
     data_value_t test_enum = { 0 };
-    datastore_get(DATASTORE_ID_TEST_ENUM, &test_enum);
+    datastore_get(AUTH_INTERNAL, DATASTORE_ID_TEST_ENUM, &test_enum);
     char* name = NULL;
     (void)enum_get_name_from_value(
         &g_datastore_const_metadata[DATASTORE_ID_TEST_ENUM], test_enum.data.int_value, &name);
@@ -87,8 +87,8 @@ int main(void)
         .type = DATASTORE_ITEM_TYPE_INT,
         .data.int_value = 2,
     };
-    (void)datastore_set(DATASTORE_ID_VERSION_CODE, new_version_code);
-    datastore_get(DATASTORE_ID_VERSION_CODE, &version_code);
+    (void)datastore_set(AUTH_INTERNAL, DATASTORE_ID_VERSION_CODE, new_version_code);
+    datastore_get(AUTH_INTERNAL, DATASTORE_ID_VERSION_CODE, &version_code);
     LOG_INF("Version code %d", version_code.data.int_value);
     datastore_release(DATASTORE_ID_VERSION_CODE, &version_code);
 
@@ -96,8 +96,8 @@ int main(void)
         .type = DATASTORE_ITEM_TYPE_STRING,
         .data.string_value = "New ZDS awesome name!!!!!",
     };
-    (void)datastore_set(DATASTORE_ID_DEVICE_NAME, new_device_name);
-    datastore_get(DATASTORE_ID_DEVICE_NAME, &device_name);
+    (void)datastore_set(AUTH_INTERNAL, DATASTORE_ID_DEVICE_NAME, new_device_name);
+    datastore_get(AUTH_INTERNAL, DATASTORE_ID_DEVICE_NAME, &device_name);
     LOG_INF("Device name %s", device_name.data.string_value);
     datastore_release(DATASTORE_ID_DEVICE_NAME, &device_name);
 
@@ -105,8 +105,8 @@ int main(void)
         .type = DATASTORE_ITEM_TYPE_FLOAT,
         .data.float_value = 24.5f,
     };
-    (void)datastore_set(DATASTORE_ID_TEST_FLOAT, new_test_float);
-    datastore_get(DATASTORE_ID_TEST_FLOAT, &test_float);
+    (void)datastore_set(AUTH_INTERNAL, DATASTORE_ID_TEST_FLOAT, new_test_float);
+    datastore_get(AUTH_INTERNAL, DATASTORE_ID_TEST_FLOAT, &test_float);
     LOG_INF("Test float %f", (double)test_float.data.float_value);
     datastore_release(DATASTORE_ID_TEST_FLOAT, &test_float);
 
@@ -115,8 +115,8 @@ int main(void)
         .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY,
         .data.buffer_value = new_test_bytes_data,
     };
-    datastore_set(DATASTORE_ID_TEST_BYTES, new_test_bytes);
-    (void)datastore_get(DATASTORE_ID_TEST_BYTES, &test_bytes);
+    datastore_set(AUTH_INTERNAL, DATASTORE_ID_TEST_BYTES, new_test_bytes);
+    (void)datastore_get(AUTH_INTERNAL, DATASTORE_ID_TEST_BYTES, &test_bytes);
     LOG_HEXDUMP_INF(test_bytes.data.buffer_value->buf, test_bytes.data.buffer_value->len, "Test bytes");
     datastore_release(DATASTORE_ID_TEST_BYTES, &test_bytes);
 
@@ -126,8 +126,8 @@ int main(void)
         .type = DATASTORE_ITEM_TYPE_BUFFER,
         .data.buffer_value = new_test_buffer_data,
     };
-    datastore_set(DATASTORE_ID_TEST_BUFFER, new_test_buffer);
-    (void)datastore_get(DATASTORE_ID_TEST_BUFFER, &test_buffer);
+    datastore_set(AUTH_INTERNAL, DATASTORE_ID_TEST_BUFFER, new_test_buffer);
+    (void)datastore_get(AUTH_INTERNAL, DATASTORE_ID_TEST_BUFFER, &test_buffer);
     LOG_HEXDUMP_INF(test_buffer.data.buffer_value->buf, test_buffer.data.buffer_value->len, "Test buffer");
     datastore_release(DATASTORE_ID_TEST_BUFFER, &test_buffer);
 
@@ -135,8 +135,8 @@ int main(void)
         .type = DATASTORE_ITEM_TYPE_ENUM,
         .data.int_value = 1,
     };
-    (void)datastore_set(DATASTORE_ID_TEST_ENUM, new_test_enum);
-    datastore_get(DATASTORE_ID_TEST_ENUM, &test_enum);
+    (void)datastore_set(AUTH_INTERNAL, DATASTORE_ID_TEST_ENUM, new_test_enum);
+    datastore_get(AUTH_INTERNAL, DATASTORE_ID_TEST_ENUM, &test_enum);
     char* new_name = NULL;
     (void)enum_get_name_from_value(
         &g_datastore_const_metadata[DATASTORE_ID_TEST_ENUM], test_enum.data.int_value, &new_name);

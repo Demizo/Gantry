@@ -98,26 +98,30 @@ void datastore_init(void);
 /**
  * @brief Set the value of a data item
  *
+ * @param current_auth The current authentication level
  * @param id Item ID to modify
  * @param value The desired value
  *
  * @return SUCCESS when the value is set
+ * @return -EACCES when the current authentication level is not sufficient
  * @return -EINVAL when the provided value or item ID is invalid
  * @return -ENOMEM when the value cannot be stored
  */
-int datastore_set(enum datastore_item_id id, data_value_t value);
+int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id id, data_value_t value);
 
 /**
  * @brief Get the current value of a data item
  *
+ * @param[in] current_auth The current authentication level
  * @param[in] id Item ID to retrieve
  * @param[out] out_value Pointer to be populated with the item's current value
  *
  * @return SUCCESS when the value was retrieved
+ * @return -EACCES when the current authentication level is not sufficient
  * @return -EINVAL when the provided item ID is invalid or the output pointer is NULL
  * @return -ENOMEM when the value cannot be retrieved
  */
-int datastore_get(enum datastore_item_id id, data_value_t* out_value);
+int datastore_get(enum datastore_auth_level current_auth, enum datastore_item_id id, data_value_t* out_value);
 
 /**
  * @brief Release a previously retrieved data item value
