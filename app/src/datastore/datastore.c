@@ -56,16 +56,11 @@ void datastore_init(void)
     return;
 }
 
+bool datastore_is_id_valid(uint32_t id) { return id < DATASTORE_ID_COUNT; }
+
 int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id id, data_value_t value)
 {
     int ret = SUCCESS;
-
-    // Validate ID
-    if ((id < 0) || (id >= DATASTORE_ID_COUNT))
-    {
-        LOG_ERR("Invalid item id (%d)", id);
-        return -EINVAL;
-    }
     const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[id];
 
     // Check permissions
@@ -101,12 +96,6 @@ int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id
 
 int datastore_get(enum datastore_auth_level current_auth, enum datastore_item_id id, data_value_t* out_value)
 {
-    // Validate ID
-    if ((id < 0) || (id >= DATASTORE_ID_COUNT))
-    {
-        LOG_ERR("Invalid item id (%d)", id);
-        return -EINVAL;
-    }
     const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[id];
 
     // Check permissions

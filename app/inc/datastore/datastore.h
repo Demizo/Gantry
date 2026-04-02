@@ -96,6 +96,15 @@ struct datastore_item_dynamic_metadata
 void datastore_init(void);
 
 /**
+ * @brief Check if a numeric ID is a valid datastore item ID
+ *
+ * @param id the numeric ID to check
+ * @return true If the ID can be cast to a @ref datastore_item_id
+ * @return false If the ID is not a valid item ID
+ */
+bool datastore_is_id_valid(uint32_t id);
+
+/**
  * @brief Set the value of a data item
  *
  * @param current_auth The current authentication level
@@ -104,7 +113,7 @@ void datastore_init(void);
  *
  * @return SUCCESS when the value is set
  * @return -EACCES when the current authentication level is not sufficient
- * @return -EINVAL when the provided value or item ID is invalid
+ * @return -EINVAL when the provided value is invalid
  * @return -ENOMEM when the value cannot be stored
  */
 int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id id, data_value_t value);
@@ -118,7 +127,7 @@ int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id
  *
  * @return SUCCESS when the value was retrieved
  * @return -EACCES when the current authentication level is not sufficient
- * @return -EINVAL when the provided item ID is invalid or the output pointer is NULL
+ * @return -EINVAL when the output pointer is NULL
  * @return -ENOMEM when the value cannot be retrieved
  */
 int datastore_get(enum datastore_auth_level current_auth, enum datastore_item_id id, data_value_t* out_value);
