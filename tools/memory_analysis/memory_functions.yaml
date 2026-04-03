@@ -1,23 +1,39 @@
 alloc_functions:
   - name: MEM_ALLOC
     single_param: false
+  - name: mem_alloc
+    single_param: false
   - name: MEM_REF
+    single_param: true
+  - name: mem_ref
     single_param: true
   - name: EVENT_ALLOC
     single_param: false
+  - name: event_alloc
+    single_param: false
   - name: EVENT_REF
     single_param: true
-  - name: datastore_get
+  - name: event_ref
+    single_param: true
+  - name: DATASTORE_GET
     single_param: false
-  - name: datastore_decode
+  - name: datastore_get
     single_param: false
 
 dealloc_functions:
   - name: MEM_UNREF
     single_param: true
+  - name: mem_unref
+    single_param: true
   - name: EVENT_UNREF
     single_param: true
+  - name: event_unref
+    single_param: true
+  - name: DATASTORE_RELEASE
+    single_param: false
   - name: datastore_release
     single_param: false
   - name: PASS_OWNERSHIP
+    single_param: true
+  - name: NOT_REFERENCED
     single_param: true

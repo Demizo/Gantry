@@ -68,7 +68,7 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
     uint16_t len = strnlen((const char*)item->value_ptr, item->constraints.buffer_constraints.max_len);
 
     void* string_block = NULL;
-    ret = MEM_ALLOC(len, &string_block);
+    ret = mem_alloc(len, &string_block);
     if (ret == SUCCESS)
     {
         strncpy((char*)string_block, (const char*)item->value_ptr, len);
@@ -88,7 +88,7 @@ static int release(const struct datastore_item_const_metadata* item, data_value_
     ASSERT(value->type == DATASTORE_ITEM_TYPE_STRING, "Unexpected value type");
 
     void* string_block = value->data.string_value;
-    return MEM_UNREF(&string_block);
+    return mem_unref(&string_block);
 }
 
 static bool is_default(const struct datastore_item_const_metadata* item)

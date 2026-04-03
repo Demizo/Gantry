@@ -25,6 +25,10 @@ LOG_MODULE_REGISTER(mem_mgr, CONFIG_MEM_LOG_LEVEL);
 //* Local Definitions
 //**********************************************************
 
+#ifdef CONFIG_MEM_TRACE
+volatile mem_trace_info_t g_current_mem_trace = { 0 };
+#endif
+
 //**********************************************************
 //* Local typedefs
 //**********************************************************
@@ -145,7 +149,7 @@ STATIC_UNIT mem_block_header_t* validate_and_get_header(void* block)
 //* Public Function Definitions
 //**********************************************************
 
-int mem_alloc(size_t size, void** block_ptr _ALLOC_TRACE)
+int mem_alloc(size_t size, void** block_ptr)
 {
     int ret = SUCCESS;
     void* block = NULL;
@@ -212,7 +216,7 @@ int mem_alloc(size_t size, void** block_ptr _ALLOC_TRACE)
             memcpy(header->magic, magic, sizeof(magic));
             header->pool = pool_size;
 #ifdef CONFIG_MEM_TRACE
-            header->func = func;
+            header->func = g_current_mem_trace.func;
 #endif
             header->ref_count = 1;
 
@@ -221,7 +225,8 @@ int mem_alloc(size_t size, void** block_ptr _ALLOC_TRACE)
 #ifdef CONFIG_MEM_TRACE
             LOG_DBG(
                 "Allocated %zu bytes from pool %d, block: %p, [%s:%d]: %s", size, pool_size, *block_ptr,
-                file ? file : "unknown", line, func ? func : "unknown");
+                g_current_mem_trace.file ? g_current_mem_trace.file : "unknown", g_current_mem_trace.line,
+                g_current_mem_trace.func ? g_current_mem_trace.func : "unknown");
 #endif
             break;
         }
@@ -241,7 +246,7 @@ int mem_alloc(size_t size, void** block_ptr _ALLOC_TRACE)
     return SUCCESS;
 }
 
-int mem_ref(void* block _REF_TRACE)
+int mem_ref(void* block)
 {
     if (block == NULL)
     {
@@ -271,7 +276,8 @@ int mem_ref(void* block _REF_TRACE)
 #ifdef CONFIG_MEM_TRACE
     LOG_DBG(
         "Referenced block %p (count: %d), allocated by %s [%s:%d]", block, header->ref_count,
-        header->func ? header->func : "unknown", file ? file : "unknown", line);
+        header->func ? header->func : "unknown", g_current_mem_trace.file ? g_current_mem_trace.file : "unknown",
+        g_current_mem_trace.line);
 #endif
 
     irq_unlock(key);
@@ -279,7 +285,7 @@ int mem_ref(void* block _REF_TRACE)
     return SUCCESS;
 }
 
-int mem_unref(void** block_ptr _REF_TRACE)
+int mem_unref(void** block_ptr)
 {
     if (block_ptr == NULL)
     {
@@ -316,7 +322,7 @@ int mem_unref(void** block_ptr _REF_TRACE)
 #ifdef CONFIG_MEM_TRACE
         LOG_DBG(
             "Freed block %p, allocated by %s [%s:%d]", *block_ptr, header->func ? header->func : "unknown",
-            file ? file : "unknown", line);
+            g_current_mem_trace.file ? g_current_mem_trace.file : "unknown", g_current_mem_trace.line);
 #endif
         *block_ptr = NULL;
     }
@@ -325,7 +331,8 @@ int mem_unref(void** block_ptr _REF_TRACE)
 #ifdef CONFIG_MEM_TRACE
         LOG_DBG(
             "Dereferenced block %p (count: %d), allocated by %s [%s:%d]", *block_ptr, header->ref_count,
-            header->func ? header->func : "unknown", file ? file : "unknown", line);
+            header->func ? header->func : "unknown", g_current_mem_trace.file ? g_current_mem_trace.file : "unknown",
+            g_current_mem_trace.line);
 #endif
     }
 

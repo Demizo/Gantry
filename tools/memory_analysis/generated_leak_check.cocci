@@ -16,23 +16,39 @@ position p;
 (
     MEM_ALLOC(..., E)@p
 |
+    mem_alloc(..., E)@p
+|
     MEM_REF(E)@p
+|
+    mem_ref(E)@p
 |
     EVENT_ALLOC(..., E)@p
 |
+    event_alloc(..., E)@p
+|
     EVENT_REF(E)@p
+|
+    event_ref(E)@p
+|
+    DATASTORE_GET(..., E)@p
 |
     datastore_get(..., E)@p
 |
-    datastore_decode(..., E)@p
-|
     MEM_UNREF(E)@p
 |
+    mem_unref(E)@p
+|
     EVENT_UNREF(E)@p
+|
+    event_unref(E)@p
+|
+    DATASTORE_RELEASE(..., E)@p
 |
     datastore_release(..., E)@p
 |
     PASS_OWNERSHIP(E)@p
+|
+    NOT_REFERENCED(E)@p
 )
 
 @script:python@
@@ -61,11 +77,23 @@ position p1, p2;
 |
     MEM_ALLOC(..., ptr)@p1
 |
+    mem_alloc(..., (T)&ptr)@p1
+|
+    mem_alloc(..., &ptr)@p1
+|
+    mem_alloc(..., ptr)@p1
+|
     MEM_REF((T)&ptr)@p1
 |
     MEM_REF(&ptr)@p1
 |
     MEM_REF(ptr)@p1
+|
+    mem_ref((T)&ptr)@p1
+|
+    mem_ref(&ptr)@p1
+|
+    mem_ref(ptr)@p1
 |
     EVENT_ALLOC(..., (T)&ptr)@p1
 |
@@ -73,37 +101,61 @@ position p1, p2;
 |
     EVENT_ALLOC(..., ptr)@p1
 |
+    event_alloc(..., (T)&ptr)@p1
+|
+    event_alloc(..., &ptr)@p1
+|
+    event_alloc(..., ptr)@p1
+|
     EVENT_REF((T)&ptr)@p1
 |
     EVENT_REF(&ptr)@p1
 |
     EVENT_REF(ptr)@p1
 |
+    event_ref((T)&ptr)@p1
+|
+    event_ref(&ptr)@p1
+|
+    event_ref(ptr)@p1
+|
+    DATASTORE_GET(..., (T)&ptr)@p1
+|
+    DATASTORE_GET(..., &ptr)@p1
+|
+    DATASTORE_GET(..., ptr)@p1
+|
     datastore_get(..., (T)&ptr)@p1
 |
     datastore_get(..., &ptr)@p1
 |
     datastore_get(..., ptr)@p1
-|
-    datastore_decode(..., (T)&ptr)@p1
-|
-    datastore_decode(..., &ptr)@p1
-|
-    datastore_decode(..., ptr)@p1
 )
 ...
 when != MEM_UNREF((T)&ptr)
 when != MEM_UNREF(&ptr)
 when != MEM_UNREF(ptr)
+when != mem_unref((T)&ptr)
+when != mem_unref(&ptr)
+when != mem_unref(ptr)
 when != EVENT_UNREF((T)&ptr)
 when != EVENT_UNREF(&ptr)
 when != EVENT_UNREF(ptr)
+when != event_unref((T)&ptr)
+when != event_unref(&ptr)
+when != event_unref(ptr)
+when != DATASTORE_RELEASE(..., (T)&ptr)
+when != DATASTORE_RELEASE(..., &ptr)
+when != DATASTORE_RELEASE(..., ptr)
 when != datastore_release(..., (T)&ptr)
 when != datastore_release(..., &ptr)
 when != datastore_release(..., ptr)
 when != PASS_OWNERSHIP((T)&ptr)
 when != PASS_OWNERSHIP(&ptr)
 when != PASS_OWNERSHIP(ptr)
+when != NOT_REFERENCED((T)&ptr)
+when != NOT_REFERENCED(&ptr)
+when != NOT_REFERENCED(ptr)
 return ...;@p2
 
 @script:python@

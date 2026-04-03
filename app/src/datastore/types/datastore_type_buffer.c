@@ -63,7 +63,7 @@ static void set(const struct datastore_item_const_metadata* item, data_value_t v
 
     // Create new buffer block
     void* new_buffer_block = NULL;
-    ret = MEM_ALLOC(sizeof(buffer_t) + buffer->len, &new_buffer_block);
+    ret = mem_alloc(sizeof(buffer_t) + buffer->len, &new_buffer_block);
     if (ret != SUCCESS)
     {
         // Block was not allocated
@@ -78,7 +78,7 @@ static void set(const struct datastore_item_const_metadata* item, data_value_t v
 
     // Unreference old buffer block
     void* old_buffer_block = *(void**)item->value_ptr;
-    (void)MEM_UNREF(&old_buffer_block);
+    (void)mem_unref(&old_buffer_block);
 
     // Set item to new buffer
     *(buffer_t**)(item->value_ptr) = (buffer_t*)new_buffer_block;
@@ -90,7 +90,7 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
     int ret = SUCCESS;
     void* current_buffer_block = *(void**)item->value_ptr;
 
-    ret = MEM_REF(current_buffer_block);
+    ret = mem_ref(current_buffer_block);
     if (ret == SUCCESS)
     {
         out_value->type = DATASTORE_ITEM_TYPE_BUFFER;
@@ -107,7 +107,7 @@ static int release(const struct datastore_item_const_metadata* item, data_value_
     ASSERT(value->type == DATASTORE_ITEM_TYPE_BUFFER, "Unexpected value type");
 
     void* buffer_block = value->data.buffer_value;
-    return MEM_UNREF(&buffer_block);
+    return mem_unref(&buffer_block);
 }
 
 static bool is_default(const struct datastore_item_const_metadata* item)

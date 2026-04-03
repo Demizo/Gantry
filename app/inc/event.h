@@ -98,11 +98,10 @@ struct event_t
  * @param[in] format The format of the event
  * @param[out] event_ptr Pointer to be populated with the address of an event. This pointer must point to a NULL
  * pointer when this function is called. It is only populated when the allocation succeeds.
- * @param[in] _ALLOC_TRACE Trace information used for debugging
  *
  * @return result of @ref mem_alloc
  */
-int event_alloc(size_t size, event_direction_t direction, event_format_t format, event_t** event_ptr _ALLOC_TRACE);
+int event_alloc(size_t size, event_direction_t direction, event_format_t format, event_t** event_ptr);
 
 /**
  * @brief Increment the reference count of an event and all linked events
@@ -111,11 +110,10 @@ int event_alloc(size_t size, event_direction_t direction, event_format_t format,
  * information filled in.
  *
  * @param[in] event The event pointer to be reference counted
- * @param[in] _REF_TRACE Trace information used for debugging
  *
  * @return result of @ref mem_ref
  */
-int event_ref(event_t* event _REF_TRACE);
+int event_ref(event_t* event);
 
 /**
  * @brief Dencrement the reference count of an event and all linked events
@@ -128,11 +126,10 @@ int event_ref(event_t* event _REF_TRACE);
  *
  * @param[in,out] event_ptr A pointer to the event pointer to be dereferenced. If the reference count reaches 0,
  * the event pointer will be set to NULL.
- * @param[in] _REF_TRACE Trace information used for debugging
  *
  * @return result of @ref mem_unref
  */
-int event_unref(event_t** event_ptr _REF_TRACE);
+int event_unref(event_t** event_ptr);
 
 /**
  * @brief Initialize an event structure
@@ -150,22 +147,19 @@ int event_unref(event_t** event_ptr _REF_TRACE);
 void event_init(event_t* event, size_t size, event_direction_t direction, event_format_t format);
 
 /**
- * @brief Convenience macro for event allocation with automatic file/line
- * tracking
+ * @brief Convenience macro for @ref event_alloc with memory tracing
  */
-#define EVENT_ALLOC(size, direction, format, event) event_alloc(size, direction, format, event _ALLOC_TRACE_INPUT)
+#define EVENT_ALLOC(size, direction, format, event) TRACE_WRAP(event_alloc(size, direction, format, event))
 
 /**
- * @brief Convenience macro for event referencing with automatic file/line
- * tracking
+ * @brief Convenience macro for @ref event_ref with memory tracing
  */
-#define EVENT_REF(event) event_ref(event _REF_TRACE_INPUT)
+#define EVENT_REF(event) TRACE_WRAP(event_ref(event))
 
 /**
- * @brief Convenience macro for event unreferencing with automatic file/line
- * tracking
+ * @brief Convenience macro for @ref event_unref with memory tracing
  */
-#define EVENT_UNREF(event) event_unref(event _REF_TRACE_INPUT)
+#define EVENT_UNREF(event) TRACE_WRAP(event_unref(event))
 
 /**
  * @}

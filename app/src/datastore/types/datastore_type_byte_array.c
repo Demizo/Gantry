@@ -72,7 +72,7 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
     uint16_t len = current_value->len;
 
     void* buffer_block = NULL;
-    ret = MEM_ALLOC(sizeof(buffer_t) + len, &buffer_block);
+    ret = mem_alloc(sizeof(buffer_t) + len, &buffer_block);
     if (ret == SUCCESS)
     {
         buffer_t* buffer = (buffer_t*)buffer_block;
@@ -93,7 +93,7 @@ static int release(const struct datastore_item_const_metadata* item, data_value_
     ASSERT(value->type == DATASTORE_ITEM_TYPE_BYTE_ARRAY, "Unexpected value type");
 
     void* buffer_block = value->data.buffer_value;
-    return MEM_UNREF(&buffer_block);
+    return mem_unref(&buffer_block);
 }
 
 static bool is_default(const struct datastore_item_const_metadata* item)

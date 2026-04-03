@@ -43,21 +43,60 @@
 //**********************************************************
 
 #ifdef CONFIG_MEM_TRACE
-#define _ALLOC_TRACE , const char *func, const char *file, int line
-#define _ALLOC_TRACE_INPUT , __func__, __FILE__, __LINE__
-#define _ALLOC_TRACE_PASSTHROUGH , func, file, line
+typedef struct
+{
+    const char* func;
+    const char* file;
+    int line;
+} mem_trace_info_t;
 
-#define _REF_TRACE , const char *file, int line
-#define _REF_TRACE_INPUT , __FILE__, __LINE__
-#define _REF_TRACE_PASSTHROUGH , file, line
+extern volatile mem_trace_info_t g_current_mem_trace;
+
+#define TRACE_WRAP(func_call)                                                     \
+    ({                                                                            \
+        mem_trace_info_t _prev;                                                   \
+        unsigned int _key = irq_lock();                                           \
+        _prev = g_current_mem_trace;                                              \
+        g_current_mem_trace = (mem_trace_info_t){ __func__, __FILE__, __LINE__ }; \
+        irq_unlock(_key);                                                         \
+        __auto_type _ret = (func_call);                                           \
+        _key = irq_lock();                                                        \
+        g_current_mem_trace = _prev;                                              \
+        irq_unlock(_key);                                                         \
+        _ret;                                                                     \
+    })
+
+#define TRACE_WRAP_VOID(func_call)                                                \
+    do                                                                            \
+    {                                                                             \
+        mem_trace_info_t _prev;                                                   \
+        unsigned int _key = irq_lock();                                           \
+        _prev = g_current_mem_trace;                                              \
+        g_current_mem_trace = (mem_trace_info_t){ __func__, __FILE__, __LINE__ }; \
+        irq_unlock(_key);                                                         \
+        (func_call);                                                              \
+        _key = irq_lock();                                                        \
+        g_current_mem_trace = _prev;                                              \
+        irq_unlock(_key);                                                         \
+    } while (0)
+
 #else
-#define _ALLOC_TRACE
-#define _ALLOC_TRACE_INPUT
-#define _ALLOC_TRACE_PASSTHROUGH
 
-#define _REF_TRACE
-#define _REF_TRACE_INPUT
-#define _REF_TRACE_PASSTHROUGH
+/**
+ * @brief Call a function with the current location as the memory trace
+ *
+ * @details This macro sets and restores the trace in a threadsafe manner.
+ * It can be used in ISR contexts. When tracing is disabled this wrapper has no effect.
+ */
+#define TRACE_WRAP(func_call) (func_call)
+
+/**
+ * @brief Call a function with the current location as the memory trace
+ *
+ * @details Variant of @ref TRACE_WRAP for functions that have no return value.
+ */
+#define TRACE_WRAP_VOID(func_call) (func_call)
+
 #endif
 
 //**********************************************************
@@ -80,7 +119,6 @@
  * @param[in] size The requested buffer size in bytes
  * @param[out] block_ptr Pointer to be populated with the address of memory block. This pointer must point to a NULL
  * pointer when this function is called. It is only populated when the allocation succeeds.
- * @param[in] _ALLOC_TRACE Trace information used for debugging
  *
  * @return SUCCESS when the allocation is successful.
  * @return -EINVAL the provided pointer was NULL, a size of 0 was requested, or the requested size was larger than the
@@ -88,7 +126,7 @@
  * @return -ENOTEMPTY the block pointer was not pointing to a NULL pointer.
  * @return -ENOMEM No blocks were available that could fit the requested size.
  */
-int mem_alloc(size_t size, void** block_ptr _ALLOC_TRACE);
+int mem_alloc(size_t size, void** block_ptr);
 
 /**
  * @brief Increment the reference count of a memory block
@@ -97,13 +135,12 @@ int mem_alloc(size_t size, void** block_ptr _ALLOC_TRACE);
  * information filled in.
  *
  * @param[in] block The memory block pointer to be reference counted
- * @param[in] _REF_TRACE Trace information used for debugging
  *
  * @return SUCCESS when the block's reference count was incremented
  * @return -EINVAL when the provided pointer was not a valid memory block
  * @return -ENOMEM when the block already has the maximum number of references
  */
-int mem_ref(void* block _REF_TRACE);
+int mem_ref(void* block);
 
 /**
  * @brief Dencrement the reference count of a memory block
@@ -116,32 +153,36 @@ int mem_ref(void* block _REF_TRACE);
  *
  * @param[in,out] block_ptr A pointer to the memory block pointer to be dereferenced. If the reference count reaches 0,
  * the block pointer will be set to NULL.
- * @param[in] _REF_TRACE Trace information used for debugging
  *
  * @return SUCCESS when the block's reference count was decremented.
  * @return -EINVAL when the provided pointer was not a valid memory block
  */
-int mem_unref(void** block_ptr _REF_TRACE);
+int mem_unref(void** block_ptr);
 
 /**
- * @brief Convenience macro for memory block allocation with automatic function/file/line tracking
+ * @brief Convenience macro for @ref mem_alloc with memory tracing
  */
-#define MEM_ALLOC(size, data) mem_alloc(size, data _ALLOC_TRACE_INPUT)
+#define MEM_ALLOC(size, data) TRACE_WRAP(mem_alloc(size, data))
 
 /**
- * @brief Convenience macro for memory block referencing with automatic file/line tracking
+ * @brief Convenience macro for @ref mem_ref with memory tracing
  */
-#define MEM_REF(data) mem_ref(data _REF_TRACE_INPUT)
+#define MEM_REF(data) TRACE_WRAP(mem_ref(data))
 
 /**
- * @brief Convenience macro for memory block unreferencing with automatic file/line tracking
+ * @brief Convenience macro for @ref mem_unref with memory tracing
  */
-#define MEM_UNREF(data) mem_unref(data _REF_TRACE_INPUT)
+#define MEM_UNREF(data) TRACE_WRAP(mem_unref(data))
 
 /**
  * @brief Indicates to static analysis that ownership over the memory will be the responsibility of the caller
  */
 #define PASS_OWNERSHIP(data)
+
+/**
+ * @brief Indicates to static analysis that the memory was not allocated or referenced
+ */
+#define NOT_REFERENCED(data)
 
 /**
  * @}

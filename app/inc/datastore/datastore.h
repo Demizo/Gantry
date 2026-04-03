@@ -20,6 +20,7 @@
 #include "datastore_types.h"
 #include "event.h"
 #include "generated_datastore_items.h"
+#include "memory.h"
 #include "zephyr/sys/slist.h"
 
 /**
@@ -119,6 +120,11 @@ bool datastore_is_id_valid(uint32_t id);
 int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id id, data_value_t value);
 
 /**
+ * @brief Convenience macro for @ref datastore_set with memory tracing
+ */
+#define DATASTORE_SET(current_auth, id, value) TRACE_WRAP(datastore_set(current_auth, id, value))
+
+/**
  * @brief Get the current value of a data item
  *
  * @param[in] current_auth The current authentication level
@@ -133,6 +139,11 @@ int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id
 int datastore_get(enum datastore_auth_level current_auth, enum datastore_item_id id, data_value_t* out_value);
 
 /**
+ * @brief Convenience macro for @ref datastore_get with memory tracing
+ */
+#define DATASTORE_GET(current_auth, id, out_value) TRACE_WRAP(datastore_get(current_auth, id, out_value))
+
+/**
  * @brief Release a previously retrieved data item value
  *
  * @details @ref datastore_get may return a pointer to a memory block depending on the item's data type. As a result,
@@ -145,6 +156,11 @@ int datastore_get(enum datastore_auth_level current_auth, enum datastore_item_id
  * @return -EINVAL when the value could not be released
  */
 int datastore_release(enum datastore_item_id id, data_value_t* value);
+
+/**
+ * @brief Convenience macro for @ref datastore_release with debug tracing
+ */
+#define DATASTORE_RELEASE(id, value) TRACE_WRAP(datastore_release(id, value))
 
 /**
  * @}

@@ -49,7 +49,7 @@ void datastore_init(void)
             .type = item->type,
             .data = item->default_value,
         };
-        item->interface->set(item, value);
+        TRACE_WRAP_VOID(item->interface->set(item, value));
     }
 
     // TODO: Load values from NVM storage
