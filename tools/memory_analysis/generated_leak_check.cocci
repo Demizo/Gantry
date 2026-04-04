@@ -34,6 +34,10 @@ position p;
 |
     datastore_get(..., E)@p
 |
+    DATASTORE_DECODE(..., E)@p
+|
+    datastore_decode(..., E)@p
+|
     MEM_UNREF(E)@p
 |
     mem_unref(E)@p
@@ -130,6 +134,18 @@ position p1, p2;
     datastore_get(..., &ptr)@p1
 |
     datastore_get(..., ptr)@p1
+|
+    DATASTORE_DECODE(..., (T)&ptr)@p1
+|
+    DATASTORE_DECODE(..., &ptr)@p1
+|
+    DATASTORE_DECODE(..., ptr)@p1
+|
+    datastore_decode(..., (T)&ptr)@p1
+|
+    datastore_decode(..., &ptr)@p1
+|
+    datastore_decode(..., ptr)@p1
 )
 ...
 when != MEM_UNREF((T)&ptr)

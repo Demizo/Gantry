@@ -17,7 +17,6 @@
 
 #include "datastore_types.h"
 #include "error.h"
-#include "zephyr/toolchain.h"
 
 LOG_MODULE_REGISTER(datastore_type_int, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 
@@ -34,6 +33,8 @@ static bool is_default(const struct datastore_item_const_metadata* item);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static int release(data_value_t* value);
+static int encode(zcbor_state_t* encoder, data_value_t value);
+static int decode(zcbor_state_t* decoder, data_value_t* out_value);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -79,8 +80,31 @@ static int release(data_value_t* value)
     return SUCCESS;
 }
 
+static int encode(zcbor_state_t* encoder, data_value_t value)
 {
+    ASSERT(value.type == DATASTORE_ITEM_TYPE_INT, "Unexpected value type");
 
+    if (!zcbor_int32_put(encoder, value.data.int_value))
+    {
+        return -ENOMEM;
+    }
+
+    return SUCCESS;
+}
+
+static int decode(zcbor_state_t* decoder, data_value_t* out_value)
+{
+    int32_t decoded_value;
+
+    if (!zcbor_int32_decode(decoder, &decoded_value))
+    {
+        return -EBADMSG;
+    }
+
+    out_value->type = DATASTORE_ITEM_TYPE_INT;
+    out_value->data.int_value = (int)decoded_value;
+
+    return SUCCESS;
 }
 
 //**********************************************************
@@ -89,8 +113,10 @@ static int release(data_value_t* value)
 
 const struct datastore_item_interface datastore_int_interface = {
     .validate = validate,
+    .is_default = is_default,
     .set = set,
     .get = get,
     .release = release,
-    .is_default = is_default,
+    .decode = decode,
+    .encode = encode,
 };

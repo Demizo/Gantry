@@ -114,3 +114,15 @@ int datastore_release(enum datastore_item_id id, data_value_t* value)
     const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[id];
     return item->interface->release(value);
 }
+
+int datastore_encode(zcbor_state_t* encoder, enum datastore_item_id id, data_value_t value)
+{
+    const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[id];
+    return item->interface->encode(encoder, value);
+}
+
+int datastore_decode(zcbor_state_t* decoder, enum datastore_item_id id, data_value_t* out_value)
+{
+    const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[id];
+    return item->interface->decode(decoder, out_value);
+}

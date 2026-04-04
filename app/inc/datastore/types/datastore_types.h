@@ -16,6 +16,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <zcbor_decode.h>
+#include <zcbor_encode.h>
 #include <zephyr/kernel.h>
 
 #include "buffer.h"
@@ -167,17 +169,16 @@ struct datastore_item_interface
     bool (*validate)(
         const struct datastore_item_const_metadata* item,
         data_value_t value); /**< Function to determine if a given value is valid */
+    bool (*is_default)(
+        const struct datastore_item_const_metadata* item); /**< Function to check if an item is at its default value */
     void (*set)(
         const struct datastore_item_const_metadata* item, data_value_t value); /**< Function to set an item value */
     int (*get)(
         const struct datastore_item_const_metadata* item,
-        data_value_t* out_value);        /**< Function to get an item value */
-    int (*release)(data_value_t* value); /**< Function to release an item value */
-    bool (*is_default)(
-        const struct datastore_item_const_metadata* item); /**< Function to check if an item is at its default value */
-    // TODO: Add encode and decode functions:
-    // - Decode takes (metadata, decoder, void** out_data)
-    // - Encode takes (metadata, encoder, void* data)
+        data_value_t* out_value);                                   /**< Function to get an item value */
+    int (*release)(data_value_t* value);                            /**< Function to release an item value */
+    int (*decode)(zcbor_state_t* decoder, data_value_t* out_value); /**< Function to decode an item value from CBOR */
+    int (*encode)(zcbor_state_t* encoder, data_value_t value); /**< Function to encode a data item value into CBOR */
 };
 
 /**

@@ -20,7 +20,6 @@
 #include "datastore_types.h"
 #include "error.h"
 #include "memory.h"
-#include "zephyr/toolchain.h"
 
 LOG_MODULE_REGISTER(datastore_type_byte_array, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 
@@ -110,8 +109,8 @@ static int release(data_value_t* value)
 
 const struct datastore_item_interface datastore_byte_array_interface = {
     .validate = validate,
+    .is_default = is_default,
     .set = set,
     .get = get,
     .release = release,
-    .is_default = is_default,
 };

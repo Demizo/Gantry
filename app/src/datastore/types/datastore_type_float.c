@@ -17,7 +17,6 @@
 
 #include "datastore_types.h"
 #include "error.h"
-#include "zephyr/toolchain.h"
 
 LOG_MODULE_REGISTER(datastore_type_float, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 
@@ -86,8 +85,8 @@ static int release(data_value_t* value)
 
 const struct datastore_item_interface datastore_float_interface = {
     .validate = validate,
+    .is_default = is_default,
     .set = set,
     .get = get,
     .release = release,
-    .is_default = is_default,
 };

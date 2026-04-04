@@ -9,6 +9,7 @@
 #include "datastore_types.h"
 #include "generated_datastore_items.h"
 #include "memory.h"
+#include "zcbor_decode.h"
 
 LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 
@@ -142,6 +143,26 @@ int main(void)
         &g_datastore_const_metadata[DATASTORE_ID_TEST_ENUM], test_enum.data.int_value, &new_name);
     LOG_INF("Test enum %d (%s)", test_enum.data.int_value, new_name);
     DATASTORE_RELEASE(DATASTORE_ID_TEST_ENUM, &test_enum);
+
+    // Test Encode/decode
+    const uint16_t test_block_size = 1000;
+    void* test_block = NULL;
+    MEM_ALLOC(test_block_size, &test_block);
+
+    ZCBOR_STATE_E(encoder, 1, test_block, test_block_size, 1);
+    (void)DATASTORE_GET(AUTH_INTERNAL, DATASTORE_ID_TEST_BUFFER, &test_buffer);
+    datastore_encode(encoder, DATASTORE_ID_TEST_BUFFER, test_buffer);
+    LOG_HEXDUMP_INF(test_block, encoder->payload - (uint8_t*)test_block, "Encoded test buffer");
+    DATASTORE_RELEASE(DATASTORE_ID_TEST_BUFFER, &test_buffer);
+
+    ZCBOR_STATE_D(decoder, 1, test_block, test_block_size, 1, 0);
+    data_value_t decoded_test_buffer;
+    DATASTORE_DECODE(decoder, DATASTORE_ID_TEST_BUFFER, &decoded_test_buffer);
+    LOG_HEXDUMP_INF(
+        decoded_test_buffer.data.buffer_value->buf, decoded_test_buffer.data.buffer_value->len, "Decoded test buffer");
+    DATASTORE_RELEASE(DATASTORE_ID_TEST_BUFFER, &decoded_test_buffer);
+
+    MEM_UNREF(&test_block);
 
     while (1)
     {

@@ -163,6 +163,36 @@ int datastore_release(enum datastore_item_id id, data_value_t* value);
 #define DATASTORE_RELEASE(id, value) TRACE_WRAP(datastore_release(id, value))
 
 /**
+ * @brief Encode a data item value as CBOR
+ *
+ * @param encoder CBOR encoder instance
+ * @param id Item ID, used to determine the data type
+ * @param value The value to encode
+ *
+ * @return SUCCESS when the value was encoded
+ * @return -ENOMEM when the encoder lacks room to encode the value
+ */
+int datastore_encode(zcbor_state_t* encoder, enum datastore_item_id id, data_value_t value);
+
+/**
+ * @brief Decode a data item value from CBOR
+ *
+ * @param[in] decoder CBOR decoder instance
+ * @param[in] id Item ID, used to determine the data type
+ * @param[out] out_value Pointer populated with the decoded value
+ *
+ * @return SUCCESS when the value was decoded
+ * @return -EBADMSG when the CBOR value could not be decoded
+ * @return -ENOMEM when memory cannot be allocated for the decoded value
+ */
+int datastore_decode(zcbor_state_t* decoder, enum datastore_item_id id, data_value_t* out_value);
+
+/**
+ * @brief Convenience macro for @ref datastore_decode with debug tracing
+ */
+#define DATASTORE_DECODE(decoder, id, out_value) TRACE_WRAP(datastore_decode(decoder, id, out_value))
+
+/**
  * @}
  */
 

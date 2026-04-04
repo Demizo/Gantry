@@ -19,6 +19,10 @@ alloc_functions:
     single_param: false
   - name: datastore_get
     single_param: false
+  - name: DATASTORE_DECODE
+    single_param: false
+  - name: datastore_decode
+    single_param: false
 
 dealloc_functions:
   - name: MEM_UNREF
