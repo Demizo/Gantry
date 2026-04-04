@@ -19,3 +19,4 @@ manifest:
           - segger
           - nrfxlib
           - trusted-firmware-m
+          - zcbor
