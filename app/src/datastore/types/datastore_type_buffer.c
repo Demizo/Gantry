@@ -33,10 +33,10 @@ LOG_MODULE_REGISTER(datastore_type_buffer, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 //**********************************************************
 
 static bool validate(const struct datastore_item_const_metadata* item, data_value_t value);
+static bool is_default(const struct datastore_item_const_metadata* item);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
-static int release(const struct datastore_item_const_metadata* item, data_value_t* value);
-static bool is_default(const struct datastore_item_const_metadata* item);
+static int release(data_value_t* value);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -53,6 +53,15 @@ static bool validate(const struct datastore_item_const_metadata* item, data_valu
     return (
         (new_value->len >= item->constraints.buffer_constraints.min_len) &&
         (new_value->len <= item->constraints.buffer_constraints.max_len));
+}
+
+static bool is_default(const struct datastore_item_const_metadata* item)
+{
+    buffer_t* current_value = *(buffer_t**)item->value_ptr;
+    buffer_t* default_value = item->default_value.buffer_value;
+
+    if (current_value->len != default_value->len) return false;
+    return (memcmp(current_value->buf, default_value->buf, default_value->len) == 0);
 }
 
 static void set(const struct datastore_item_const_metadata* item, data_value_t value)
@@ -101,22 +110,16 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
     return ret;
 }
 
-static int release(const struct datastore_item_const_metadata* item, data_value_t* value)
+static int release(data_value_t* value)
 {
-    ARG_UNUSED(item);
     ASSERT(value->type == DATASTORE_ITEM_TYPE_BUFFER, "Unexpected value type");
 
     void* buffer_block = value->data.buffer_value;
     return mem_unref(&buffer_block);
 }
 
-static bool is_default(const struct datastore_item_const_metadata* item)
 {
-    buffer_t* current_value = *(buffer_t**)item->value_ptr;
-    buffer_t* default_value = item->default_value.buffer_value;
 
-    if (current_value->len != default_value->len) return false;
-    return (memcmp(current_value->buf, default_value->buf, default_value->len) == 0);
 }
 
 //**********************************************************

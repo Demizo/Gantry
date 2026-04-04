@@ -171,10 +171,8 @@ struct datastore_item_interface
         const struct datastore_item_const_metadata* item, data_value_t value); /**< Function to set an item value */
     int (*get)(
         const struct datastore_item_const_metadata* item,
-        data_value_t* out_value); /**< Function to get an item value */
-    int (*release)(
-        const struct datastore_item_const_metadata* item,
-        data_value_t* value); /**< Function to release an item value */
+        data_value_t* out_value);        /**< Function to get an item value */
+    int (*release)(data_value_t* value); /**< Function to release an item value */
     bool (*is_default)(
         const struct datastore_item_const_metadata* item); /**< Function to check if an item is at its default value */
     // TODO: Add encode and decode functions:

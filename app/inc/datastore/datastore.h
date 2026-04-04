@@ -149,7 +149,7 @@ int datastore_get(enum datastore_auth_level current_auth, enum datastore_item_id
  * @details @ref datastore_get may return a pointer to a memory block depending on the item's data type. As a result,
  * item values retrieved with @ref datastore_get should always be released.
  *
- * @param[in] id Item ID to release
+ * @param[in] id Item ID, used to determine the data type
  * @param[in,out] value Pointer to the value to release.
  *
  * @return SUCCESS when the value was released

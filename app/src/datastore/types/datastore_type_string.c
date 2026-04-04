@@ -33,10 +33,10 @@ LOG_MODULE_REGISTER(datastore_type_string, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 //**********************************************************
 
 static bool validate(const struct datastore_item_const_metadata* item, data_value_t value);
+static bool is_default(const struct datastore_item_const_metadata* item);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
-static int release(const struct datastore_item_const_metadata* item, data_value_t* value);
-static bool is_default(const struct datastore_item_const_metadata* item);
+static int release(data_value_t* value);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -53,6 +53,14 @@ static bool validate(const struct datastore_item_const_metadata* item, data_valu
     // The string buffer is one byte larger than max length so that there is room for the null terminator
     return (
         (len >= item->constraints.buffer_constraints.min_len) && (len <= item->constraints.buffer_constraints.max_len));
+}
+
+static bool is_default(const struct datastore_item_const_metadata* item)
+{
+    char* current_value = (char*)item->value_ptr;
+    char* default_value = item->default_value.string_value;
+
+    return (strncmp(current_value, default_value, item->constraints.buffer_constraints.max_len) == 0);
 }
 
 static void set(const struct datastore_item_const_metadata* item, data_value_t value)
@@ -82,21 +90,12 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
     return ret;
 }
 
-static int release(const struct datastore_item_const_metadata* item, data_value_t* value)
+static int release(data_value_t* value)
 {
-    ARG_UNUSED(item);
     ASSERT(value->type == DATASTORE_ITEM_TYPE_STRING, "Unexpected value type");
 
     void* string_block = value->data.string_value;
     return mem_unref(&string_block);
-}
-
-static bool is_default(const struct datastore_item_const_metadata* item)
-{
-    char* current_value = (char*)item->value_ptr;
-    char* default_value = item->default_value.string_value;
-
-    return (strncmp(current_value, default_value, item->constraints.buffer_constraints.max_len) == 0);
 }
 
 //**********************************************************

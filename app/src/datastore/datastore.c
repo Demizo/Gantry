@@ -112,5 +112,5 @@ int datastore_get(enum datastore_auth_level current_auth, enum datastore_item_id
 int datastore_release(enum datastore_item_id id, data_value_t* value)
 {
     const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[id];
-    return item->interface->release(item, value);
+    return item->interface->release(value);
 }
