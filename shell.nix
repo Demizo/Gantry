@@ -16,6 +16,7 @@ pkgs.mkShell {
     ninja
     nrfutil
     just
+    just-lsp
     mcuboot-imgtool
     doxygen
     uv
