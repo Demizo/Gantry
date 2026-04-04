@@ -33,6 +33,8 @@ static bool is_default(const struct datastore_item_const_metadata* item);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static int release(data_value_t* value);
+static int encode(zcbor_state_t* encoder, data_value_t value);
+static int decode(zcbor_state_t* decoder, data_value_t* out_value);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -79,6 +81,33 @@ static int release(data_value_t* value)
     return SUCCESS;
 }
 
+static int encode(zcbor_state_t* encoder, data_value_t value)
+{
+    ASSERT(value.type == DATASTORE_ITEM_TYPE_FLOAT, "Unexpected value type");
+
+    if (!zcbor_float32_put(encoder, value.data.float_value))
+    {
+        return -ENOMEM;
+    }
+
+    return SUCCESS;
+}
+
+static int decode(zcbor_state_t* decoder, data_value_t* out_value)
+{
+    float decoded_value;
+
+    if (!zcbor_float32_decode(decoder, &decoded_value))
+    {
+        return -EBADMSG;
+    }
+
+    out_value->type = DATASTORE_ITEM_TYPE_FLOAT;
+    out_value->data.float_value = decoded_value;
+
+    return SUCCESS;
+}
+
 //**********************************************************
 //* Public Function Definitions
 //**********************************************************
@@ -89,4 +118,6 @@ const struct datastore_item_interface datastore_float_interface = {
     .set = set,
     .get = get,
     .release = release,
+    .decode = decode,
+    .encode = encode,
 };

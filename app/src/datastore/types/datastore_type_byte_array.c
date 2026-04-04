@@ -36,6 +36,8 @@ static bool is_default(const struct datastore_item_const_metadata* item);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static int release(data_value_t* value);
+static int encode(zcbor_state_t* encoder, data_value_t value);
+static int decode(zcbor_state_t* decoder, data_value_t* out_value);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -103,6 +105,49 @@ static int release(data_value_t* value)
     return mem_unref(&buffer_block);
 }
 
+static int encode(zcbor_state_t* encoder, data_value_t value)
+{
+    ASSERT(value.type == DATASTORE_ITEM_TYPE_BYTE_ARRAY, "Unexpected value type");
+
+    const buffer_t* buffer = value.data.buffer_value;
+    struct zcbor_string str = { .value = buffer->buf, .len = buffer->len };
+
+    if (!zcbor_bstr_encode(encoder, &str))
+    {
+        return -ENOMEM;
+    }
+
+    return SUCCESS;
+}
+
+static int decode(zcbor_state_t* decoder, data_value_t* out_value)
+{
+    struct zcbor_string str;
+
+    if (!zcbor_bstr_decode(decoder, &str))
+    {
+        return -EBADMSG;
+    }
+
+    void* new_buffer_block = NULL;
+    int ret = mem_alloc(sizeof(buffer_t) + str.len, &new_buffer_block);
+    if (ret != SUCCESS)
+    {
+        NOT_REFERENCED(new_buffer_block);
+        return ret;
+    }
+
+    buffer_t* new_buffer = (buffer_t*)new_buffer_block;
+    new_buffer->len = str.len;
+    memcpy(new_buffer->buf, str.value, str.len);
+
+    out_value->type = DATASTORE_ITEM_TYPE_BYTE_ARRAY;
+    out_value->data.buffer_value = new_buffer;
+
+    PASS_OWNERSHIP(new_buffer_block);
+    return SUCCESS;
+}
+
 //**********************************************************
 //* Public Function Definitions
 //**********************************************************
@@ -113,4 +158,6 @@ const struct datastore_item_interface datastore_byte_array_interface = {
     .set = set,
     .get = get,
     .release = release,
+    .decode = decode,
+    .encode = encode,
 };
