@@ -81,19 +81,19 @@ static mem_pool_metadata_t mem_pools[POOL_COUNT] = {
     [POOL_SMALL] =
         {
             .slab = &small_slab,
-            .block_size = CONFIG_MEM_SMALL_BLOCK_SIZE,
+            .block_size = CONFIG_MEM_SMALL_BLOCK_SIZE + sizeof(mem_block_header_t),
             .block_count = CONFIG_MEM_SMALL_BLOCK_COUNT,
         },
     [POOL_MEDIUM] =
         {
             .slab = &medium_slab,
-            .block_size = CONFIG_MEM_MEDIUM_BLOCK_SIZE,
+            .block_size = CONFIG_MEM_MEDIUM_BLOCK_SIZE + sizeof(mem_block_header_t),
             .block_count = CONFIG_MEM_MEDIUM_BLOCK_COUNT,
         },
     [POOL_LARGE] =
         {
             .slab = &large_slab,
-            .block_size = CONFIG_MEM_LARGE_BLOCK_SIZE,
+            .block_size = CONFIG_MEM_LARGE_BLOCK_SIZE + sizeof(mem_block_header_t),
             .block_count = CONFIG_MEM_LARGE_BLOCK_COUNT,
         },
 };

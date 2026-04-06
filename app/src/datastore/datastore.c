@@ -13,6 +13,7 @@
 
 #include <sys/errno.h>
 
+#include "datastore_storage.h"
 #include "datastore_types.h"
 #include "error.h"
 #include "generated_datastore_items.h"
@@ -41,6 +42,7 @@ LOG_MODULE_REGISTER(datastore, CONFIG_DATASTORE_LOG_LEVEL);
 
 void datastore_init(void)
 {
+    int ret = SUCCESS;
     // Initialize default values
     for (int i = 0; i < DATASTORE_ID_COUNT; i++)
     {
@@ -52,7 +54,12 @@ void datastore_init(void)
         TRACE_WRAP_VOID(item->interface->set(item, value));
     }
 
-    // TODO: Load values from NVM storage
+    ret = datastore_storage_load();
+    if (ret != SUCCESS)
+    {
+        LOG_ERR("Failed to load items from storage (%d)", ret);
+    }
+
     return;
 }
 
@@ -73,7 +80,7 @@ int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id
     // Disallow changing TOFU values after they are first modified
     if ((item->storage_type == DATASTORE_STORAGE_TOFU) && !item->interface->is_default(item))
     {
-        LOG_ERR("TOFU value has already been modified, item (id: %d)", id);
+        LOG_WRN("Attempted to change TOFU value that has already been modified, item id: %d", id);
         return -EACCES;
     }
 
@@ -88,6 +95,12 @@ int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id
 
     // Apply new value
     item->interface->set(item, value);
+
+    // Save to persistent storage, if relevant
+    if ((item->storage_type == DATASTORE_STORAGE_PERSISTENT) || item->storage_type == DATASTORE_STORAGE_TOFU)
+    {
+        (void)datastore_storage_save_item(item);
+    }
 
     // TODO: Notify listeners
 

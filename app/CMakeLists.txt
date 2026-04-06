@@ -10,6 +10,7 @@ target_sources(app PRIVATE
     src/memory.c
     src/event.c
     src/datastore/datastore.c
+    src/datastore/datastore_storage.c
     src/datastore/generated_datastore_items.c
     src/datastore/types/datastore_type_enum.c
     src/datastore/types/datastore_type_int.c

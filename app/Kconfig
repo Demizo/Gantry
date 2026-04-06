@@ -95,13 +95,12 @@ config DATASTORE_LOG_LEVEL
     int "Datastore log level"
     default 3
 
-endmenu
-
-
-menu "Datastore Types"
-
 config DATASTORE_TYPES_LOG_LEVEL
     int "Datastore type parsing log level"
+    default 3
+    
+config DATASTORE_STORAGE_LOG_LEVEL
+    int "Datastore storage backend log level"
     default 3
 
 endmenu
