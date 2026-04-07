@@ -54,7 +54,7 @@ int datastore_storage_load(void);
  *
  * @return SUCCESS when the item is saved
  * @return -ENOMEM when memory is not available
- * @return result of @ref settings_save_one on failure
+ * @return result of settings_save_one on failure
  */
 int datastore_storage_save_item(const struct datastore_item_const_metadata* item);
 

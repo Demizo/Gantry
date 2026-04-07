@@ -18,6 +18,9 @@
 #include "error.h"
 #include "generated_datastore_items.h"
 
+/**
+ * @brief Logger for module
+ */
 LOG_MODULE_REGISTER(datastore, CONFIG_DATASTORE_LOG_LEVEL);
 
 //**********************************************************

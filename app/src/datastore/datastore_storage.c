@@ -21,12 +21,18 @@
 #include "zephyr/logging/log.h"
 #include "zephyr/settings/settings.h"
 
+/**
+ * @brief Logger for module
+ */
 LOG_MODULE_REGISTER(datastore_storage, CONFIG_DATASTORE_STORAGE_LOG_LEVEL);
 
 //**********************************************************
 //* Local Definitions
 //**********************************************************
 
+/**
+ * @brief Subtree prefix for datastore items
+ */
 #define DATASTORE_SETTINGS_SUBTREE "ds"
 
 //**********************************************************
@@ -41,6 +47,9 @@ static int datastore_set_handler(const char* name, size_t len, settings_read_cb 
 //* Static Variable Definitions
 //**********************************************************
 
+/**
+ * @brief Handler for the datastore settings subtree
+ */
 SETTINGS_STATIC_HANDLER_DEFINE(
     datastore_settings_handler, DATASTORE_SETTINGS_SUBTREE, NULL, datastore_set_handler, NULL, NULL);
 

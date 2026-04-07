@@ -56,6 +56,9 @@ static const struct data_enum_value Toggle_enum_values[2] = {
     },
 };
 
+/**
+ * @brief The current datastore values
+ */
 struct datastore_values datastore_values = { 0 };
 
 const struct datastore_item_const_metadata

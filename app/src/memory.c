@@ -19,6 +19,9 @@
 #include "error.h"
 #include "static_unit.h"
 
+/**
+ * @brief Logger for module
+ */
 LOG_MODULE_REGISTER(mem_mgr, CONFIG_MEM_LOG_LEVEL);
 
 //**********************************************************
@@ -33,13 +36,19 @@ volatile mem_trace_info_t g_current_mem_trace = { 0 };
 //* Local typedefs
 //**********************************************************
 
+/**
+ * @brief Metadata for a memory pool
+ */
 typedef struct
 {
-    struct k_mem_slab* slab;
-    size_t block_size;
-    size_t block_count;
+    struct k_mem_slab* slab; /**< The pool's memory slab */
+    size_t block_size;       /**< The size of each block in the pool */
+    size_t block_count;      /**< The number of blocks in the pool */
 } mem_pool_metadata_t;
 
+/**
+ * @brief Memory pool sizes
+ */
 typedef enum
 {
     POOL_SMALL = 0,
@@ -48,16 +57,18 @@ typedef enum
     POOL_COUNT
 } mem_pool_size_t;
 
-// Header stored at the start of each memory block
-typedef struct __attribute__((packed))
+/**
+ * @brief Header stored at the start of each memory block
+ */
+typedef struct
 {
-    uint8_t magic[8];      // Magic number for block validation
-    mem_pool_size_t pool;  // Pool the block belongs to
+    uint8_t magic[8];     /**< Magic number for block validation */
+    mem_pool_size_t pool; /**< Pool the block belongs to */
 #ifdef CONFIG_MEM_TRACE
-    const char* func;  // Function name that allocated the block
+    const char* func; /**< Function name that allocated the block */
 #endif
-    uint32_t ref_count;  // Reference count
-} mem_block_header_t;
+    uint32_t ref_count; /**< Reference count */
+} __attribute__((packed)) mem_block_header_t;
 
 //**********************************************************
 //* Static Function Declarations
@@ -73,8 +84,19 @@ STATIC_UNIT mem_block_header_t* validate_and_get_header(void* data);
 
 static const uint8_t magic[8] = { 'M', 'E', 'M', 'B', 'L', 'O', 'C', 'K' };
 
+/**
+ * @brief Small memory slab
+ */
 K_MEM_SLAB_DEFINE_STATIC(small_slab, CONFIG_MEM_SMALL_BLOCK_SIZE, CONFIG_MEM_SMALL_BLOCK_COUNT, sizeof(void*));
+
+/**
+ * @brief Medium memory slab
+ */
 K_MEM_SLAB_DEFINE_STATIC(medium_slab, CONFIG_MEM_MEDIUM_BLOCK_SIZE, CONFIG_MEM_MEDIUM_BLOCK_COUNT, sizeof(void*));
+
+/**
+ * @brief Large memory slab
+ */
 K_MEM_SLAB_DEFINE_STATIC(large_slab, CONFIG_MEM_LARGE_BLOCK_SIZE, CONFIG_MEM_LARGE_BLOCK_COUNT, sizeof(void*));
 
 static mem_pool_metadata_t mem_pools[POOL_COUNT] = {

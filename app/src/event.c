@@ -18,13 +18,18 @@
 #include "error.h"
 #include "memory.h"
 
+/**
+ * @brief Logger for module
+ */
 LOG_MODULE_REGISTER(event, CONFIG_EVENT_LOG_LEVEL);
 
 //**********************************************************
 //* Local Definitions
 //**********************************************************
 
-// The maximum depth of linked events
+/**
+ * @brief Max depth for linked event chains
+ */
 #define LINKED_EVENT_CHAIN_LEN_MAX 10
 
 //**********************************************************

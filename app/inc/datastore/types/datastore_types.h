@@ -54,10 +54,10 @@ enum datastore_item_type
  */
 typedef union
 {
-    int int_value;
-    float float_value;
-    char* string_value;
-    buffer_t* buffer_value;
+    int int_value;          /**< Value for ints */
+    float float_value;      /**< Value for floats */
+    char* string_value;     /**< Value for strings */
+    buffer_t* buffer_value; /**< Value for buffers */
 } raw_data_value_t;
 
 /**
@@ -65,8 +65,8 @@ typedef union
  */
 typedef struct
 {
-    enum datastore_item_type type;
-    raw_data_value_t data;
+    enum datastore_item_type type; /**< Data value type */
+    raw_data_value_t data;         /**< Data value */
 } data_value_t;
 
 /**

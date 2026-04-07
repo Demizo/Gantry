@@ -32,23 +32,26 @@
 //* Definitions
 //**********************************************************
 
-#define DATASTORE_HASH_MIN_LEN 0
-#define DATASTORE_HASH_MAX_LEN 16
-#define DEVICE_NAME_MIN_LEN 1
-#define DEVICE_NAME_MAX_LEN 25
-#define VERSION_CODE_MIN 0
-#define VERSION_CODE_MAX INT_MAX
-#define TEST_FLOAT_MIN 0.0f
-#define TEST_FLOAT_MAX 32.0f
-#define TEST_BYTES_MIN_LEN 6
-#define TEST_BYTES_MAX_LEN 6
-#define TEST_BUFFER_MIN_LEN 0
-#define TEST_BUFFER_MAX_LEN 20
+#define DATASTORE_HASH_MIN_LEN 0  /**< Minimum length of DatastoreHash */
+#define DATASTORE_HASH_MAX_LEN 16 /**< Maximum length of DatastoreHash */
+#define DEVICE_NAME_MIN_LEN 1     /**< Minimum length of DeviceName */
+#define DEVICE_NAME_MAX_LEN 25    /**< Maximum length of DeviceName */
+#define VERSION_CODE_MIN 0        /**< Minimum value of VersionCode */
+#define VERSION_CODE_MAX INT_MAX  /**< Maximum value of VersionCode */
+#define TEST_FLOAT_MIN 0.0f       /**< Minimum value of TestFloat */
+#define TEST_FLOAT_MAX 32.0f      /**< Maximum value of TestFloat */
+#define TEST_BYTES_MIN_LEN 6      /**< Minimum length of TestBytes */
+#define TEST_BYTES_MAX_LEN 6      /**< Maximum length of TestBytes */
+#define TEST_BUFFER_MIN_LEN 0     /**< Minimum length of TestBuffer */
+#define TEST_BUFFER_MAX_LEN 20    /**< Maximum length of TestBuffer */
 
 //**********************************************************
 //* Typedefs, Enums, and Structs
 //**********************************************************
 
+/**
+ * @brief Toggle indicated whether something is enabled or disabled
+ */
 enum Toggle
 {
     Toggle_DISABLED = 0,

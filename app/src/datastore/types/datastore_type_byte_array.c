@@ -21,6 +21,9 @@
 #include "error.h"
 #include "memory.h"
 
+/**
+ * @brief Logger for module
+ */
 LOG_MODULE_REGISTER(datastore_type_byte_array, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 
 //**********************************************************
