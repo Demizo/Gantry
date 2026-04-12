@@ -129,6 +129,11 @@ extern volatile mem_trace_info_t g_current_mem_trace;
 int mem_alloc(size_t size, void** block_ptr);
 
 /**
+ * @brief Convenience macro for @ref mem_alloc with memory tracing
+ */
+#define MEM_ALLOC(size, data) TRACE_WRAP(mem_alloc(size, data))
+
+/**
  * @brief Increment the reference count of a memory block
  *
  * @note It is recommended that you always use the MEM_REF macro which calls this function with the debug
@@ -141,6 +146,11 @@ int mem_alloc(size_t size, void** block_ptr);
  * @return -ENOMEM when the block already has the maximum number of references
  */
 int mem_ref(void* block);
+
+/**
+ * @brief Convenience macro for @ref mem_ref with memory tracing
+ */
+#define MEM_REF(data) TRACE_WRAP(mem_ref(data))
 
 /**
  * @brief Dencrement the reference count of a memory block
@@ -160,19 +170,18 @@ int mem_ref(void* block);
 int mem_unref(void** block_ptr);
 
 /**
- * @brief Convenience macro for @ref mem_alloc with memory tracing
- */
-#define MEM_ALLOC(size, data) TRACE_WRAP(mem_alloc(size, data))
-
-/**
- * @brief Convenience macro for @ref mem_ref with memory tracing
- */
-#define MEM_REF(data) TRACE_WRAP(mem_ref(data))
-
-/**
  * @brief Convenience macro for @ref mem_unref with memory tracing
  */
 #define MEM_UNREF(data) TRACE_WRAP(mem_unref(data))
+
+/**
+ * @brief Get the current reference count for a memory block
+ *
+ * @param block The memory block to get the reference count of
+ *
+ * @return The current reference count of the provided memory block
+ */
+uint32_t mem_get_ref_count(void* block);
 
 /**
  * @brief Indicates to static analysis that ownership over the memory will be the responsibility of the caller

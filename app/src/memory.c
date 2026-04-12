@@ -362,3 +362,16 @@ int mem_unref(void** block_ptr)
 
     return SUCCESS;
 }
+
+uint32_t mem_get_ref_count(void* block)
+{
+    uint32_t key = irq_lock();
+
+    mem_block_header_t* header = validate_and_get_header(block);
+    ASSERT(header != NULL, "Invalid memory block");
+    uint32_t current_count = header->ref_count;
+
+    irq_unlock(key);
+
+    return current_count;
+}
