@@ -48,7 +48,7 @@ LOG_MODULE_REGISTER(event, CONFIG_EVENT_LOG_LEVEL);
 //* Public Function Definitions
 //**********************************************************
 
-int event_alloc(size_t size, event_direction_t direction, event_format_t format, event_t** event)
+int event_alloc(size_t size, event_direction_t direction, event_type_t* type, event_t** event)
 {
     int ret = SUCCESS;
 
@@ -64,9 +64,9 @@ int event_alloc(size_t size, event_direction_t direction, event_format_t format,
         return ret;
     }
 
-    event_init(*event, size, direction, format);
+    event_init(*event, size, direction, type);
 
-    LOG_DBG("Event allocated: size: %zu, direction: %d, format: %d", size, direction, format);
+    LOG_DBG("Event allocated: size: %zu, direction: %d, type: %d", size, direction, type->id);
 
     PASS_OWNERSHIP(event_block);
     return SUCCESS;
@@ -110,6 +110,12 @@ int event_unref(event_t** event)
     current = *event;
     while (current != NULL && (chain_length < LINKED_EVENT_CHAIN_LEN_MAX))
     {
+        // If the event will be freed, call on_free if defined for the current event type
+        if (mem_get_ref_count((void*)current) == 1 && current->type->on_free != NULL)
+        {
+            current->type->on_free(current);
+        }
+
         // Get the linked event first in case the block is freed
         next = current->next_event;
 
@@ -130,11 +136,11 @@ int event_unref(event_t** event)
     return SUCCESS;
 }
 
-void event_init(event_t* event, size_t size, event_direction_t direction, event_format_t format)
+void event_init(event_t* event, size_t size, event_direction_t direction, event_type_t* type)
 {
     event->next_event = NULL;
     event->return_queue = NULL;
     event->direction = direction;
-    event->format = format;
+    event->type = type;
     event->data.len = size;
 }

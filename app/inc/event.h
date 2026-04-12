@@ -4,8 +4,8 @@
  * @brief Events for interprocess communication
  *
  * @details Communication between threads is accomplished by passing events. There is a single event structure with a
- * format field to indicate event type. This ensures that all modules can communicate without needing to agree on
- * arbitrary event structures.
+ * type field to indicate event type. This ensures that all modules can communicate without needing to agree on
+ * arbitrary event structures. Applications can define event types using @ref DEFINE_EVENT_TYPE.
  *
  * Events are pointers to reference counted memory blocks. Modules are responsible for
  * dereferencing events when finished. Modules may pass events to other modules via function calls, but it is the
@@ -40,9 +40,30 @@
 //* Definitions
 //**********************************************************
 
+/**
+ * @brief Declare a custom @ref event_type_t to be used by other modules. The event must be defined using @ref
+ * DEFINE_EVENT_TYPE in the corresponding source file.
+ */
+#define DECLARE_EVENT_TYPE(_name) extern const event_type_t _name
+
+/**
+ * @brief Define an @ref event_type_t. Event IDs will automatically be checked for collisions.
+ */
+#define DEFINE_EVENT_TYPE(_id, _name, _on_free)              \
+    const uint8_t CONCAT(__event_collision_check_, _id) = 0; \
+    const event_type_t _name = {                             \
+        .id = _id,                                           \
+        .on_free = _on_free,                                 \
+    };
+
 //**********************************************************
 //* Typedefs, Enums, and Structs
 //**********************************************************
+
+/**
+ * @brief Forward declaration of universal event structure
+ */
+typedef struct event_t event_t;
 
 /**
  * @brief Event direction
@@ -55,19 +76,24 @@ typedef enum
 } event_direction_t;
 
 /**
- * @brief Event format
+ * @brief Function called before an event is freed
+ *
+ * @param event The event being freed
  */
-typedef enum
-{
-    EVENT_FORMAT_BYTES = 0,            /**< Raw byte array */
-    EVENT_FORMAT_DATASTORE_UPDATE = 1, /**< Datastore update */
-    EVENT_FORMAT_MESSAGE = 3,          /**< Protocol message */
-} event_format_t;
+typedef void (*event_on_free_t)(event_t* event);
 
 /**
- * @brief Forward declaration of universal event structure
+ * @brief Event type
+ *
+ * @details Applications can define event types using @ref DEFINE_EVENT_TYPE. Event types may contain reference counted
+ * memory in the payload. In this case @ref on_free should be defined to dereference the event payload when the event is
+ * freed.
  */
-typedef struct event_t event_t;
+typedef struct
+{
+    uint32_t id;             /**< Numeric ID representing the event type */
+    event_on_free_t on_free; /**< Optional function to be called before the event is freed, can be NULL */
+} event_type_t;
 
 /**
  * @brief Universal event structure
@@ -76,7 +102,7 @@ struct event_t
 {
     event_t* next_event;         /**< Linked event */
     struct k_msgq* return_queue; /**< Optional return queue for responses */
-    event_format_t format;       /**< Event format */
+    event_type_t* type;          /**< Event type */
     event_direction_t direction; /**< Event direction */
     buffer_t data;               /**< Event data buffer */
 };
@@ -95,13 +121,18 @@ struct event_t
  *
  * @param[in] size The requested event buffer size in bytes
  * @param[in] direction The direction of the event
- * @param[in] format The format of the event
+ * @param[in] type The type of the event
  * @param[out] event_ptr Pointer to be populated with the address of an event. This pointer must point to a NULL
  * pointer when this function is called. It is only populated when the allocation succeeds.
  *
  * @return result of @ref mem_alloc
  */
-int event_alloc(size_t size, event_direction_t direction, event_format_t format, event_t** event_ptr);
+int event_alloc(size_t size, event_direction_t direction, event_type_t* type, event_t** event_ptr);
+
+/**
+ * @brief Convenience macro for @ref event_alloc with memory tracing
+ */
+#define EVENT_ALLOC(size, direction, format, event) TRACE_WRAP(event_alloc(size, direction, format, event))
 
 /**
  * @brief Increment the reference count of an event and all linked events
@@ -114,6 +145,11 @@ int event_alloc(size_t size, event_direction_t direction, event_format_t format,
  * @return result of @ref mem_ref
  */
 int event_ref(event_t* event);
+
+/**
+ * @brief Convenience macro for @ref event_ref with memory tracing
+ */
+#define EVENT_REF(event) TRACE_WRAP(event_ref(event))
 
 /**
  * @brief Dencrement the reference count of an event and all linked events
@@ -132,6 +168,11 @@ int event_ref(event_t* event);
 int event_unref(event_t** event_ptr);
 
 /**
+ * @brief Convenience macro for @ref event_unref with memory tracing
+ */
+#define EVENT_UNREF(event) TRACE_WRAP(event_unref(event))
+
+/**
  * @brief Initialize an event structure
  *
  * @details If there is a need to initialize an event in a pre-existing memory block, this helper can be used.
@@ -142,24 +183,9 @@ int event_unref(event_t** event_ptr);
  * @param[in,out] event Pointer to the event structure to initialize
  * @param[in] size Size of the event buffer
  * @param[in] direction The direction of the event
- * @param[in] format The format of the event
+ * @param[in] type The type of the event
  */
-void event_init(event_t* event, size_t size, event_direction_t direction, event_format_t format);
-
-/**
- * @brief Convenience macro for @ref event_alloc with memory tracing
- */
-#define EVENT_ALLOC(size, direction, format, event) TRACE_WRAP(event_alloc(size, direction, format, event))
-
-/**
- * @brief Convenience macro for @ref event_ref with memory tracing
- */
-#define EVENT_REF(event) TRACE_WRAP(event_ref(event))
-
-/**
- * @brief Convenience macro for @ref event_unref with memory tracing
- */
-#define EVENT_UNREF(event) TRACE_WRAP(event_unref(event))
+void event_init(event_t* event, size_t size, event_direction_t direction, event_type_t* type);
 
 /**
  * @}
