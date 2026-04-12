@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <zephyr/kernel.h>
 
+#include "datastore_event.h"
 #include "datastore_types.h"
 #include "event.h"
 #include "generated_datastore_items.h"
@@ -35,29 +36,6 @@
 //**********************************************************
 //* Typedefs, Enums, and Structs
 //**********************************************************
-
-/**
- * @brief Subscription mode for datastore item subscriptions
- */
-enum datastore_subscription_mode
-{
-    DATASTORE_SUBSCRIPTION_HANDLE, /**< Subscribers are notified of which value has been updated, the subscriber must
-                                      read the current value from the datastore. */
-    DATASTORE_SUBSCRIPTION_COPY,   /**< Used for guaranteed delivery of every value. The notification contains a copy of
-                                      the value at the time when the notification occurred. */
-    DATASTORE_SUBSCRIPTION_COUNT
-};
-
-/**
- * @brief Event payload for datastore update events
- */
-struct datastore_update_event_payload
-{
-    struct datastore_item_const_metadata metadata; /**< Constant metadata of the updated item */
-    enum datastore_subscription_mode mode;         /**< Subscription mode */
-    const void* value_copy;                        /**< Pointer to a copy of the item's data, NULL when the
-                                                mode is DATASTORE_SUBSCRIPTION_HANDLE */
-};
 
 /**
  * @brief Callback used to notify a subscriber when the subscribed value changes
