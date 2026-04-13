@@ -141,15 +141,13 @@ int event_alloc(size_t size, event_direction_t direction, event_type_t* type, ev
  * information filled in.
  *
  * @param[in] event The event pointer to be reference counted
- *
- * @return result of @ref mem_ref
  */
-int event_ref(event_t* event);
+void event_ref(event_t* event);
 
 /**
  * @brief Convenience macro for @ref event_ref with memory tracing
  */
-#define EVENT_REF(event) TRACE_WRAP(event_ref(event))
+#define EVENT_REF(event) TRACE_WRAP_VOID(event_ref(event))
 
 /**
  * @brief Dencrement the reference count of an event and all linked events
@@ -158,19 +156,17 @@ int event_ref(event_t* event);
  * information filled in.
  *
  * @note If event_ptr already points to a NULL pointer, this function will assume that the event was already freed and
- * return SUCCESS.
+ * do nothing.
  *
  * @param[in,out] event_ptr A pointer to the event pointer to be dereferenced. If the reference count reaches 0,
  * the event pointer will be set to NULL.
- *
- * @return result of @ref mem_unref
  */
-int event_unref(event_t** event_ptr);
+void event_unref(event_t** event_ptr);
 
 /**
  * @brief Convenience macro for @ref event_unref with memory tracing
  */
-#define EVENT_UNREF(event) TRACE_WRAP(event_unref(event))
+#define EVENT_UNREF(event) TRACE_WRAP_VOID(event_unref(event))
 
 /**
  * @brief Initialize an event structure

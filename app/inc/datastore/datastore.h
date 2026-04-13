@@ -129,16 +129,13 @@ int datastore_get(enum datastore_auth_level current_auth, enum datastore_item_id
  *
  * @param[in] id Item ID, used to determine the data type
  * @param[in,out] value Pointer to the value to release.
- *
- * @return SUCCESS when the value was released
- * @return -EINVAL when the value could not be released
  */
-int datastore_release(enum datastore_item_id id, data_value_t* value);
+void datastore_release(enum datastore_item_id id, data_value_t* value);
 
 /**
  * @brief Convenience macro for @ref datastore_release with debug tracing
  */
-#define DATASTORE_RELEASE(id, value) TRACE_WRAP(datastore_release(id, value))
+#define DATASTORE_RELEASE(id, value) TRACE_WRAP_VOID(datastore_release(id, value))
 
 /**
  * @brief Encode a data item value as CBOR

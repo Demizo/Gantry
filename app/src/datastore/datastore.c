@@ -125,10 +125,10 @@ int datastore_get(enum datastore_auth_level current_auth, enum datastore_item_id
     return item->interface->get(item, out_value);
 }
 
-int datastore_release(enum datastore_item_id id, data_value_t* value)
+void datastore_release(enum datastore_item_id id, data_value_t* value)
 {
     const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[id];
-    return item->interface->release(value);
+    item->interface->release(value);
 }
 
 int datastore_encode(zcbor_state_t* encoder, enum datastore_item_id id, data_value_t value)

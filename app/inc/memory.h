@@ -140,17 +140,13 @@ int mem_alloc(size_t size, void** block_ptr);
  * information filled in.
  *
  * @param[in] block The memory block pointer to be reference counted
- *
- * @return SUCCESS when the block's reference count was incremented
- * @return -EINVAL when the provided pointer was not a valid memory block
- * @return -ENOMEM when the block already has the maximum number of references
  */
-int mem_ref(void* block);
+void mem_ref(void* block);
 
 /**
  * @brief Convenience macro for @ref mem_ref with memory tracing
  */
-#define MEM_REF(data) TRACE_WRAP(mem_ref(data))
+#define MEM_REF(data) TRACE_WRAP_VOID(mem_ref(data))
 
 /**
  * @brief Dencrement the reference count of a memory block
@@ -159,20 +155,17 @@ int mem_ref(void* block);
  * information filled in.
  *
  * @note If block_ptr already points to a NULL pointer, this function will assume that the block was already freed and
- * return SUCCESS.
+ * do nothing.
  *
  * @param[in,out] block_ptr A pointer to the memory block pointer to be dereferenced. If the reference count reaches 0,
  * the block pointer will be set to NULL.
- *
- * @return SUCCESS when the block's reference count was decremented.
- * @return -EINVAL when the provided pointer was not a valid memory block
  */
-int mem_unref(void** block_ptr);
+void mem_unref(void** block_ptr);
 
 /**
  * @brief Convenience macro for @ref mem_unref with memory tracing
  */
-#define MEM_UNREF(data) TRACE_WRAP(mem_unref(data))
+#define MEM_UNREF(data) TRACE_WRAP_VOID(mem_unref(data))
 
 /**
  * @brief Get the current reference count for a memory block

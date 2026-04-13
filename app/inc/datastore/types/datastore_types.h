@@ -176,7 +176,7 @@ struct datastore_item_interface
     int (*get)(
         const struct datastore_item_const_metadata* item,
         data_value_t* out_value);                                   /**< Function to get an item value */
-    int (*release)(data_value_t* value);                            /**< Function to release an item value */
+    void (*release)(data_value_t* value);                           /**< Function to release an item value */
     int (*decode)(zcbor_state_t* decoder, data_value_t* out_value); /**< Function to decode an item value from CBOR */
     int (*encode)(zcbor_state_t* encoder, data_value_t value); /**< Function to encode a data item value into CBOR */
 };

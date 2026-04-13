@@ -111,7 +111,7 @@ static int delete_stored_value(const char* name)
     ASSERT(len == (settings_name_len - 1), "Failed to construct settings key");
 
     ret = settings_delete(settings_name);
-    (void)MEM_UNREF(&settings_name);
+    MEM_UNREF(&settings_name);
     if (ret != SUCCESS)
     {
         LOG_ERR("Failed to delete %s", name);
@@ -252,7 +252,7 @@ int datastore_storage_save_item(const struct datastore_item_const_metadata* item
     }
 
     ret = item->interface->encode(encoder, current_value);
-    (void)item->interface->release(&current_value);
+    item->interface->release(&current_value);
     if (ret != SUCCESS)
     {
         LOG_ERR("Failed to encode value when saving %s (%d)", item->name, ret);
@@ -262,8 +262,8 @@ int datastore_storage_save_item(const struct datastore_item_const_metadata* item
     }
 
     ret = settings_save_one(settings_name, encoded_value_block, (encoder->payload - (uint8_t*)encoded_value_block));
-    (void)MEM_UNREF(&settings_name);
-    (void)MEM_UNREF(&encoded_value_block);
+    MEM_UNREF(&settings_name);
+    MEM_UNREF(&encoded_value_block);
     if (ret != SUCCESS)
     {
         LOG_ERR("Failed to save %s (%d)", item->name, ret);

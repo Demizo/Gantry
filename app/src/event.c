@@ -72,36 +72,25 @@ int event_alloc(size_t size, event_direction_t direction, event_type_t* type, ev
     return SUCCESS;
 }
 
-int event_ref(event_t* event)
+void event_ref(event_t* event)
 {
-    int ret = SUCCESS;
     event_t* current = NULL;
 
     // Iterate over linked events, incrementing the reference count
     current = event;
     while (current != NULL)
     {
-        ret = mem_ref(current);
-        if (ret)
-        {
-            LOG_ERR("Failed to reference event: %d", ret);
-
-            NOT_REFERENCED(current);
-            return ret;
-        }
-
+        mem_ref(current);
         current = current->next_event;
     }
 
     LOG_DBG("Incremented reference count for event");
 
     PASS_OWNERSHIP(current);
-    return SUCCESS;
 }
 
-int event_unref(event_t** event)
+void event_unref(event_t** event)
 {
-    int ret = SUCCESS;
     event_t* current = NULL;
     event_t* next = NULL;
     int chain_length = 0;
@@ -120,20 +109,13 @@ int event_unref(event_t** event)
         next = current->next_event;
 
         void** current_block = (void**)&current;
-        ret = mem_unref(current_block);
-        if (ret)
-        {
-            LOG_ERR("Failed to dereference event: %d", ret);
-            return ret;
-        }
-
+        mem_unref(current_block);
         current = next;
 
         chain_length++;
     }
 
     LOG_DBG("Decremented reference count for event");
-    return SUCCESS;
 }
 
 void event_init(event_t* event, size_t size, event_direction_t direction, event_type_t* type)

@@ -268,30 +268,13 @@ int mem_alloc(size_t size, void** block_ptr)
     return SUCCESS;
 }
 
-int mem_ref(void* block)
+void mem_ref(void* block)
 {
-    if (block == NULL)
-    {
-        LOG_ERR("NULL pointer provided");
-        return -EINVAL;
-    }
-
     uint32_t key = irq_lock();
 
     mem_block_header_t* header = validate_and_get_header(block);
-    if (header == NULL || header->ref_count == 0)
-    {
-        irq_unlock(key);
-        LOG_ERR("Invalid memory block");
-        return -EINVAL;
-    }
-
-    if (header->ref_count == UINT32_MAX)
-    {
-        irq_unlock(key);
-        LOG_ERR("Max references reached");
-        return -ENOMEM;
-    }
+    ASSERT(((header != NULL) && header->ref_count > 0), "Invalid memory block");
+    ASSERT((header->ref_count < UINT32_MAX), "Max references reached");
 
     header->ref_count++;
 
@@ -303,35 +286,23 @@ int mem_ref(void* block)
 #endif
 
     irq_unlock(key);
-
-    return SUCCESS;
 }
 
-int mem_unref(void** block_ptr)
+void mem_unref(void** block_ptr)
 {
-    if (block_ptr == NULL)
-    {
-        LOG_ERR("NULL pointer provided");
-        return -EINVAL;
-    }
+    ASSERT(block_ptr != NULL, "Invalid memory block");
 
     if (*block_ptr == NULL)
     {
         // Assume that the data is already freed
-        return SUCCESS;
+        return;
     }
 
     uint32_t key = irq_lock();
 
     mem_block_header_t* header = validate_and_get_header(*block_ptr);
-    if (header == NULL)
-    {
-        irq_unlock(key);
-        LOG_ERR("Invalid memory block");
-        return -EINVAL;
-    }
+    ASSERT(((header != NULL) && header->ref_count > 0), "Invalid memory block");
 
-    ASSERT(header->ref_count > 0, "Reference count of an allocated block was zero");
     header->ref_count--;
 
     if (header->ref_count == 0)
@@ -359,8 +330,6 @@ int mem_unref(void** block_ptr)
     }
 
     irq_unlock(key);
-
-    return SUCCESS;
 }
 
 uint32_t mem_get_ref_count(void* block)

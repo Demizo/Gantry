@@ -38,7 +38,7 @@ static bool validate(const struct datastore_item_const_metadata* item, data_valu
 static bool is_default(const struct datastore_item_const_metadata* item);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
-static int release(data_value_t* value);
+static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
 
@@ -91,7 +91,7 @@ static void set(const struct datastore_item_const_metadata* item, data_value_t v
 
     // Unreference old buffer block
     void* old_buffer_block = *(void**)item->value_ptr;
-    (void)mem_unref(&old_buffer_block);
+    mem_unref(&old_buffer_block);
 
     // Set item to new buffer
     *(buffer_t**)(item->value_ptr) = (buffer_t*)new_buffer_block;
@@ -100,26 +100,22 @@ static void set(const struct datastore_item_const_metadata* item, data_value_t v
 
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value)
 {
-    int ret = SUCCESS;
     void* current_buffer_block = *(void**)item->value_ptr;
 
-    ret = mem_ref(current_buffer_block);
-    if (ret == SUCCESS)
-    {
-        out_value->type = DATASTORE_ITEM_TYPE_BUFFER;
-        out_value->data.buffer_value = current_buffer_block;
-    }
+    mem_ref(current_buffer_block);
+    out_value->type = DATASTORE_ITEM_TYPE_BUFFER;
+    out_value->data.buffer_value = current_buffer_block;
 
     PASS_OWNERSHIP(current_buffer_block);
-    return ret;
+    return SUCCESS;
 }
 
-static int release(data_value_t* value)
+static void release(data_value_t* value)
 {
     ASSERT(value->type == DATASTORE_ITEM_TYPE_BUFFER, "Unexpected value type");
 
     void* buffer_block = value->data.buffer_value;
-    return mem_unref(&buffer_block);
+    mem_unref(&buffer_block);
 }
 
 static int encode(zcbor_state_t* encoder, data_value_t value)

@@ -35,7 +35,7 @@ static bool validate(const struct datastore_item_const_metadata* item, data_valu
 static bool is_default(const struct datastore_item_const_metadata* item);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
-static int release(data_value_t* value);
+static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
 
@@ -77,11 +77,10 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
     return SUCCESS;
 }
 
-static int release(data_value_t* value)
+static void release(data_value_t* value)
 {
     ASSERT(value->type == DATASTORE_ITEM_TYPE_ENUM, "Unexpected value type");
     // No action, nothing to free
-    return SUCCESS;
 }
 
 static int encode(zcbor_state_t* encoder, data_value_t value)
