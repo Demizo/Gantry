@@ -168,6 +168,32 @@ int datastore_decode(zcbor_state_t* decoder, enum datastore_item_id id, data_val
 #define DATASTORE_DECODE(decoder, id, out_value) TRACE_WRAP(datastore_decode(decoder, id, out_value))
 
 /**
+ * @brief Subscribe to a data item
+ *
+ * @param current_auth The current authentication level
+ * @param id Item ID to subscribe to
+ * @param subscription The datastore subscription
+ *
+ * @return SUCCESS when the subscription is added
+ * @return -EACCES when the current authentication level is not sufficient
+ * @return -EALREADY when the requested subscription already exists
+ * @return -ENOMEM when there is no memory to create a subscription
+ */
+int datastore_subscribe(
+    enum datastore_auth_level current_auth, enum datastore_item_id id, struct datastore_subscription* subscription);
+
+/**
+ * @brief Unsubscribe from a data item
+ *
+ * @param id Item ID to unsubscribe from
+ * @param subscription The subscription to remove
+ *
+ * @return SUCCESS when the subscription is removed from the data item
+ * @return -ENOENT when the subscription did not exist for the given data item
+ */
+int datastore_unsubscribe(enum datastore_item_id id, struct datastore_subscription* subscription);
+
+/**
  * @}
  */
 
