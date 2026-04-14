@@ -31,7 +31,7 @@ flash:
 analyze:
   uv run tools/memory_analysis/generate_leak_check.py 
   spatch --sp-file tools/memory_analysis/generated_leak_check.cocci --dir app/src/ --no-includes --very-quiet
-  cppcheck --quiet --enable=warning,performance,portability --check-level=exhaustive --error-exitcode=1 --inconclusive app/src/
+  cppcheck --quiet --inline-suppr --enable=warning,performance,portability --check-level=exhaustive --error-exitcode=1 --inconclusive app/src/
 
 # Format all files
 format:

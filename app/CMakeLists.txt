@@ -34,6 +34,7 @@ if(CPPCHECK_CMD)
 
         COMMAND ${CPPCHECK_CMD}
             --quiet
+            --inline-suppr
             --enable=warning,performance,portability
             --check-level=exhaustive
             --error-exitcode=1
