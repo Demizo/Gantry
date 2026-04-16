@@ -48,13 +48,13 @@ LOG_MODULE_REGISTER(event, CONFIG_EVENT_LOG_LEVEL);
 //* Public Function Definitions
 //**********************************************************
 
-int event_alloc(size_t size, event_direction_t direction, event_type_t* type, event_t** event)
+int event_alloc(size_t size, event_direction_t direction, const event_type_t* type, event_t** event_ptr)
 {
     int ret = SUCCESS;
 
     // Account for event header size in total size
     size_t total_size = sizeof(event_t) + size;
-    void** event_block = (void**)event;
+    void** event_block = (void**)event_ptr;
     ret = mem_alloc(total_size, event_block);
     if (ret)
     {
@@ -64,7 +64,7 @@ int event_alloc(size_t size, event_direction_t direction, event_type_t* type, ev
         return ret;
     }
 
-    event_init(*event, size, direction, type);
+    event_init(*event_ptr, size, direction, type);
 
     LOG_DBG("Event allocated: size: %zu, direction: %d, type: %d", size, direction, type->id);
 
@@ -118,7 +118,7 @@ void event_unref(event_t** event)
     LOG_DBG("Decremented reference count for event");
 }
 
-void event_init(event_t* event, size_t size, event_direction_t direction, event_type_t* type)
+void event_init(event_t* event, size_t size, event_direction_t direction, const event_type_t* type)
 {
     event->next_event = NULL;
     event->return_queue = NULL;

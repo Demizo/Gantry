@@ -12,8 +12,10 @@
 #include "datastore.h"
 
 #include <sys/errno.h>
+#include <zephyr/logging/log.h>
 #include <zephyr/sys/slist.h>
 
+#include "datastore_event.h"
 #include "datastore_storage.h"
 #include "datastore_types.h"
 #include "error.h"
@@ -42,6 +44,8 @@ struct datastore_subscriber_node
 //* Static Function Declarations
 //**********************************************************
 
+void notify_subscribers(const struct datastore_item_const_metadata* item);
+
 //**********************************************************
 //* Static Variable Definitions
 //**********************************************************
@@ -51,6 +55,111 @@ static struct datastore_item_dynamic_metadata g_datastore_dynamic_metadata[DATAS
 //**********************************************************
 //* Static Function Definitions
 //**********************************************************
+
+/**
+ * @brief Notify subscribers that a given item has changed
+ *
+ * @details Calls the callback for each subscriber of a given item.
+ *
+ * @param item The item to send notifications for
+ */
+void notify_subscribers(const struct datastore_item_const_metadata* item)
+{
+    int ret;
+    bool has_handle_subscribers = false;
+    event_t* handle_event = NULL;
+    bool has_copy_subscribers = false;
+    event_t* copy_event = NULL;
+    struct datastore_subscriber_node* sub;
+
+    // Check subscriber types
+    SYS_SLIST_FOR_EACH_CONTAINER(&g_datastore_dynamic_metadata[item->id].subscribers, sub, node)
+    {
+        if (sub->subscription.mode == DATASTORE_SUBSCRIPTION_HANDLE)
+        {
+            has_handle_subscribers = true;
+        }
+        else if (sub->subscription.mode == DATASTORE_SUBSCRIPTION_COPY)
+        {
+            has_copy_subscribers = true;
+        }
+    }
+
+    // Create handle update event if needed
+    if (has_handle_subscribers)
+    {
+        ret = EVENT_ALLOC(
+            sizeof(struct datastore_update_event_payload), EVENT_DIRECTION_IX, &datastore_update_event, &handle_event);
+        if (ret != SUCCESS)
+        {
+            LOG_ERR("Failed to allocate handle event for item %d (%d)", item->id, ret);
+            NOT_REFERENCED(handle_event);
+            return;
+        }
+
+        struct datastore_update_event_payload* update_payload =
+            (struct datastore_update_event_payload*)handle_event->data.buf;
+
+        update_payload->metadata = item;
+        update_payload->mode = DATASTORE_SUBSCRIPTION_HANDLE;
+        update_payload->value_copy = (data_value_t){ 0 };
+    }
+
+    // Allocate copy update event if needed
+    if (has_copy_subscribers)
+    {
+        ret = EVENT_ALLOC(
+            sizeof(struct datastore_update_event_payload), EVENT_DIRECTION_IX, &datastore_update_event, &copy_event);
+        if (ret != SUCCESS)
+        {
+            LOG_ERR("Failed to allocate copy event for item %d (%d)", item->id, ret);
+            EVENT_UNREF(&handle_event);
+            NOT_REFERENCED(copy_event);
+            return;
+        }
+
+        struct datastore_update_event_payload* update_payload =
+            (struct datastore_update_event_payload*)copy_event->data.buf;
+
+        update_payload->metadata = item;
+        update_payload->mode = DATASTORE_SUBSCRIPTION_COPY;
+
+        // Set value copy to current value
+        data_value_t current_value = { 0 };
+        ret = item->interface->get(item, &current_value);
+        if (ret != SUCCESS)
+        {
+            LOG_ERR("Failed to get current item value (%d)", ret);
+            EVENT_UNREF(&handle_event);
+            EVENT_UNREF(&copy_event);
+            return;
+        }
+        update_payload->value_copy = current_value;
+    }
+
+    // Notify subscribers
+    SYS_SLIST_FOR_EACH_CONTAINER(&g_datastore_dynamic_metadata[item->id].subscribers, sub, node)
+    {
+        if (sub->subscription.cb != NULL)
+        {
+            if (sub->subscription.mode == DATASTORE_SUBSCRIPTION_HANDLE)
+            {
+                EVENT_REF(handle_event);
+                sub->subscription.cb(handle_event);
+            }
+            else if (sub->subscription.mode == DATASTORE_SUBSCRIPTION_COPY)
+            {
+                EVENT_REF(copy_event);
+                sub->subscription.cb(copy_event);
+            }
+        }
+    }
+
+    // Release the initial references. The reference count has been incremented for each subscriber. The
+    // subscriber is responsible for dereferencing the event when complete.
+    EVENT_UNREF(&handle_event);
+    EVENT_UNREF(&copy_event);
+}
 
 //**********************************************************
 //* Public Function Definitions
@@ -115,6 +224,8 @@ int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id
 
     // TODO: Call other validators
 
+    uint32_t key = irq_lock();
+
     // Apply new value
     item->interface->set(item, value);
 
@@ -124,13 +235,16 @@ int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id
         (void)datastore_storage_save_item(item);
     }
 
-    // TODO: Notify listeners
+    notify_subscribers(item);
+
+    irq_unlock(key);
 
     return ret;
 }
 
 int datastore_get(enum datastore_auth_level current_auth, enum datastore_item_id id, data_value_t* out_value)
 {
+    int ret = SUCCESS;
     const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[id];
 
     // Check permissions
@@ -141,7 +255,11 @@ int datastore_get(enum datastore_auth_level current_auth, enum datastore_item_id
     }
 
     // Get current value
-    return item->interface->get(item, out_value);
+    uint32_t key = irq_lock();
+    ret = item->interface->get(item, out_value);
+    irq_unlock(key);
+
+    return ret;
 }
 
 void datastore_release(enum datastore_item_id id, data_value_t* value)
@@ -175,6 +293,8 @@ int datastore_subscribe(
         return -EACCES;
     }
 
+    uint32_t key = irq_lock();
+
     // Ensure the subscription is not already in the list to prevent duplicates
     bool already_subscribed = false;
     struct datastore_subscriber_node* current_node;
@@ -190,6 +310,7 @@ int datastore_subscribe(
     if (already_subscribed)
     {
         LOG_WRN("Subscription already exists for item id: %d", id);
+        irq_unlock(key);
         return -EALREADY;
     }
 
@@ -200,14 +321,15 @@ int datastore_subscribe(
     {
         LOG_ERR("Failed to allocate subscription node for item id: %d (%d)", id, ret);
         NOT_REFERENCED(current_node_block);
+        irq_unlock(key);
         return -ENOMEM;
     }
 
     current_node = (struct datastore_subscriber_node*)current_node_block;
     current_node->subscription = *subscription;
 
-    uint32_t key = irq_lock();
     sys_slist_append(&g_datastore_dynamic_metadata[id].subscribers, &current_node->node);
+
     irq_unlock(key);
 
     LOG_DBG("Subscribed to item id: %d, mode: %d", id, subscription->mode);

@@ -59,8 +59,8 @@ enum datastore_subscription_mode
  */
 struct datastore_update_event_payload
 {
-    struct datastore_item_const_metadata metadata; /**< Constant metadata of the updated item */
-    enum datastore_subscription_mode mode;         /**< Subscription mode */
+    const struct datastore_item_const_metadata* metadata; /**< Constant metadata of the updated item */
+    enum datastore_subscription_mode mode;                /**< Subscription mode */
     data_value_t value_copy; /**< A copy of the item's value, valid when the mode is @ref DATASTORE_SUBSCRIPTION_COPY */
 };
 

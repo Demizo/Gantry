@@ -53,6 +53,6 @@ void datastore_event_on_free(event_t* event)
     struct datastore_update_event_payload* payload = (struct datastore_update_event_payload*)event->data.buf;
     if (payload->mode == DATASTORE_SUBSCRIPTION_COPY)
     {
-        payload->metadata.interface->release(&(payload->value_copy));
+        payload->metadata->interface->release(&(payload->value_copy));
     }
 }
