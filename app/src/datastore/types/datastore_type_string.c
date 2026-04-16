@@ -20,6 +20,7 @@
 #include "datastore_types.h"
 #include "error.h"
 #include "memory.h"
+#include "string_utils.h"
 
 /**
  * @brief Logger for module
@@ -70,21 +71,19 @@ static bool is_default(const struct datastore_item_const_metadata* item)
 static void set(const struct datastore_item_const_metadata* item, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRING, "Unexpected value type");
-    strncpy((char*)item->value_ptr, value.data.string_value, item->constraints.buffer_constraints.max_len);
-    ((char*)(item->value_ptr))[item->constraints.buffer_constraints.max_len] = '\0';
+    strscpy((char*)item->value_ptr, value.data.string_value, item->constraints.buffer_constraints.max_len + 1);
 }
 
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value)
 {
     int ret = SUCCESS;
-    uint16_t len = strnlen((const char*)item->value_ptr, item->constraints.buffer_constraints.max_len);
+    uint16_t len = strnlen((const char*)item->value_ptr, item->constraints.buffer_constraints.max_len) + 1;
 
     void* string_block = NULL;
     ret = mem_alloc(len, &string_block);
     if (ret == SUCCESS)
     {
-        strncpy((char*)string_block, (const char*)item->value_ptr, len);
-        ((char*)string_block)[len] = '\0';
+        strscpy((char*)string_block, (const char*)item->value_ptr, len);
 
         out_value->type = DATASTORE_ITEM_TYPE_STRING;
         out_value->data.string_value = string_block;
