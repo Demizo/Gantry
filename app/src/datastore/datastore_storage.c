@@ -133,7 +133,12 @@ static int datastore_set_handler(const char* name, size_t len, settings_read_cb 
 {
     int ret = SUCCESS;
     enum datastore_item_id item_id = get_id_from_name(name);
-    if (item_id == DATASTORE_ID_COUNT) return -EINVAL;
+    if (item_id == DATASTORE_ID_COUNT)
+    {
+        LOG_WRN("%s is not a valid datastore item, removing", name);
+        (void)delete_stored_value(name);
+        return -EINVAL;
+    }
 
     const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[item_id];
 
