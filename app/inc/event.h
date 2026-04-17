@@ -66,16 +66,6 @@
 typedef struct event_t event_t;
 
 /**
- * @brief Event direction
- */
-typedef enum
-{
-    EVENT_DIRECTION_RX = 0, /**< Receive event */
-    EVENT_DIRECTION_TX = 1, /**< Transmit event */
-    EVENT_DIRECTION_IX = 2, /**< Internal event */
-} event_direction_t;
-
-/**
  * @brief Function called before an event is freed
  *
  * @param event The event being freed
@@ -100,11 +90,9 @@ typedef struct
  */
 struct event_t
 {
-    event_t* next_event;         /**< Linked event */
-    struct k_msgq* return_queue; /**< Optional return queue for responses */
-    const event_type_t* type;    /**< Event type */
-    event_direction_t direction; /**< Event direction */
-    buffer_t data;               /**< Event data buffer */
+    event_t* next_event;      /**< Linked event */
+    const event_type_t* type; /**< Event type */
+    buffer_t data;            /**< Event data buffer */
 };
 
 //**********************************************************
@@ -119,20 +107,19 @@ struct event_t
  * @note It is recommended that you always use the EVENT_ALLOC macro which calls this function with the debug
  * information filled in.
  *
- * @param[in] size The requested event buffer size in bytes
- * @param[in] direction The direction of the event
  * @param[in] type The type of the event
+ * @param[in] payload_size The requested event payload size in bytes
  * @param[out] event_ptr Pointer to be populated with the address of an event. This pointer must point to a NULL
  * pointer when this function is called. It is only populated when the allocation succeeds.
  *
  * @return result of @ref mem_alloc
  */
-int event_alloc(size_t size, event_direction_t direction, const event_type_t* type, event_t** event_ptr);
+int event_alloc(const event_type_t* type, size_t payload_size, event_t** event_ptr);
 
 /**
  * @brief Convenience macro for @ref event_alloc with memory tracing
  */
-#define EVENT_ALLOC(size, direction, type, event_ptr) TRACE_WRAP(event_alloc(size, direction, type, event_ptr))
+#define EVENT_ALLOC(type, payload_size, event_ptr) TRACE_WRAP(event_alloc(type, payload_size, event_ptr))
 
 /**
  * @brief Increment the reference count of an event and all linked events
@@ -177,11 +164,10 @@ void event_unref(event_t** event_ptr);
  * a memory block ensure the size needed to hold the event header is taken into account.
  *
  * @param[in,out] event Pointer to the event structure to initialize
- * @param[in] size Size of the event buffer
- * @param[in] direction The direction of the event
  * @param[in] type The type of the event
+ * @param[in] payload_size Size of the event buffer
  */
-void event_init(event_t* event, size_t size, event_direction_t direction, const event_type_t* type);
+void event_init(event_t* event, const event_type_t* type, size_t payload_size);
 
 /**
  * @}

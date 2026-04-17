@@ -88,8 +88,7 @@ void notify_subscribers(const struct datastore_item_const_metadata* item)
     // Create handle update event if needed
     if (has_handle_subscribers)
     {
-        ret = EVENT_ALLOC(
-            sizeof(struct datastore_update_event_payload), EVENT_DIRECTION_IX, &datastore_update_event, &handle_event);
+        ret = EVENT_ALLOC(&datastore_update_event, sizeof(struct datastore_update_event_payload), &handle_event);
         if (ret != SUCCESS)
         {
             LOG_ERR("Failed to allocate handle event for item %d (%d)", item->id, ret);
@@ -108,8 +107,7 @@ void notify_subscribers(const struct datastore_item_const_metadata* item)
     // Allocate copy update event if needed
     if (has_copy_subscribers)
     {
-        ret = EVENT_ALLOC(
-            sizeof(struct datastore_update_event_payload), EVENT_DIRECTION_IX, &datastore_update_event, &copy_event);
+        ret = EVENT_ALLOC(&datastore_update_event, sizeof(struct datastore_update_event_payload), &copy_event);
         if (ret != SUCCESS)
         {
             LOG_ERR("Failed to allocate copy event for item %d (%d)", item->id, ret);
