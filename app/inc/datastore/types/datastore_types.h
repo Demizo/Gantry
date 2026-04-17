@@ -85,11 +85,11 @@ enum datastore_storage_type
  */
 enum datastore_auth_level
 {
-    AUTH_NONE,     /**< Access does not require authentication */
+    AUTH_ANY,      /**< Access does not require authentication */
     AUTH_SESSION,  /**< Access requires a authenticated session */
     AUTH_DEV,      /**< Only dev sessions have access */
     AUTH_INTERNAL, /**< Only internal modules have access */
-    AUTH_NO_ACCESS /**< No access permitted */
+    AUTH_NONE      /**< No access permitted */
 };
 
 /**
