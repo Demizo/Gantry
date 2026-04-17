@@ -36,6 +36,24 @@ else()
     message(WARNING "uv not found: datastore items will not be regenerated automatically")
 endif()
 
+find_program(JUST_CMD NAMES just)
+if(JUST_CMD)
+    add_custom_target(
+        code_format ALL
+
+        COMMAND ${JUST_CMD}
+            format
+        
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Formatting code..."
+        VERBATIM
+    )
+    add_dependencies(code_format generate_datastore_items)
+    add_dependencies(app code_format)
+else()
+    message(WARNING "just not found: code will not be formatted")
+endif()
+
 target_sources(app PRIVATE
     src/main.c
     src/string_utils.c
