@@ -27,6 +27,15 @@ alias f := flash
 flash:
   west flash --runner openocd
 
+alias e := erase
+# Erase the firmware
+erase:
+  openocd -f app/openocd.cfg -c "init; halt; nrf5 mass_erase; exit"
+
+# Recover the board
+recover:
+  openocd -f app/openocd.cfg -c "init; nrf52_recover; exit"
+
 # Generate the datastore
 gen-datastore:
   uv run tools/datastore/generate_datastore.py --yaml app/datastore.yaml --output-dir app
