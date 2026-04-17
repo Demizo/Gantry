@@ -9,12 +9,10 @@
     zephyr.url = "github:zephyrproject-rtos/zephyr/v4.3.0";
     zephyr.flake = false;
 
-    zephyr-nix-nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     zephyr-nix = {
       url = "github:adisbladis/zephyr-nix";
       inputs = {
-        # Use stable nixpkgs which include python310 dependency
-        nixpkgs.follows = "zephyr-nix-nixpkgs";
+        nixpkgs.follows = "nixpkgs";
         zephyr.follows = "zephyr";
       };
     };
