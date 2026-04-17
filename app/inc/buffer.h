@@ -22,13 +22,14 @@
 /**
  * @brief Buffer with length
  *
- * @details Used to store data of a variable length.
+ * @details Used to store data of a variable length. The buffer data is aligned so that it can be interpreted as custom
+ * types or structs.
  *
  */
 typedef struct
 {
-    uint16_t len;  /**< Buffer length in bytes */
-    uint8_t buf[]; /**< Variable size buffer data */
+    uint16_t len;                                          /**< Buffer length in bytes */
+    uint8_t buf[] __attribute__((aligned(sizeof(void*)))); /**< Variable size buffer data */
 } buffer_t;
 
 /**
