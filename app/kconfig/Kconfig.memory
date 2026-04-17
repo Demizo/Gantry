@@ -8,38 +8,61 @@ config MEM_TRACE
     help
       Trace where memory is being allocated, referenced, and dereferenced
 
-config MEM_SMALL_BLOCK_SIZE
-    int "Small memory block size in bytes"
-    default 128
+config MEM_POOL_COUNT
+    int "Number of active memory pools"
+    range 1 6
+    default 3
     help
-      Size in bytes for small memory blocks.
+        The block size must increase for each subsequent memory pool
 
-config MEM_SMALL_BLOCK_COUNT
-    int "Number of small memory blocks"
+config MEM_POOL1_BLOCK_SIZE
+    int "Pool 1 block size"
     default 16
-    help
-      Number of blocks in the small pool.
+config MEM_POOL1_BLOCK_COUNT
+    int "Pool 1 block count"
+    default 128
 
-config MEM_MEDIUM_BLOCK_SIZE
-    int "Medium memory block size in bytes"
+config MEM_POOL2_BLOCK_SIZE
+    int "Pool 2 block size"
+    depends on MEM_POOL_COUNT >= 2
+    default 32
+config MEM_POOL2_BLOCK_COUNT
+    int "Pool 2 block count"
+    depends on MEM_POOL_COUNT >= 2
+    default 64
+
+config MEM_POOL3_BLOCK_SIZE
+    int "Pool 3 block size"
+    depends on MEM_POOL_COUNT >= 3
+    default 64
+config MEM_POOL3_BLOCK_COUNT
+    int "Pool 3 block count"
+    depends on MEM_POOL_COUNT >= 3
+    default 32
+
+config MEM_POOL4_BLOCK_SIZE
+    int "Pool 4 block size"
+    depends on MEM_POOL_COUNT >= 4
+    default 128
+config MEM_POOL4_BLOCK_COUNT
+    int "Pool 4 block count"
+    depends on MEM_POOL_COUNT >= 4
+    default 16
+
+config MEM_POOL5_BLOCK_SIZE
+    int "Pool 5 block size"
+    depends on MEM_POOL_COUNT >= 5
     default 512
-    help
-      Size in bytes for medium memory blocks.
-
-config MEM_MEDIUM_BLOCK_COUNT
-    int "Number of medium memory blocks"
+config MEM_POOL5_BLOCK_COUNT
+    int "Pool 5 block count"
+    depends on MEM_POOL_COUNT >= 5
     default 8
-    help
-      Number of blocks in the medium pool.
 
-config MEM_LARGE_BLOCK_SIZE
-    int "Large memory block size in bytes"
+config MEM_POOL6_BLOCK_SIZE
+    int "Pool 6 block size"
+    depends on MEM_POOL_COUNT >= 6
     default 1024
-    help
-      Size in bytes for large memory blocks.
-
-config MEM_LARGE_BLOCK_COUNT
-    int "Number of large memory blocks"
-    default 12
-    help
-      Number of blocks in the large pool.
+config MEM_POOL6_BLOCK_COUNT
+    int "Pool 6 block count"
+    depends on MEM_POOL_COUNT >= 6
+    default 4

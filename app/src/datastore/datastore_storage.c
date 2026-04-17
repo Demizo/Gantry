@@ -236,7 +236,7 @@ int datastore_storage_save_item(const struct datastore_item_const_metadata* item
     ASSERT(len == (settings_name_len - 1), "Failed to construct settings key");
 
     void* encoded_value_block = NULL;
-    ret = MEM_ALLOC(CONFIG_MEM_LARGE_BLOCK_SIZE, &encoded_value_block);
+    ret = MEM_ALLOC(CONFIG_DATASTORE_ITEM_STORAGE_SIZE_MAX, &encoded_value_block);
     if (ret != SUCCESS)
     {
         LOG_ERR("Failed to allocate encoded value block when saving %s (%d)", item->name, ret);
@@ -245,7 +245,7 @@ int datastore_storage_save_item(const struct datastore_item_const_metadata* item
         return ret;
     }
 
-    ZCBOR_STATE_E(encoder, 1, encoded_value_block, CONFIG_MEM_LARGE_BLOCK_SIZE, 1);
+    ZCBOR_STATE_E(encoder, 1, encoded_value_block, CONFIG_DATASTORE_ITEM_STORAGE_SIZE_MAX, 1);
     data_value_t current_value = { 0 };
     ret = item->interface->get(item, &current_value);
     if (ret != SUCCESS)

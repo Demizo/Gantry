@@ -47,23 +47,12 @@ typedef struct
 } mem_pool_metadata_t;
 
 /**
- * @brief Memory pool sizes
- */
-typedef enum
-{
-    POOL_SMALL = 0,
-    POOL_MEDIUM,
-    POOL_LARGE,
-    POOL_COUNT
-} mem_pool_size_t;
-
-/**
  * @brief Header stored at the start of each memory block
  */
 typedef struct
 {
-    uint8_t magic[8];     /**< Magic number for block validation */
-    mem_pool_size_t pool; /**< Pool the block belongs to */
+    uint8_t magic[8]; /**< Magic number for block validation */
+    uint8_t pool;     /**< Pool the block belongs to */
 #ifdef CONFIG_MEM_TRACE
     const char* func; /**< Function name that allocated the block */
 #endif
@@ -85,39 +74,63 @@ STATIC_UNIT mem_block_header_t* validate_and_get_header(void* data);
 static const uint8_t magic[8] = { 'M', 'E', 'M', 'B', 'L', 'O', 'C', 'K' };
 
 /**
- * @brief Small memory slab
+ * @brief Pool 1 slab
  */
-K_MEM_SLAB_DEFINE_STATIC(small_slab, CONFIG_MEM_SMALL_BLOCK_SIZE, CONFIG_MEM_SMALL_BLOCK_COUNT, sizeof(void*));
-
+K_MEM_SLAB_DEFINE_STATIC(
+    pool1_slab, CONFIG_MEM_POOL1_BLOCK_SIZE + sizeof(mem_block_header_t), CONFIG_MEM_POOL1_BLOCK_COUNT, sizeof(void*));
+#if CONFIG_MEM_POOL_COUNT >= 2
 /**
- * @brief Medium memory slab
+ * @brief Pool 2 slab
  */
-K_MEM_SLAB_DEFINE_STATIC(medium_slab, CONFIG_MEM_MEDIUM_BLOCK_SIZE, CONFIG_MEM_MEDIUM_BLOCK_COUNT, sizeof(void*));
-
+K_MEM_SLAB_DEFINE_STATIC(
+    pool2_slab, CONFIG_MEM_POOL2_BLOCK_SIZE + sizeof(mem_block_header_t), CONFIG_MEM_POOL2_BLOCK_COUNT, sizeof(void*));
+#endif
+#if CONFIG_MEM_POOL_COUNT >= 3
 /**
- * @brief Large memory slab
+ * @brief Pool 3 slab
  */
-K_MEM_SLAB_DEFINE_STATIC(large_slab, CONFIG_MEM_LARGE_BLOCK_SIZE, CONFIG_MEM_LARGE_BLOCK_COUNT, sizeof(void*));
+K_MEM_SLAB_DEFINE_STATIC(
+    pool3_slab, CONFIG_MEM_POOL3_BLOCK_SIZE + sizeof(mem_block_header_t), CONFIG_MEM_POOL3_BLOCK_COUNT, sizeof(void*));
+#endif
+#if CONFIG_MEM_POOL_COUNT >= 4
+/**
+ * @brief Pool 4 slab
+ */
+K_MEM_SLAB_DEFINE_STATIC(
+    pool4_slab, CONFIG_MEM_POOL4_BLOCK_SIZE + sizeof(mem_block_header_t), CONFIG_MEM_POOL4_BLOCK_COUNT, sizeof(void*));
+#endif
+#if CONFIG_MEM_POOL_COUNT >= 5
+/**
+ * @brief Pool 5 slab
+ */
+K_MEM_SLAB_DEFINE_STATIC(
+    pool5_slab, CONFIG_MEM_POOL5_BLOCK_SIZE + sizeof(mem_block_header_t), CONFIG_MEM_POOL5_BLOCK_COUNT, sizeof(void*));
+#endif
+#if CONFIG_MEM_POOL_COUNT >= 6
+/**
+ * @brief Pool 6 slab
+ */
+K_MEM_SLAB_DEFINE_STATIC(
+    pool6_slab, CONFIG_MEM_POOL6_BLOCK_SIZE + sizeof(mem_block_header_t), CONFIG_MEM_POOL6_BLOCK_COUNT, sizeof(void*));
+#endif
 
-static mem_pool_metadata_t mem_pools[POOL_COUNT] = {
-    [POOL_SMALL] =
-        {
-            .slab = &small_slab,
-            .block_size = CONFIG_MEM_SMALL_BLOCK_SIZE + sizeof(mem_block_header_t),
-            .block_count = CONFIG_MEM_SMALL_BLOCK_COUNT,
-        },
-    [POOL_MEDIUM] =
-        {
-            .slab = &medium_slab,
-            .block_size = CONFIG_MEM_MEDIUM_BLOCK_SIZE + sizeof(mem_block_header_t),
-            .block_count = CONFIG_MEM_MEDIUM_BLOCK_COUNT,
-        },
-    [POOL_LARGE] =
-        {
-            .slab = &large_slab,
-            .block_size = CONFIG_MEM_LARGE_BLOCK_SIZE + sizeof(mem_block_header_t),
-            .block_count = CONFIG_MEM_LARGE_BLOCK_COUNT,
-        },
+static struct k_mem_slab* mem_pools[CONFIG_MEM_POOL_COUNT] = {
+    &pool1_slab,
+#if CONFIG_MEM_POOL_COUNT >= 2
+    &pool2_slab,
+#endif
+#if CONFIG_MEM_POOL_COUNT >= 3
+    &pool3_slab,
+#endif
+#if CONFIG_MEM_POOL_COUNT >= 4
+    &pool4_slab,
+#endif
+#if CONFIG_MEM_POOL_COUNT >= 5
+    &pool5_slab,
+#endif
+#if CONFIG_MEM_POOL_COUNT >= 6
+    &pool6_slab,
+#endif
 };
 
 //**********************************************************
@@ -159,7 +172,7 @@ STATIC_UNIT mem_block_header_t* validate_and_get_header(void* block)
         return NULL;
     }
 
-    if (header->pool >= POOL_COUNT)
+    if (header->pool >= CONFIG_MEM_POOL_COUNT)
     {
         return NULL;
     }
@@ -201,16 +214,16 @@ int mem_alloc(size_t size, void** block_ptr)
     uint32_t key = irq_lock();
 
     // Find the smallest possible pool that can fit the requested size
-    for (int i = 0; i < POOL_COUNT; i++)
+    for (int i = 0; i < CONFIG_MEM_POOL_COUNT; i++)
     {
-        mem_pool_metadata_t* pool = &mem_pools[i];
-        if (total_size <= pool->block_size)
+        struct k_mem_slab* pool = mem_pools[i];
+        if (total_size <= pool->info.block_size)
         {
-            mem_pool_size_t pool_size = (mem_pool_size_t)i;
-            uint32_t available_blocks = k_mem_slab_num_free_get(pool->slab);
+            uint8_t pool_size = (uint8_t)i;
+            uint32_t available_blocks = k_mem_slab_num_free_get(pool);
             if (available_blocks == 0)
             {
-                if (i == POOL_COUNT - 1)
+                if (i == CONFIG_MEM_POOL_COUNT - 1)
                 {
                     // No more pools to check
                     LOG_ERR("No memory blocks found for size %zu", size);
@@ -225,7 +238,7 @@ int mem_alloc(size_t size, void** block_ptr)
             }
 
             // Allocate block
-            ret = k_mem_slab_alloc(pool->slab, &block, K_NO_WAIT);
+            ret = k_mem_slab_alloc(pool, &block, K_NO_WAIT);
             if (ret)
             {
                 irq_unlock(key);
@@ -254,7 +267,7 @@ int mem_alloc(size_t size, void** block_ptr)
         }
         else
         {
-            if (i == POOL_COUNT - 1)
+            if (i == CONFIG_MEM_POOL_COUNT - 1)
             {
                 LOG_ERR("Requested size %zu exceeds the maximum block size", size);
                 irq_unlock(key);
@@ -308,10 +321,10 @@ void mem_unref(void** block_ptr)
     if (header->ref_count == 0)
     {
         // Free the block when there are no more references
-        mem_pool_metadata_t* pool = &mem_pools[header->pool];
+        struct k_mem_slab* pool = mem_pools[header->pool];
         void* block_header = block_to_header(*block_ptr);
 
-        k_mem_slab_free(pool->slab, block_header);
+        k_mem_slab_free(pool, block_header);
 #ifdef CONFIG_MEM_TRACE
         LOG_DBG(
             "Freed block %p, allocated by %s [%s:%d]", *block_ptr, header->func ? header->func : "unknown",

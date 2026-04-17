@@ -9,3 +9,7 @@ config DATASTORE_TYPES_LOG_LEVEL
 config DATASTORE_STORAGE_LOG_LEVEL
     int "Datastore storage backend log level"
     default 3
+
+config DATASTORE_ITEM_STORAGE_SIZE_MAX
+    int "The maximum encoded size in bytes for datastore items stored in persistent storage"
+    default 1024
