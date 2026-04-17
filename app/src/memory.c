@@ -68,7 +68,7 @@ typedef struct
     const char* func; /**< Function name that allocated the block */
 #endif
     uint32_t ref_count; /**< Reference count */
-} __attribute__((packed)) mem_block_header_t;
+} __attribute__((aligned(sizeof(void*)))) mem_block_header_t;
 
 //**********************************************************
 //* Static Function Declarations
