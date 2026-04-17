@@ -105,7 +105,7 @@ const struct datastore_item_const_metadata
             {
                 .id = DATASTORE_ID_VERSION_CODE,
                 .name = "VersionCode",
-                .storage_type = DATASTORE_STORAGE_TOFU,
+                .storage_type = DATASTORE_STORAGE_EPHEMERAL,
                 .permissions = {0, 0},
                 .type = DATASTORE_ITEM_TYPE_INT,
                 .interface = &datastore_int_interface,

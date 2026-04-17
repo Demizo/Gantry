@@ -5,8 +5,11 @@
 
 #include "buffer.h"
 #include "datastore.h"
+#include "datastore_event.h"
 #include "datastore_type_enum.h"
 #include "datastore_types.h"
+#include "error.h"
+#include "event.h"
 #include "generated_datastore_items.h"
 #include "memory.h"
 #include "zcbor_decode.h"
@@ -25,13 +28,26 @@ LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
 //* Static Function Declarations
 //**********************************************************
 
+void counter_cb(event_t* event);
+
 //**********************************************************
 //* Static Variable Definitions
 //**********************************************************
 
+static struct datastore_subscription counter_handler = { .mode = DATASTORE_SUBSCRIPTION_COPY, .cb = counter_cb };
+
 //**********************************************************
 //* Static Function Definitions
 //**********************************************************
+
+void counter_cb(event_t* event)
+{
+    ASSERT(event->type->id == EVENT_ID_DATASTORE_UPDATE, "Unexpected event type");
+    ASSERT(event->data.len == sizeof(struct datastore_update_event_payload), "Unexpected payload size");
+    struct datastore_update_event_payload* payload = (struct datastore_update_event_payload*)event->data.buf;
+    ASSERT(payload->metadata->id == DATASTORE_ID_VERSION_CODE, "Unexpected datastore item");
+    LOG_INF("Counter updated: %d", payload->value_copy.data.int_value);
+}
 
 //**********************************************************
 //* Public Function Definitions
@@ -164,9 +180,22 @@ int main(void)
 
     MEM_UNREF(&test_block);
 
+    int i = 0;
+    (void)datastore_subscribe(AUTH_INTERNAL, DATASTORE_ID_VERSION_CODE, &counter_handler);
     while (1)
     {
-        k_sleep(K_MSEC(100));
+        data_value_t counter = { .type = DATASTORE_ITEM_TYPE_INT, .data.int_value = i };
+        (void)DATASTORE_SET(AUTH_INTERNAL, DATASTORE_ID_VERSION_CODE, counter);
+        LOG_INF("Counter set: %d", i);
+
+        i++;
+        if (i == 20)
+        {
+            (void)datastore_unsubscribe(DATASTORE_ID_VERSION_CODE, &counter_handler);
+            LOG_INF("Unsubscribed");
+        }
+
+        k_sleep(K_MSEC(1000));
     }
 
     return 0;
