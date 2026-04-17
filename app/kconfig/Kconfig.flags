@@ -1,0 +1,5 @@
+config FLAGS_VALIDATION
+    bool "Enable runtime flag validation"
+    default y if DEBUG
+    help
+      Whenever a flag changes validate the flag rules to catch invalid states at runtime.

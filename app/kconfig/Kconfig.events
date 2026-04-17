@@ -1,0 +1,3 @@
+config EVENT_LOG_LEVEL
+    int "Event log level"
+    default 3

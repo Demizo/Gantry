@@ -6,103 +6,55 @@ config MAIN_LOG_LEVEL
     int "Main log level"
     default 3
 
-
-menu "Flags"
-
-config FLAGS_VALIDATION
-    bool "Enable runtime flag validation"
-    default y if DEBUG
-    help
-      Whenever a flag changes validate the flag rules to catch invalid states at runtime.
-
-endmenu
-
-
-menu "Unit Testing"
-
 config UNIT_TESTING
     bool "Enable unit testing build modifications"
     default n
     help
       Changes the firmware to unit testing mode (e.g. exposing some static functions publicly).
 
-endmenu
 
-
-menu "Memory"
-
-config MEM_LOG_LEVEL
-    int "Memory log level"
-    default 3
-
-config MEM_TRACE
-    bool "Trace where memory is being managed"
-    default y if DEBUG
+menuconfig GANTRY_FLAGS
+    bool "Gantry Flags"
+    default y
     help
-      Trace where memory is being allocated, referenced, and dereferenced
+      Enable Gantry Flags.
 
-config MEM_SMALL_BLOCK_SIZE
-    int "Small memory block size in bytes"
-    default 128
+if GANTRY_FLAGS
+    rsource "kconfig/Kconfig.flags"
+endif
+
+
+menuconfig GANTRY_MEMORY
+    bool "Gantry Memory Management"
+    default y
     help
-      Size in bytes for small memory blocks.
+      Enable Gantry memory management settings.
 
-config MEM_SMALL_BLOCK_COUNT
-    int "Number of small memory blocks"
-    default 16
+if GANTRY_MEMORY
+    rsource "kconfig/Kconfig.memory"
+endif
+
+
+menuconfig GANTRY_EVENTS
+    bool "Gantry Events"
+    default y
     help
-      Number of blocks in the small pool.
+      Enable Gantry Events.
 
-config MEM_MEDIUM_BLOCK_SIZE
-    int "Medium memory block size in bytes"
-    default 512
+if GANTRY_EVENTS
+    rsource "kconfig/Kconfig.events"
+endif
+
+
+menuconfig GANTRY_STOW
+    bool "Gantry Stow"
+    default y
     help
-      Size in bytes for medium memory blocks.
+      Enable Gantry Stow.
 
-config MEM_MEDIUM_BLOCK_COUNT
-    int "Number of medium memory blocks"
-    default 8
-    help
-      Number of blocks in the medium pool.
+if GANTRY_STOW
+    rsource "kconfig/Kconfig.datastore"
+endif
 
-config MEM_LARGE_BLOCK_SIZE
-    int "Large memory block size in bytes"
-    default 1024
-    help
-      Size in bytes for large memory blocks.
-
-config MEM_LARGE_BLOCK_COUNT
-    int "Number of large memory blocks"
-    default 12
-    help
-      Number of blocks in the large pool.
-
-endmenu
-
-
-menu "Event"
-
-config EVENT_LOG_LEVEL
-    int "Event log level"
-    default 3
-
-endmenu
-
-
-menu "Datastore"
-
-config DATASTORE_LOG_LEVEL
-    int "Datastore log level"
-    default 3
-
-config DATASTORE_TYPES_LOG_LEVEL
-    int "Datastore type parsing log level"
-    default 3
-    
-config DATASTORE_STORAGE_LOG_LEVEL
-    int "Datastore storage backend log level"
-    default 3
-
-endmenu
 
 endmenu
