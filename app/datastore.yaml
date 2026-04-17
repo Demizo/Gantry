@@ -1,0 +1,129 @@
+# ==============================================================================
+# Enumerations
+# ==============================================================================
+enums:
+  BleConnectionState:
+    description: "Bluetooth Connection State"
+    values:
+      - name: DISCONNECTED
+        value: 0
+      - name: CONNECTED
+        value: 1
+
+  Toggle:
+    description: "A toggle to enable or disable"
+    values:
+      - name: DISABLED
+        value: 0
+      - name: ENABLED
+        value: 1
+
+# ==============================================================================
+# Items
+# ==============================================================================
+items:
+  - name: DeviceName
+    description: "The name of the device"
+    type: STRING
+    storage: PERSISTENT
+    permissions:
+      - read: ANY
+      - write: SESSION
+    default: "Gantry"
+    constraints:
+      - min_len: 3
+      - max_len: 25
+
+  - name: SerialNumber
+    description: "The device serial number"
+    type: STRING
+    storage: TOFU
+    permissions:
+      - read: ANY
+      - write: SESSION
+    default: "0000000000000000"
+    constraints:
+      - min_len: 16
+      - max_len: 16
+
+  - name: FirmwareVersion
+    description: "The current firmware version"
+    type: STRING
+    storage: PERSISTENT
+    permissions:
+      - read: ANY
+      - write: NONE
+    default: "1.0.0"
+    constraints:
+      - min_len: 6
+      - max_len: 32
+
+  - name: BleConnectionState
+    description: "The current BLE connection state"
+    type: ENUM
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: INTERNAL
+    default: DISCONNECTED
+    constraints:
+      - enum: BleConnectionState
+
+  - name: TestEnum
+    description: "Test enum value"
+    type: ENUM
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: DISABLED
+    constraints:
+      - enum: Toggle
+
+  - name: TestInt
+    description: "Test int value"
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 0
+    constraints:
+      - min: -100
+      - max: 100
+
+  - name: TestFloat
+    description: "Test float value"
+    type: FLOAT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 21.5
+    constraints:
+      - min: 15.0
+      - max: 30.0
+
+  - name: TestBytes
+    description: "Test bytes"
+    type: BYTE_ARRAY
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: [0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]
+    constraints:
+      - min_len: 12
+      - max_len: 12
+
+  - name: TestBuffer
+    description: "Test buffer"
+    type: BUFFER
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: []
+    constraints:
+      - min_len: 0
+      - max_len: 20

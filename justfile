@@ -27,6 +27,11 @@ alias f := flash
 flash:
   west flash --runner openocd
 
+# Generate the datastore
+gen-datastore:
+  uv run tools/datastore/generate_datastore.py --yaml app/datastore.yaml --output-dir app
+  just format
+
 # Run static analysis
 analyze:
   uv run tools/memory_analysis/generate_leak_check.py 

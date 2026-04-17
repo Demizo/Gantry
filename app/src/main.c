@@ -45,7 +45,7 @@ void counter_cb(event_t* event)
     ASSERT(event->type->id == EVENT_ID_DATASTORE_UPDATE, "Unexpected event type");
     ASSERT(event->data.len == sizeof(struct datastore_update_event_payload), "Unexpected payload size");
     struct datastore_update_event_payload* payload = (struct datastore_update_event_payload*)event->data.buf;
-    ASSERT(payload->metadata->id == DATASTORE_ID_VERSION_CODE, "Unexpected datastore item");
+    ASSERT(payload->metadata->id == DATASTORE_ID_TEST_INT, "Unexpected datastore item");
     LOG_INF("Counter updated: %d", payload->value_copy.data.int_value);
 }
 
@@ -66,10 +66,10 @@ int main(void)
     MEM_UNREF(&mem_block);
 
     // Test reading datastore items
-    data_value_t version_code = { 0 };
-    DATASTORE_GET(AUTH_INTERNAL, DATASTORE_ID_VERSION_CODE, &version_code);
-    LOG_INF("Version code %d", version_code.data.int_value);
-    DATASTORE_RELEASE(DATASTORE_ID_VERSION_CODE, &version_code);
+    data_value_t test_int = { 0 };
+    DATASTORE_GET(AUTH_INTERNAL, DATASTORE_ID_TEST_INT, &test_int);
+    LOG_INF("Test int %d", test_int.data.int_value);
+    DATASTORE_RELEASE(DATASTORE_ID_TEST_INT, &test_int);
 
     data_value_t device_name = { 0 };
     DATASTORE_GET(AUTH_INTERNAL, DATASTORE_ID_DEVICE_NAME, &device_name);
@@ -100,14 +100,14 @@ int main(void)
     DATASTORE_RELEASE(DATASTORE_ID_TEST_ENUM, &test_enum);
 
     // Test setting datastore items
-    data_value_t new_version_code = {
+    data_value_t new_test_int = {
         .type = DATASTORE_ITEM_TYPE_INT,
         .data.int_value = 2,
     };
-    (void)DATASTORE_SET(AUTH_INTERNAL, DATASTORE_ID_VERSION_CODE, new_version_code);
-    DATASTORE_GET(AUTH_INTERNAL, DATASTORE_ID_VERSION_CODE, &version_code);
-    LOG_INF("Version code %d", version_code.data.int_value);
-    DATASTORE_RELEASE(DATASTORE_ID_VERSION_CODE, &version_code);
+    (void)DATASTORE_SET(AUTH_INTERNAL, DATASTORE_ID_TEST_INT, new_test_int);
+    DATASTORE_GET(AUTH_INTERNAL, DATASTORE_ID_TEST_INT, &test_int);
+    LOG_INF("Test int %d", test_int.data.int_value);
+    DATASTORE_RELEASE(DATASTORE_ID_TEST_INT, &test_int);
 
     data_value_t new_device_name = {
         .type = DATASTORE_ITEM_TYPE_STRING,
@@ -127,7 +127,7 @@ int main(void)
     LOG_INF("Test float %f", (double)test_float.data.float_value);
     DATASTORE_RELEASE(DATASTORE_ID_TEST_FLOAT, &test_float);
 
-    STACK_BUFFER(new_test_bytes_data, 6);
+    STACK_BUFFER(new_test_bytes_data, 12);
     data_value_t new_test_bytes = {
         .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY,
         .data.buffer_value = new_test_bytes_data,
@@ -181,17 +181,17 @@ int main(void)
     MEM_UNREF(&test_block);
 
     int i = 0;
-    (void)datastore_subscribe(AUTH_INTERNAL, DATASTORE_ID_VERSION_CODE, &counter_handler);
+    (void)datastore_subscribe(AUTH_INTERNAL, DATASTORE_ID_TEST_INT, &counter_handler);
     while (1)
     {
         data_value_t counter = { .type = DATASTORE_ITEM_TYPE_INT, .data.int_value = i };
-        (void)DATASTORE_SET(AUTH_INTERNAL, DATASTORE_ID_VERSION_CODE, counter);
+        (void)DATASTORE_SET(AUTH_INTERNAL, DATASTORE_ID_TEST_INT, counter);
         LOG_INF("Counter set: %d", i);
 
         i++;
         if (i == 20)
         {
-            (void)datastore_unsubscribe(DATASTORE_ID_VERSION_CODE, &counter_handler);
+            (void)datastore_unsubscribe(DATASTORE_ID_TEST_INT, &counter_handler);
             LOG_INF("Unsubscribed");
         }
 

@@ -5,7 +5,38 @@ project(app)
 
 zephyr_cc_option(-Wfatal-errors)
 
-target_sources(app PRIVATE 
+find_program(UV_CMD NAMES uv)
+if(UV_CMD)
+    set(DATASTORE_YAML  ${CMAKE_CURRENT_SOURCE_DIR}/datastore.yaml)
+    set(GENERATED_H     ${CMAKE_CURRENT_SOURCE_DIR}/inc/datastore/generated_datastore_items.h)
+    set(GENERATED_C     ${CMAKE_CURRENT_SOURCE_DIR}/src/datastore/generated_datastore_items.c)
+    set(GENERATOR_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/../tools/datastore)
+
+    add_custom_command(
+        OUTPUT  ${GENERATED_H} ${GENERATED_C}
+        COMMAND ${UV_CMD} run ${GENERATOR_DIR}/generate_datastore.py
+                --yaml       ${DATASTORE_YAML}
+                --output-dir ${CMAKE_CURRENT_SOURCE_DIR}
+        DEPENDS
+            ${DATASTORE_YAML}
+            ${GENERATOR_DIR}/generate_datastore.py
+            ${GENERATOR_DIR}/validator.py
+            ${GENERATOR_DIR}/generator.py
+            ${GENERATOR_DIR}/templates/generated_datastore_items.h.j2
+            ${GENERATOR_DIR}/templates/generated_datastore_items.c.j2
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
+        COMMENT "Generating datastore items from datastore.yaml..."
+        VERBATIM
+    )
+    add_custom_target(generate_datastore_items
+        DEPENDS ${GENERATED_H} ${GENERATED_C}
+    )
+    add_dependencies(app generate_datastore_items)
+else()
+    message(WARNING "uv not found: datastore items will not be regenerated automatically")
+endif()
+
+target_sources(app PRIVATE
     src/main.c
     src/string_utils.c
     src/memory.c
