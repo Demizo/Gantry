@@ -23,5 +23,6 @@ pkgs.mkShell {
     cppcheck
     coccinelle
     clang-tools
+    vscodium-fhs
   ];
 }
