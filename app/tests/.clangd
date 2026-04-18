@@ -1,0 +1,18 @@
+CompileFlags:
+  CompilationDatabase: "build"
+
+  Add:
+    - "-D_GNU_SOURCE"
+    - "-U__clang__"
+    - "--target=x86_64-unknown-linux-gnu"
+    # Note: The gcc-wrapper hash is listed in the build output as "Found GnuLd:"
+    # Found with `echo | /nix/store/wmpzc671nyxan58dr6yh5x9asckqq7qb-gcc-wrapper-15.2.0/bin/gcc -E -Wp,-v -xc /dev/null 2>&1 | grep "^ /nix/store"`
+    - "-isystem/nix/store/8kdpdjrnn558j1caalbzmkq27vr91h3z-gcc-15.2.0/lib/gcc/x86_64-unknown-linux-gnu/15.2.0/include"
+    - "-isystem/nix/store/0kiqqm0pbpakvfdxr8zq123f5drp00zg-glibc-multi-2.42-51-dev/include"
+
+  Remove:
+    - "-mfp16-format=ieee"
+    - "-fno-reorder-functions"
+    - "-fdump-ipa-cgraph"
+    - "-fno-printf-return-value"
+    - "-fno-freestanding"

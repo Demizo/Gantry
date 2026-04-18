@@ -4,10 +4,12 @@
 }:
 
 pkgs.mkShell {
+  hardeningDisable = [ "fortify" ];
   packages = with pkgs; [
     (zephyr.sdk.override {
       targets = [
         "arm-zephyr-eabi"
+        "x86_64-zephyr-elf"
       ];
     })
     zephyr.pythonEnv

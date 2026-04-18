@@ -51,6 +51,18 @@ analyze:
 format:
   find app -iname "*.c" -o -iname "*.h" | xargs clang-format -i 
 
+# Build a test suite
+build-test component:
+  west build -p -b native_sim -d app/tests/build app/tests/{{component}} -- -DCONF_FILE='prj.conf;../test_prj.conf'
+
+# Run all unit tests for the project
+test-all:
+    west twister -T app/tests/ -p native_sim --clobber-output -i -v
+
+# Run tests for a specific component (e.g., 'just test memory')
+test component:
+    west twister -T app/tests/{{component}} -p native_sim --clobber-output -i -vv
+
 # Generate documentation
 docs:
   cd app && doxygen Doxyfile
