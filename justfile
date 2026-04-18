@@ -49,7 +49,7 @@ analyze:
 
 # Format all files
 format:
-  find app -iname "*.c" -o -iname "*.h" | xargs clang-format -i 
+  find app -path "*/build" -prune -o \( -iname "*.c" -o -iname "*.h" \) -print | xargs clang-format -i
 
 # Build a test suite
 build-test component:
