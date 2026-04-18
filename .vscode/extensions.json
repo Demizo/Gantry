@@ -1,0 +1,20 @@
+{
+    "recommendations": [
+        "davidanson.vscode-markdownlint",
+        "ms-python.python",
+        "redhat.vscode-yaml",
+        "llvm-vs-code-extensions.vscode-clangd",
+        "marus25.cortex-debug",
+        "swyddfa.esbonio",
+        "aaron-bond.better-comments",
+        "samuelcolvin.jinjahtml",
+        "twxs.cmake",
+        "streetsidesoftware.code-spell-checker",
+        "cschlosser.doxdocgen",
+        "usernamehw.errorlens",
+        "lextudio.restructuredtext",
+        "trond-snekvik.simple-rst",
+        "nefrob.vscode-just-syntax",
+        "redhat.vscode-xml"
+    ]
+}
