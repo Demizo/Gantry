@@ -38,6 +38,7 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
+static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -110,6 +111,39 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     return SUCCESS;
 }
 
+static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item)
+{
+    uint16_t count = item->constraints.enum_constraints.value_count;
+    const struct data_enum_value* values = item->constraints.enum_constraints.values;
+
+    if (!zcbor_list_start_encode(encoder, count))
+    {
+        return -ENOMEM;
+    }
+
+    for (uint16_t i = 0; i < count; i++)
+    {
+        struct zcbor_string name_str = {
+            .value = values[i].name,
+            .len = strlen(values[i].name),
+        };
+
+        if (!zcbor_map_start_encode(encoder, 2) || !zcbor_tstr_put_lit(encoder, "value") ||
+            !zcbor_int32_put(encoder, values[i].value) || !zcbor_tstr_put_lit(encoder, "name") ||
+            !zcbor_tstr_encode(encoder, &name_str) || !zcbor_map_end_encode(encoder, 2))
+        {
+            return -ENOMEM;
+        }
+    }
+
+    if (!zcbor_list_end_encode(encoder, count))
+    {
+        return -ENOMEM;
+    }
+
+    return SUCCESS;
+}
+
 //**********************************************************
 //* Public Function Definitions
 //**********************************************************
@@ -122,6 +156,7 @@ const struct datastore_item_interface datastore_enum_interface = {
     .release = release,
     .decode = decode,
     .encode = encode,
+    .encode_constraints = encode_constraints,
 };
 
 int enum_get_name_from_value(const struct datastore_item_const_metadata* item, int value, char** out_name)

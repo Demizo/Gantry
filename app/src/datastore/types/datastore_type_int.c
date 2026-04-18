@@ -38,6 +38,7 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
+static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -109,6 +110,18 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     return SUCCESS;
 }
 
+static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item)
+{
+    if (!zcbor_map_start_encode(encoder, 2) || !zcbor_tstr_put_lit(encoder, "min") ||
+        !zcbor_int32_put(encoder, item->constraints.int_constraints.min) || !zcbor_tstr_put_lit(encoder, "max") ||
+        !zcbor_int32_put(encoder, item->constraints.int_constraints.max) || !zcbor_map_end_encode(encoder, 2))
+    {
+        return -ENOMEM;
+    }
+
+    return SUCCESS;
+}
+
 //**********************************************************
 //* Public Function Definitions
 //**********************************************************
@@ -121,4 +134,5 @@ const struct datastore_item_interface datastore_int_interface = {
     .release = release,
     .decode = decode,
     .encode = encode,
+    .encode_constraints = encode_constraints,
 };

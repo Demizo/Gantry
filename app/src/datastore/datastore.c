@@ -11,6 +11,7 @@
 
 #include "datastore.h"
 
+#include <generated_datastore_items.h>
 #include <sys/errno.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/slist.h>
@@ -19,7 +20,6 @@
 #include "datastore_storage.h"
 #include "datastore_types.h"
 #include "error.h"
-#include "generated_datastore_items.h"
 #include "memory.h"
 
 /**

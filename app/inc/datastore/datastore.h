@@ -14,13 +14,13 @@
 #ifndef DATASTORE_H
 #define DATASTORE_H
 
+#include <generated_datastore_items.h>
 #include <stddef.h>
 #include <zephyr/kernel.h>
 
 #include "datastore_event.h"
 #include "datastore_types.h"
 #include "event.h"
-#include "generated_datastore_items.h"
 #include "memory.h"
 #include "zephyr/sys/slist.h"
 

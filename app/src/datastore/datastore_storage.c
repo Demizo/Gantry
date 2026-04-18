@@ -11,12 +11,12 @@
 
 #include "datastore_storage.h"
 
+#include <generated_datastore_items.h>
 #include <string.h>
 #include <sys/errno.h>
 
 #include "datastore_types.h"
 #include "error.h"
-#include "generated_datastore_items.h"
 #include "memory.h"
 #include "zephyr/logging/log.h"
 #include "zephyr/settings/settings.h"
