@@ -5,12 +5,11 @@ CompileFlags:
     - "-D_GNU_SOURCE"
     - "-U__clang__"
     - "--target=arm-zephyr-eabi"
-    # Note: point clangd to the proper c library. The nix store hash for the zephyr sdk can be found in the compile_commands.json.
-    # TODO: Consider dynamically pulling the SDK similar to the current approach for the RTOS. This is not clean nix, but it could avoid some of these issues.
-    # Found with `/nix/store/*-zephyr-sdk-0.17.4/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc -print-file-name=include`
-    - "-isystem/nix/store/wf2w3qcbpkr5bsy0bhp8fv90yhnkzh0p-zephyr-sdk-0.17.4/arm-zephyr-eabi/bin/../lib/gcc/arm-zephyr-eabi/12.2.0/include"
-    # Found with `/nix/store/*-zephyr-sdk-0.17.4/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc -print-file-name=include-fixed`
-    - "-isystem/nix/store/wf2w3qcbpkr5bsy0bhp8fv90yhnkzh0p-zephyr-sdk-0.17.4/arm-zephyr-eabi/bin/../lib/gcc/arm-zephyr-eabi/12.2.0/include-fixed"
+    # Note: point clangd to the proper c library. The nix store hash for the zephyr sdk can be found in the compile_commands.json or in the build output.
+    # Found with `/nix/store/1gdsh7plf2ab7i97z1nqrkipim84dp11-zephyr-sdk-1.0.1/gnu/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc -print-file-name=include`
+    - "-isystem/nix/store/1gdsh7plf2ab7i97z1nqrkipim84dp11-zephyr-sdk-1.0.1/gnu/arm-zephyr-eabi/bin/../lib/gcc/arm-zephyr-eabi/14.3.0/include"
+    # Found with `/nix/store/1gdsh7plf2ab7i97z1nqrkipim84dp11-zephyr-sdk-1.0.1/gnu/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc -print-file-name=include-fixed`
+    - "-isystem/nix/store/1gdsh7plf2ab7i97z1nqrkipim84dp11-zephyr-sdk-1.0.1/gnu/arm-zephyr-eabi/bin/../lib/gcc/arm-zephyr-eabi/14.3.0/include-fixed"
 
   Remove:
     - "-mfp16-format=ieee"
