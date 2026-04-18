@@ -3,6 +3,7 @@
 zephyr
 modules
 **/.cache
+twister-out*
 
 # Doxygen output
 **/docs/html
