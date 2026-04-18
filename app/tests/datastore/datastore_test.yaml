@@ -1,0 +1,112 @@
+# ==============================================================================
+# Enumerations
+# ==============================================================================
+enums:
+  Color:
+    description: "A color selection"
+    values:
+      - name: RED
+        value: 0
+      - name: GREEN
+        value: 1
+      - name: BLUE
+        value: 2
+
+# ==============================================================================
+# Items
+# ==============================================================================
+items:
+  - name: TestString
+    description: "A test string item"
+    type: STRING
+    storage: PERSISTENT
+    permissions:
+      - read: ANY
+      - write: SESSION
+    default: "hello"
+    constraints:
+      - min_len: 1
+      - max_len: 32
+
+  - name: TestInt
+    description: "A test int item"
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 0
+    constraints:
+      - min: -50
+      - max: 50
+
+  - name: TestFloat
+    description: "A test float item"
+    type: FLOAT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 1.0
+    constraints:
+      - min: 0.0
+      - max: 10.0
+
+  - name: TestEnum
+    description: "A test enum item"
+    type: ENUM
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: RED
+    constraints:
+      - enum: Color
+
+  - name: TestBytes
+    description: "A test byte array item"
+    type: BYTE_ARRAY
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: [0x01, 0x02, 0x03, 0x04]
+    constraints:
+      - min_len: 4
+      - max_len: 4
+
+  - name: TestBuffer
+    description: "A test buffer item"
+    type: BUFFER
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: []
+    constraints:
+      - min_len: 0
+      - max_len: 64
+
+  - name: TestTofu
+    description: "A test TOFU item"
+    type: STRING
+    storage: TOFU
+    permissions:
+      - read: ANY
+      - write: SESSION
+    default: "default"
+    constraints:
+      - min_len: 1
+      - max_len: 16
+
+  - name: TestReadOnly
+    description: "A test read-only item"
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: INTERNAL
+    default: 42
+    constraints:
+      - min: 0
+      - max: 100
