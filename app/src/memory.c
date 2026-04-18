@@ -59,6 +59,18 @@ typedef struct
     uint32_t ref_count; /**< Reference count */
 } __attribute__((aligned(sizeof(void*)))) mem_block_header_t;
 
+#ifdef CONFIG_MEM_WATERMARK
+/**
+ * @brief Per-pool watermark configuration
+ */
+typedef struct
+{
+    mem_watermark_cb_t callback;
+    uint8_t percent;
+    bool triggered;
+} mem_watermark_t;
+#endif
+
 //**********************************************************
 //* Static Function Declarations
 //**********************************************************
@@ -72,6 +84,10 @@ STATIC_UNIT mem_block_header_t* validate_and_get_header(void* data);
 //**********************************************************
 
 static const uint8_t magic[8] = { 'M', 'E', 'M', 'B', 'L', 'O', 'C', 'K' };
+
+#ifdef CONFIG_MEM_WATERMARK
+static mem_watermark_t watermarks[CONFIG_MEM_POOL_COUNT];
+#endif
 
 /**
  * @brief Pool 1 slab
@@ -263,6 +279,27 @@ int mem_alloc(size_t size, void** block_ptr)
                 g_current_mem_trace.file ? g_current_mem_trace.file : "unknown", g_current_mem_trace.line,
                 g_current_mem_trace.func ? g_current_mem_trace.func : "unknown");
 #endif
+
+#ifdef CONFIG_MEM_WATERMARK
+            // Check watermark for this pool
+            mem_watermark_t* wm = &watermarks[pool_size];
+            if (wm->callback != NULL && !wm->triggered)
+            {
+                uint32_t used = k_mem_slab_num_used_get(pool);
+                uint32_t total = pool->info.num_blocks;
+                uint32_t usage_percent = (used * 100u) / total;
+                if (usage_percent >= wm->percent)
+                {
+                    wm->triggered = true;
+                    mem_watermark_cb_t cb = wm->callback;
+                    uint8_t wm_percent = wm->percent;
+                    irq_unlock(key);
+                    cb(pool_size, wm_percent);
+                    key = irq_lock();
+                }
+            }
+#endif
+
             break;
         }
         else
@@ -357,3 +394,43 @@ uint32_t mem_get_ref_count(void* block)
 
     return current_count;
 }
+
+uint8_t mem_get_pool_count(void) { return CONFIG_MEM_POOL_COUNT; }
+
+int mem_get_pool_usage(uint8_t pool_index, uint32_t* used_out, uint32_t* total_out)
+{
+    if (pool_index >= CONFIG_MEM_POOL_COUNT || used_out == NULL || total_out == NULL)
+    {
+        return -EINVAL;
+    }
+
+    uint32_t key = irq_lock();
+
+    struct k_mem_slab* pool = mem_pools[pool_index];
+    *used_out = k_mem_slab_num_used_get(pool);
+    *total_out = pool->info.num_blocks;
+
+    irq_unlock(key);
+
+    return SUCCESS;
+}
+
+#ifdef CONFIG_MEM_WATERMARK
+int mem_set_watermark(uint8_t pool_index, uint8_t percent, mem_watermark_cb_t callback)
+{
+    if (pool_index >= CONFIG_MEM_POOL_COUNT || percent > 100 || callback == NULL)
+    {
+        return -EINVAL;
+    }
+
+    uint32_t key = irq_lock();
+
+    watermarks[pool_index].callback = callback;
+    watermarks[pool_index].percent = percent;
+    watermarks[pool_index].triggered = false;
+
+    irq_unlock(key);
+
+    return SUCCESS;
+}
+#endif

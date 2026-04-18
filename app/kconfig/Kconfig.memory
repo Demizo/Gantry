@@ -8,6 +8,10 @@ config MEM_TRACE
     help
       Trace where memory is being allocated, referenced, and dereferenced
 
+config MEM_WATERMARK
+    bool "Track and notify when memory watermarks are reached"
+    default y if DEBUG
+
 config MEM_POOL_COUNT
     int "Number of active memory pools"
     range 1 6

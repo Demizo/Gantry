@@ -177,6 +177,50 @@ void mem_unref(void** block_ptr);
 uint32_t mem_get_ref_count(void* block);
 
 /**
+ * @brief Get the number of active memory pools
+ *
+ * @return The number of configured memory pools
+ */
+uint8_t mem_get_pool_count(void);
+
+/**
+ * @brief Get the usage of a memory pool
+ *
+ * @param[in] pool_index The pool index (e.g. POOL1 = 0)
+ * @param[out] used_out Number of currently allocated blocks
+ * @param[out] total_out Total number of blocks in the pool
+ *
+ * @return SUCCESS on success
+ * @return -EINVAL if pool_index is out of range or either output pointer is NULL
+ */
+int mem_get_pool_usage(uint8_t pool_index, uint32_t* used_out, uint32_t* total_out);
+
+#ifdef CONFIG_MEM_WATERMARK
+/**
+ * @brief Callback type for pool watermark notifications
+ *
+ * @param pool_index The pool index that hit the watermark
+ * @param percent The watermark percentage that was hit
+ */
+typedef void (*mem_watermark_cb_t)(uint8_t pool_index, uint8_t percent);
+
+/**
+ * @brief Register a watermark callback for a memory pool
+ *
+ * @details The callback is invoked the first time pool usage reaches or exceeds the given
+ * percentage. It will not fire again unless mem_set_watermark is called again.
+ *
+ * @param[in] pool_index The pool index (e.g. POOL1 = 0)
+ * @param[in] percent Usage percentage threshold (0-100)
+ * @param[in] callback Function to call when the watermark is first reached
+ *
+ * @return SUCCESS on success
+ * @return -EINVAL if pool_index is out of range, percent > 100, or callback is NULL
+ */
+int mem_set_watermark(uint8_t pool_index, uint8_t percent, mem_watermark_cb_t callback);
+#endif
+
+/**
  * @brief Indicates to static analysis that ownership over the memory will be the responsibility of the caller
  */
 #define PASS_OWNERSHIP(data)
