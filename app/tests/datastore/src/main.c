@@ -8,6 +8,9 @@
 #include "datastore.h"
 #include "datastore_describe.h"
 #include "datastore_type_enum.h"
+#include "generated_struct_NestedStruct.h"
+#include "generated_struct_TestStruct.h"
+#include "memory.h"
 #include "zephyr/ztest_assert.h"
 
 // ---------------------------------------------------------------------------
@@ -762,4 +765,297 @@ ZTEST(datastore_describe, test_describe_encoding)
 
     // End map decode
     zassert_true(zcbor_map_end_decode(dec), "Failed to end map decode");
+}
+
+// ---------------------------------------------------------------------------
+// Suite: datastore_struct
+// ---------------------------------------------------------------------------
+
+ZTEST_SUITE(datastore_struct, NULL, NULL, reset_datastore, NULL, NULL);
+
+ZTEST(datastore_struct, test_get_default)
+{
+    data_value_t value;
+    int ret = datastore_get(AUTH_ANY, DATASTORE_ID_TEST_STRUCT_ITEM, &value);
+    zassert_equal(ret, 0);
+    zassert_equal(value.type, DATASTORE_ITEM_TYPE_STRUCT);
+
+    TestStruct_t* s = (TestStruct_t*)value.data.raw_value;
+    zassert_equal(s->int_field, 7);
+    zassert_equal(s->buf_field->len, 0);
+
+    datastore_release(DATASTORE_ID_TEST_STRUCT_ITEM, &value);
+}
+
+ZTEST(datastore_struct, test_set_and_get_scalar_field)
+{
+    // Build a TestStruct_t value to set
+    uint8_t empty_buf_storage[sizeof(buffer_t)];
+    buffer_t* empty_buf = (buffer_t*)empty_buf_storage;
+    empty_buf->len = 0;
+
+    TestStruct_t src = {
+        .int_field = 42,
+        .buf_field = empty_buf,
+    };
+
+    data_value_t val = {
+        .type = DATASTORE_ITEM_TYPE_STRUCT,
+        .data.raw_value = &src,
+    };
+    int ret = datastore_set(AUTH_ANY, DATASTORE_ID_TEST_STRUCT_ITEM, val);
+    zassert_equal(ret, 0);
+
+    data_value_t got;
+    ret = datastore_get(AUTH_ANY, DATASTORE_ID_TEST_STRUCT_ITEM, &got);
+    zassert_equal(ret, 0);
+    TestStruct_t* result = (TestStruct_t*)got.data.raw_value;
+    zassert_equal(result->int_field, 42);
+    datastore_release(DATASTORE_ID_TEST_STRUCT_ITEM, &got);
+}
+
+ZTEST(datastore_struct, test_set_and_get_buffer_field)
+{
+    uint8_t field_buf_storage[sizeof(buffer_t) + 4];
+    buffer_t* field_buf = (buffer_t*)field_buf_storage;
+    field_buf->len = 4;
+    field_buf->buf[0] = 0xDE;
+    field_buf->buf[1] = 0xAD;
+    field_buf->buf[2] = 0xBE;
+    field_buf->buf[3] = 0xEF;
+
+    TestStruct_t src = {
+        .int_field = 0,
+        .buf_field = field_buf,
+    };
+
+    data_value_t val = {
+        .type = DATASTORE_ITEM_TYPE_STRUCT,
+        .data.raw_value = &src,
+    };
+    int ret = datastore_set(AUTH_ANY, DATASTORE_ID_TEST_STRUCT_ITEM, val);
+    zassert_equal(ret, 0);
+
+    data_value_t got;
+    ret = datastore_get(AUTH_ANY, DATASTORE_ID_TEST_STRUCT_ITEM, &got);
+    zassert_equal(ret, 0);
+    TestStruct_t* result = (TestStruct_t*)got.data.raw_value;
+    zassert_equal(result->buf_field->len, 4);
+    zassert_equal(result->buf_field->buf[0], 0xDE);
+    zassert_equal(result->buf_field->buf[3], 0xEF);
+    datastore_release(DATASTORE_ID_TEST_STRUCT_ITEM, &got);
+}
+
+ZTEST(datastore_struct, test_validate_buffer_field_too_large)
+{
+    uint8_t field_buf_storage[sizeof(buffer_t) + 17];
+    buffer_t* field_buf = (buffer_t*)field_buf_storage;
+    field_buf->len = 17;  // max is 16
+
+    TestStruct_t src = {
+        .int_field = 0,
+        .buf_field = field_buf,
+    };
+
+    data_value_t val = {
+        .type = DATASTORE_ITEM_TYPE_STRUCT,
+        .data.raw_value = &src,
+    };
+    int ret = datastore_set(AUTH_ANY, DATASTORE_ID_TEST_STRUCT_ITEM, val);
+    zassert_equal(ret, -EINVAL);
+}
+
+ZTEST(datastore_struct, test_validate_int_field_out_of_range)
+{
+    uint8_t empty_buf_storage[sizeof(buffer_t)];
+    buffer_t* empty_buf = (buffer_t*)empty_buf_storage;
+    empty_buf->len = 0;
+
+    TestStruct_t src = {
+        .int_field = 256,  // max is 255
+        .buf_field = empty_buf,
+    };
+
+    data_value_t val = {
+        .type = DATASTORE_ITEM_TYPE_STRUCT,
+        .data.raw_value = &src,
+    };
+    int ret = datastore_set(AUTH_ANY, DATASTORE_ID_TEST_STRUCT_ITEM, val);
+    zassert_equal(ret, -EINVAL);
+}
+
+ZTEST(datastore_struct, test_encode_decode)
+{
+    uint8_t field_buf_storage[sizeof(buffer_t) + 2];
+    buffer_t* field_buf = (buffer_t*)field_buf_storage;
+    field_buf->len = 2;
+    field_buf->buf[0] = 0xAB;
+    field_buf->buf[1] = 0xCD;
+
+    TestStruct_t src = {
+        .int_field = 99,
+        .buf_field = field_buf,
+    };
+
+    data_value_t val = {
+        .type = DATASTORE_ITEM_TYPE_STRUCT,
+        .data.raw_value = &src,
+    };
+
+    uint8_t cbor_buf[128];
+    zcbor_state_t enc[4];
+    zcbor_new_encode_state(enc, ARRAY_SIZE(enc), cbor_buf, sizeof(cbor_buf), 1);
+
+    int ret = datastore_encode(enc, DATASTORE_ID_TEST_STRUCT_ITEM, val);
+    zassert_equal(ret, 0);
+
+    size_t encoded_len = enc[0].payload - cbor_buf;
+    zcbor_state_t dec[4];
+    zcbor_new_decode_state(dec, ARRAY_SIZE(dec), cbor_buf, encoded_len, 1, NULL, 0);
+
+    data_value_t decoded;
+    ret = datastore_decode(dec, DATASTORE_ID_TEST_STRUCT_ITEM, &decoded);
+    zassert_equal(ret, 0);
+    zassert_equal(decoded.type, DATASTORE_ITEM_TYPE_STRUCT);
+
+    TestStruct_t* result = (TestStruct_t*)decoded.data.raw_value;
+    zassert_equal(result->int_field, 99);
+    zassert_equal(result->buf_field->len, 2);
+    zassert_equal(result->buf_field->buf[0], 0xAB);
+    zassert_equal(result->buf_field->buf[1], 0xCD);
+
+    datastore_release(DATASTORE_ID_TEST_STRUCT_ITEM, &decoded);
+}
+
+// ---------------------------------------------------------------------------
+// Suite: datastore_nested_struct
+// ---------------------------------------------------------------------------
+
+ZTEST_SUITE(datastore_nested_struct, NULL, NULL, reset_datastore, NULL, NULL);
+
+ZTEST(datastore_nested_struct, test_get_default)
+{
+    data_value_t value;
+    int ret = datastore_get(AUTH_ANY, DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, &value);
+    zassert_equal(ret, 0);
+    zassert_equal(value.type, DATASTORE_ITEM_TYPE_STRUCT);
+
+    NestedStruct_t* s = (NestedStruct_t*)value.data.raw_value;
+    zassert_equal(s->flag, 0);
+    zassert_not_null(s->inner);
+    zassert_equal(s->inner->int_field, 0);
+    zassert_equal(s->inner->buf_field->len, 0);
+
+    datastore_release(DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, &value);
+}
+
+ZTEST(datastore_nested_struct, test_set_get_roundtrip)
+{
+    uint8_t inner_buf_storage[sizeof(buffer_t) + 2];
+    buffer_t* inner_buf = (buffer_t*)inner_buf_storage;
+    inner_buf->len = 2;
+    inner_buf->buf[0] = 0xAA;
+    inner_buf->buf[1] = 0xBB;
+
+    TestStruct_t inner_src = {
+        .int_field = 55,
+        .buf_field = inner_buf,
+    };
+    NestedStruct_t outer_src = {
+        .inner = &inner_src,
+        .flag = 1,
+    };
+
+    data_value_t val = {
+        .type = DATASTORE_ITEM_TYPE_STRUCT,
+        .data.raw_value = &outer_src,
+    };
+    int ret = datastore_set(AUTH_ANY, DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, val);
+    zassert_equal(ret, 0);
+
+    data_value_t got;
+    ret = datastore_get(AUTH_ANY, DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, &got);
+    zassert_equal(ret, 0);
+    NestedStruct_t* result = (NestedStruct_t*)got.data.raw_value;
+    zassert_equal(result->flag, 1);
+    zassert_not_null(result->inner);
+    zassert_equal(result->inner->int_field, 55);
+    zassert_equal(result->inner->buf_field->len, 2);
+    zassert_equal(result->inner->buf_field->buf[0], 0xAA);
+    zassert_equal(result->inner->buf_field->buf[1], 0xBB);
+    datastore_release(DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, &got);
+}
+
+ZTEST(datastore_nested_struct, test_release_frees_recursively)
+{
+    uint32_t used_before = 0;
+    uint32_t total = 0;
+    mem_get_pool_usage(0, &used_before, &total);
+
+    uint8_t inner_buf_storage[sizeof(buffer_t) + 3];
+    buffer_t* inner_buf = (buffer_t*)inner_buf_storage;
+    inner_buf->len = 3;
+    inner_buf->buf[0] = 0x01;
+    inner_buf->buf[1] = 0x02;
+    inner_buf->buf[2] = 0x03;
+
+    TestStruct_t inner_src = { .int_field = 10, .buf_field = inner_buf };
+    NestedStruct_t outer_src = { .inner = &inner_src, .flag = 0 };
+
+    data_value_t val = { .type = DATASTORE_ITEM_TYPE_STRUCT, .data.raw_value = &outer_src };
+    int ret = datastore_set(AUTH_ANY, DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, val);
+    zassert_equal(ret, 0);
+
+    data_value_t got;
+    ret = datastore_get(AUTH_ANY, DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, &got);
+    zassert_equal(ret, 0);
+
+    datastore_release(DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, &got);
+
+    // Re-init resets stored value, releasing all heap blocks
+    datastore_init();
+
+    uint32_t used_after = 0;
+    mem_get_pool_usage(0, &used_after, &total);
+    zassert_equal(used_after, used_before);
+}
+
+ZTEST(datastore_nested_struct, test_encode_decode_roundtrip)
+{
+    uint8_t inner_buf_storage[sizeof(buffer_t) + 2];
+    buffer_t* inner_buf = (buffer_t*)inner_buf_storage;
+    inner_buf->len = 2;
+    inner_buf->buf[0] = 0xCA;
+    inner_buf->buf[1] = 0xFE;
+
+    TestStruct_t inner_src = { .int_field = 77, .buf_field = inner_buf };
+    NestedStruct_t outer_src = { .inner = &inner_src, .flag = 1 };
+
+    data_value_t val = { .type = DATASTORE_ITEM_TYPE_STRUCT, .data.raw_value = &outer_src };
+
+    uint8_t cbor_buf[256];
+    zcbor_state_t enc[4];
+    zcbor_new_encode_state(enc, ARRAY_SIZE(enc), cbor_buf, sizeof(cbor_buf), 1);
+
+    int ret = datastore_encode(enc, DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, val);
+    zassert_equal(ret, 0);
+
+    size_t encoded_len = enc[0].payload - cbor_buf;
+    zcbor_state_t dec[4];
+    zcbor_new_decode_state(dec, ARRAY_SIZE(dec), cbor_buf, encoded_len, 1, NULL, 0);
+
+    data_value_t decoded;
+    ret = datastore_decode(dec, DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, &decoded);
+    zassert_equal(ret, 0);
+    zassert_equal(decoded.type, DATASTORE_ITEM_TYPE_STRUCT);
+
+    NestedStruct_t* result = (NestedStruct_t*)decoded.data.raw_value;
+    zassert_equal(result->flag, 1);
+    zassert_not_null(result->inner);
+    zassert_equal(result->inner->int_field, 77);
+    zassert_equal(result->inner->buf_field->len, 2);
+    zassert_equal(result->inner->buf_field->buf[0], 0xCA);
+    zassert_equal(result->inner->buf_field->buf[1], 0xFE);
+
+    datastore_release(DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, &decoded);
 }

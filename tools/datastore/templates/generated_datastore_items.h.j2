@@ -20,6 +20,10 @@
 
 #include "buffer.h"
 #include "datastore_types.h"
+#include "generated_datastore_enums.h"
+{% for struct_name in structs %}
+#include "generated_struct_{{ struct_name }}.h"
+{% endfor %}
 
 /**
  * @addtogroup datastore
@@ -47,18 +51,6 @@
 //* Typedefs, Enums, and Structs
 //**********************************************************
 
-{% for enum_name, enum_def in enums.items() %}
-/**
- * @brief {{ enum_def.description }}
- */
-enum {{ enum_name }}
-{
-{% for val in enum_def['values'] %}
-    {{ enum_name }}_{{ val.name }} = {{ val.value }},
-{% endfor %}
-};
-
-{% endfor %}
 /**
  * @brief ID for each datastore item
  *

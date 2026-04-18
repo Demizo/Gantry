@@ -27,10 +27,15 @@ endif()
 
 set(APP_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../../../app/src)
 
+file(GLOB GENERATED_STRUCT_SOURCES
+    ${GENERATED_DIR}/src/datastore/generated_struct_*.c)
+
 target_sources(app PRIVATE
     src/main.c
     src/datastore_storage_stub.c
     ${GENERATED_DIR}/src/datastore/generated_datastore_items.c
+    ${GENERATED_DIR}/src/datastore/generated_datastore_enums.c
+    ${GENERATED_STRUCT_SOURCES}
     ${APP_SRC}/memory.c
     ${APP_SRC}/event.c
     ${APP_SRC}/string_utils.c

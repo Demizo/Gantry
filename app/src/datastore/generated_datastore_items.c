@@ -23,6 +23,7 @@
 #include "datastore_type_int.h"
 #include "datastore_type_string.h"
 #include "datastore_types.h"
+#include "generated_datastore_enums.h"
 
 //**********************************************************
 //* Static Variable Definitions
@@ -35,27 +36,12 @@ static buffer_t default_test_bytes = {
 static buffer_t default_test_buffer = {
     .len = 0,
 };
-
-static const struct data_enum_value BleConnectionState_enum_values[2] = {
-    {
-        .value = 0,
-        .name = "DISCONNECTED",
-    },
-    {
-        .value = 1,
-        .name = "CONNECTED",
-    },
+static buffer_t default_spi_tx_buffer_buffer = {
+    .len = 0,
 };
-
-static const struct data_enum_value Toggle_enum_values[2] = {
-    {
-        .value = 0,
-        .name = "DISABLED",
-    },
-    {
-        .value = 1,
-        .name = "ENABLED",
-    },
+static SpiBuffer_t default_spi_tx_buffer = {
+    .cs = SpiChipSelect_SPI_CS0,
+    .buffer = &default_spi_tx_buffer_buffer,
 };
 
 /**
@@ -243,6 +229,22 @@ const struct datastore_item_const_metadata
                                 .min_len = TEST_BUFFER_MIN_LEN,
                                 .max_len = TEST_BUFFER_MAX_LEN,
                             },
+                    },
+            },
+        [DATASTORE_ID_SPI_TX_BUFFER] =
+        /* SPI TX buffer */
+            {
+                .id = DATASTORE_ID_SPI_TX_BUFFER,
+                .name = "SpiTxBuffer",
+                .storage_type = DATASTORE_STORAGE_EPHEMERAL,
+                .permissions = { AUTH_ANY, AUTH_ANY },
+                .type = DATASTORE_ITEM_TYPE_STRUCT,
+                .interface = &datastore_struct_spi_buffer_interface,
+                .value_ptr = (void*)&datastore_values.spi_tx_buffer, /* SpiBuffer_t** */
+                .default_value = { .raw_value = &default_spi_tx_buffer, },
+                .constraints =
+                    {
+                        .buffer_constraints = { 0 },
                     },
             },
     };

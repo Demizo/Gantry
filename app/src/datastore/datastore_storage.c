@@ -63,7 +63,7 @@ SETTINGS_STATIC_HANDLER_DEFINE(
  * @param name Name of the data item
  *
  * @return item ID when the name matches a datastore item
- * @return @ref DATASTORE_ITEM_TYPE_COUNT when the name does not match an item
+ * @return DATASTORE_ITEM_TYPE_COUNT when the name does not match an item
  */
 static enum datastore_item_id get_id_from_name(const char* name)
 {

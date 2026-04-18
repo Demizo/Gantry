@@ -17,6 +17,31 @@ enums:
         value: 0
       - name: ENABLED
         value: 1
+    
+  SpiChipSelect:
+    description: "A SPI chip select index"
+    values:
+      - name: SPI_CS0
+        value: 0
+      - name: SPI_CS1
+        value: 1
+
+# ==============================================================================
+# Structures
+# ==============================================================================
+structs:
+  - name: SpiBuffer
+    description: "A SPI buffer containing a chip select and transeive data"
+    fields:
+      - name: CS
+        type: ENUM
+        constraints:
+          - enum: SpiChipSelect
+      - name: Buffer
+        type: BUFFER
+        constraints:
+          - min_len: 0
+          - max_len: 512
 
 # ==============================================================================
 # Items
@@ -127,3 +152,18 @@ items:
     constraints:
       - min_len: 0
       - max_len: 20
+  
+  - name: SpiTxBuffer
+    description: "SPI TX buffer"
+    type: STRUCT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default:
+      - field: CS
+        value: SPI_CS0
+      - field: Buffer
+        value: []
+    constraints:
+      - struct: SpiBuffer

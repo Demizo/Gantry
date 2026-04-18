@@ -46,6 +46,7 @@ enum datastore_item_type
     DATASTORE_ITEM_TYPE_STRING,
     DATASTORE_ITEM_TYPE_BYTE_ARRAY,
     DATASTORE_ITEM_TYPE_BUFFER,
+    DATASTORE_ITEM_TYPE_STRUCT,
     DATASTORE_ITEM_TYPE_COUNT
 };
 
@@ -58,6 +59,7 @@ typedef union
     float float_value;      /**< Value for floats */
     char* string_value;     /**< Value for strings */
     buffer_t* buffer_value; /**< Value for buffers */
+    void* raw_value;        /**< Raw pointer value for structs */
 } raw_data_value_t;
 
 /**

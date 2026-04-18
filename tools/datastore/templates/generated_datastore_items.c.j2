@@ -23,6 +23,7 @@
 #include "datastore_type_int.h"
 #include "datastore_type_string.h"
 #include "datastore_types.h"
+#include "generated_datastore_enums.h"
 
 //**********************************************************
 //* Static Variable Definitions
@@ -41,21 +42,33 @@ static buffer_t default_{{ item.snake_name }} = {
     .buf = { {% for b in item.default_bytes_hex %}{{ b }}, {% endfor %}},
 {% endif %}
 };
+{% elif item.type == 'STRUCT' %}
+{% for decl in item.struct_pre_decls %}
+{% if decl.kind == 'buffer' %}
+static buffer_t {{ decl.c_name }} = {
+    .len = {{ decl.len }},
+{% if decl.bytes_hex %}
+    .buf = { {% for b in decl.bytes_hex %}{{ b }}, {% endfor %}},
+{% endif %}
+};
+{% elif decl.kind == 'string' %}
+static char {{ decl.c_name }}[] = "{{ decl.value }}";
+{% elif decl.kind == 'struct' %}
+static {{ decl.struct_type }}_t {{ decl.c_name }} = {
+{% for field in decl.fields %}
+    .{{ field.snake_name }} = {{ field.c_default_expr }},
+{% endfor %}
+};
+{% endif %}
+{% endfor %}
+static {{ item.struct_name }}_t default_{{ item.snake_name }} = {
+{% for field in item.struct_default_fields %}
+    .{{ field.snake_name }} = {{ field.c_default_expr }},
+{% endfor %}
+};
 {% endif %}
 {% endfor %}
 
-{% for enum_name in referenced_enum_names %}
-{% set enum_def = enums[enum_name] %}
-static const struct data_enum_value {{ enum_name }}_enum_values[{{ enum_def['values'] | length }}] = {
-{% for val in enum_def['values'] %}
-    {
-        .value = {{ val.value }},
-        .name = "{{ val.name }}",
-    },
-{% endfor %}
-};
-
-{% endfor %}
 /**
  * @brief The current datastore values
  */
@@ -73,7 +86,9 @@ const struct datastore_item_const_metadata
                 .permissions = { {{ item.c_read_perm }}, {{ item.c_write_perm }} },
                 .type = {{ item.c_type_enum }},
                 .interface = &{{ item.c_interface }},
-                .value_ptr = {% if item.type == 'BUFFER' %}(void*){% endif %}&datastore_values.{{ item.snake_name }},
+                .value_ptr = {% if item.type in ('BUFFER', 'STRUCT') %}(void*){% endif %}&datastore_values.{{ item.snake_name }},
+                {%- if item.type == 'STRUCT' %} /* {{ item.struct_name }}_t** */{% endif %}
+
                 .default_value = { {{ item.c_default }}, },
                 .constraints =
                     {
@@ -101,6 +116,8 @@ const struct datastore_item_const_metadata
                                 .value_count = {{ item.referenced_enum['values'] | length }},
                                 .values = {{ item.constraints_dict.enum }}_enum_values,
                             },
+{% elif item.type == 'STRUCT' %}
+                        .buffer_constraints = { 0 },
 {% endif %}
                     },
             },

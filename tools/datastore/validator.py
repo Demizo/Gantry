@@ -1,4 +1,5 @@
-VALID_TYPES = {"STRING", "INT", "FLOAT", "ENUM", "BYTE_ARRAY", "BUFFER"}
+VALID_TYPES = {"STRING", "INT", "FLOAT", "ENUM", "BYTE_ARRAY", "BUFFER", "STRUCT"}
+VALID_STRUCT_FIELD_TYPES = {"STRING", "INT", "FLOAT", "ENUM", "BYTE_ARRAY", "BUFFER", "STRUCT"}
 VALID_STORAGE_TYPES = {"EPHEMERAL", "PERSISTENT", "TOFU"}
 VALID_PERMS = {"ANY", "SESSION", "DEV", "INTERNAL", "NONE"}
 ITEM_REQUIRED_FIELDS = {"name", "description", "type", "storage", "permissions", "default", "constraints"}
@@ -11,6 +12,57 @@ def _flatten(lst: list, ctx: str) -> dict:
             raise ValueError(f"{ctx}: expected a list of mappings, got {type(entry).__name__}")
         result.update(entry)
     return result
+
+
+def _validate_structs(structs_list: list, enums: dict) -> None:
+    for struct in structs_list:
+        if not isinstance(struct, dict):
+            raise ValueError("Each struct must be a mapping")
+        name = struct.get("name", "<unnamed>")
+        ctx = f"struct '{name}'"
+
+        if "name" not in struct:
+            raise ValueError(f"{ctx}: missing 'name'")
+        if "description" not in struct:
+            raise ValueError(f"{ctx}: missing 'description'")
+        if "fields" not in struct or not isinstance(struct["fields"], list) or not struct["fields"]:
+            raise ValueError(f"{ctx}: 'fields' must be a non-empty list")
+
+        for i, field in enumerate(struct["fields"]):
+            fctx = f"{ctx} field[{i}]"
+            if not isinstance(field, dict):
+                raise ValueError(f"{fctx}: must be a mapping")
+            for k in ("name", "type", "constraints"):
+                if k not in field:
+                    raise ValueError(f"{fctx}: missing '{k}'")
+
+            ftype = field["type"]
+            if ftype not in VALID_STRUCT_FIELD_TYPES:
+                raise ValueError(
+                    f"{fctx}: invalid type '{ftype}', must be one of {sorted(VALID_STRUCT_FIELD_TYPES)}"
+                )
+
+            fcdict = _flatten(field["constraints"], f"{fctx} constraints")
+
+            if ftype in ("STRING", "BYTE_ARRAY", "BUFFER"):
+                for k in ("min_len", "max_len"):
+                    if k not in fcdict:
+                        raise ValueError(f"{fctx}: type {ftype} requires constraint '{k}'")
+            elif ftype in ("INT", "FLOAT"):
+                for k in ("min", "max"):
+                    if k not in fcdict:
+                        raise ValueError(f"{fctx}: type {ftype} requires constraint '{k}'")
+            elif ftype == "ENUM":
+                if "enum" not in fcdict:
+                    raise ValueError(f"{fctx}: type ENUM requires constraint 'enum'")
+                if fcdict["enum"] not in enums:
+                    raise ValueError(
+                        f"{fctx}: constraint 'enum' references unknown enum '{fcdict['enum']}'"
+                    )
+            elif ftype == "STRUCT":
+                if "struct" not in fcdict:
+                    raise ValueError(f"{fctx}: type STRUCT requires constraint 'struct'")
+                # Note: forward-reference validation skipped here; generator handles ordering
 
 
 def validate(data: dict) -> None:
@@ -41,6 +93,12 @@ def validate(data: dict) -> None:
                 raise ValueError(f"{ctx} value[{i}]: missing 'value'")
             if not isinstance(val["value"], int):
                 raise ValueError(f"{ctx} value[{i}]: 'value' must be an integer")
+
+    structs_list = data.get("structs") or []
+    if not isinstance(structs_list, list):
+        raise ValueError("'structs' must be a list")
+    _validate_structs(structs_list, enums)
+    structs = {s["name"]: s for s in structs_list}
 
     if "items" not in data:
         raise ValueError("Missing required top-level key 'items'")
@@ -98,4 +156,12 @@ def validate(data: dict) -> None:
             if enum_ref not in enums:
                 raise ValueError(
                     f"{ctx}: constraint 'enum' references unknown enum '{enum_ref}'"
+                )
+        elif item_type == "STRUCT":
+            if "struct" not in cdict:
+                raise ValueError(f"{ctx}: type STRUCT requires constraint 'struct'")
+            struct_ref = cdict["struct"]
+            if struct_ref not in structs:
+                raise ValueError(
+                    f"{ctx}: constraint 'struct' references unknown struct '{struct_ref}'"
                 )

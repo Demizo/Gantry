@@ -20,6 +20,8 @@
 
 #include "buffer.h"
 #include "datastore_types.h"
+#include "generated_datastore_enums.h"
+#include "generated_struct_SpiBuffer.h"
 
 /**
  * @addtogroup datastore
@@ -50,24 +52,6 @@
 //**********************************************************
 
 /**
- * @brief Bluetooth Connection State
- */
-enum BleConnectionState
-{
-    BleConnectionState_DISCONNECTED = 0,
-    BleConnectionState_CONNECTED = 1,
-};
-
-/**
- * @brief A toggle to enable or disable
- */
-enum Toggle
-{
-    Toggle_DISABLED = 0,
-    Toggle_ENABLED = 1,
-};
-
-/**
  * @brief ID for each datastore item
  *
  * @details The numeric ID is static for each firmware version, however IDs may
@@ -85,6 +69,7 @@ enum datastore_item_id
     DATASTORE_ID_TEST_FLOAT,           /**< Test float value */
     DATASTORE_ID_TEST_BYTES,           /**< Test bytes */
     DATASTORE_ID_TEST_BUFFER,          /**< Test buffer */
+    DATASTORE_ID_SPI_TX_BUFFER,        /**< SPI TX buffer */
     DATASTORE_ID_COUNT
 };
 
@@ -102,6 +87,7 @@ struct datastore_values
     float test_float;                                          /**< Test float value */
     uint8_t test_bytes[sizeof(buffer_t) + TEST_BYTES_MAX_LEN]; /**< Test bytes */
     buffer_t* test_buffer;                                     /**< Test buffer */
+    SpiBuffer_t* spi_tx_buffer;                                /**< SPI TX buffer */
 };
 
 /**

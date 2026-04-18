@@ -13,6 +13,37 @@ enums:
         value: 2
 
 # ==============================================================================
+# Structures
+# ==============================================================================
+structs:
+  - name: TestStruct
+    description: "A test composite struct"
+    fields:
+      - name: IntField
+        type: INT
+        constraints:
+          - min: 0
+          - max: 255
+      - name: BufField
+        type: BUFFER
+        constraints:
+          - min_len: 0
+          - max_len: 16
+
+  - name: NestedStruct
+    description: "A struct containing a nested struct field"
+    fields:
+      - name: Inner
+        type: STRUCT
+        constraints:
+          - struct: TestStruct
+      - name: Flag
+        type: INT
+        constraints:
+          - min: 0
+          - max: 1
+
+# ==============================================================================
 # Items
 # ==============================================================================
 items:
@@ -110,3 +141,37 @@ items:
     constraints:
       - min: 0
       - max: 100
+
+  - name: TestStructItem
+    description: "A test struct item"
+    type: STRUCT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default:
+      - field: IntField
+        value: 7
+      - field: BufField
+        value: []
+    constraints:
+      - struct: TestStruct
+
+  - name: TestNestedStructItem
+    description: "A test nested struct item"
+    type: STRUCT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default:
+      - field: Inner
+        value:
+          - field: IntField
+            value: 0
+          - field: BufField
+            value: []
+      - field: Flag
+        value: 0
+    constraints:
+      - struct: NestedStruct
