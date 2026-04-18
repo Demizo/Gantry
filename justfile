@@ -66,7 +66,8 @@ test component:
 # Generate documentation
 docs:
   cd app && doxygen Doxyfile
+  cd app/docs && uv run make html
 
 # Open documentation
 docs-open:
-  xdg-open app/docs/html/index.html
+  xdg-open app/docs/build/html/index.html

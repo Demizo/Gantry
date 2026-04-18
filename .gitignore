@@ -6,8 +6,7 @@ modules
 twister-out*
 
 # Doxygen output
-**/docs/html
-**/docs/latex
+**/docs/doxygen
 
 # direnv cache
 .direnv
