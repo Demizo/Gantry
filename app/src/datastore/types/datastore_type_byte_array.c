@@ -35,7 +35,7 @@ LOG_MODULE_REGISTER(datastore_type_byte_array, CONFIG_DATASTORE_TYPES_LOG_LEVEL)
 //**********************************************************
 
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
-static bool is_default(const struct datastore_item_const_metadata* item);
+static bool is_equal(data_value_t a, data_value_t b);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
@@ -60,13 +60,14 @@ static bool validate(const union datastore_constraints* constraints, data_value_
         (new_value->len <= constraints->buffer_constraints.max_len));
 }
 
-static bool is_default(const struct datastore_item_const_metadata* item)
+static bool is_equal(data_value_t a, data_value_t b)
 {
-    buffer_t* current_value = (buffer_t*)item->value_ptr;
-    buffer_t* default_value = item->default_value.buffer_value;
+    ASSERT(
+        (a.type == DATASTORE_ITEM_TYPE_BYTE_ARRAY) && (b.type == DATASTORE_ITEM_TYPE_BYTE_ARRAY),
+        "Unexpected value type");
 
-    if (current_value->len != default_value->len) return false;
-    return (memcmp(current_value->buf, default_value->buf, default_value->len) == 0);
+    if (a.data.buffer_value->len != b.data.buffer_value->len) return false;
+    return (memcmp(a.data.buffer_value->buf, b.data.buffer_value->buf, b.data.buffer_value->len) == 0);
 }
 
 static void set(const struct datastore_item_const_metadata* item, data_value_t value)
@@ -171,7 +172,7 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
 
 const struct datastore_item_interface datastore_byte_array_interface = {
     .validate = validate,
-    .is_default = is_default,
+    .is_equal = is_equal,
     .set = set,
     .get = get,
     .release = release,

@@ -179,14 +179,17 @@ static int datastore_set_handler(const char* name, size_t len, settings_read_cb 
         return -EINVAL;
     }
 
-    item->interface->set(item, decoded_value);
-    item->interface->release(&decoded_value);
-
-    if (item->interface->is_default(item))
+    data_value_t default_value = { .type = item->type, .data = item->default_value };
+    if (item->interface->is_equal(decoded_value, default_value))
     {
+        item->interface->release(&decoded_value);
         LOG_DBG("The stored value of %s matches the default value, deleting", name);
         (void)delete_stored_value(name);
+        return ret;
     }
+
+    item->interface->set(item, decoded_value);
+    item->interface->release(&decoded_value);
 
     LOG_DBG("Loaded %s from storage", name);
 

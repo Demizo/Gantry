@@ -206,11 +206,25 @@ int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id
         return -EACCES;
     }
 
-    // Disallow changing TOFU values after they are first modified
-    if ((item->storage_type == DATASTORE_STORAGE_TOFU) && !item->interface->is_default(item))
+    if (item->storage_type == DATASTORE_STORAGE_TOFU)
     {
-        LOG_WRN("Attempted to change TOFU value that has already been modified, item id: %d", id);
-        return -EACCES;
+        // Disallow changing TOFU values after they are first modified
+        data_value_t default_value = { .type = item->type, .data = item->default_value };
+        data_value_t current_value = { 0 };
+        ret = item->interface->get(item, &current_value);
+        if (ret != SUCCESS)
+        {
+            LOG_ERR("Failed to check item %d against current value: %d", id, ret);
+            return ret;
+        }
+        bool is_default = item->interface->is_equal(current_value, default_value);
+        item->interface->release(&current_value);
+
+        if (!is_default)
+        {
+            LOG_WRN("Attempted to change TOFU value that has already been modified, item id: %d", id);
+            return -EACCES;
+        }
     }
 
     // Validate value

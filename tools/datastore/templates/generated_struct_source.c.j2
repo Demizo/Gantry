@@ -47,7 +47,7 @@ LOG_MODULE_REGISTER(datastore_struct_{{ struct.snake_name }}, CONFIG_DATASTORE_T
 //**********************************************************
 
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
-static bool is_default(const struct datastore_item_const_metadata* item);
+static bool is_equal(data_value_t a, data_value_t b);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
@@ -121,42 +121,21 @@ static bool validate(const union datastore_constraints* constraints, data_value_
     return true;
 }
 
-static bool is_default(const struct datastore_item_const_metadata* item)
+static bool is_equal(data_value_t a, data_value_t b)
 {
-    {{ struct.name }}_t* current = *({{ struct.name }}_t**)item->value_ptr;
-    if (current == NULL) return false;
-    {{ struct.name }}_t* def = ({{ struct.name }}_t*)item->default_value.raw_value;
+    ASSERT((a.type == DATASTORE_ITEM_TYPE_STRUCT) && (b.type == DATASTORE_ITEM_TYPE_STRUCT), "Unexpected value type");
+    {{ struct.name }}_t* a_struct = ({{ struct.name }}_t*)a.data.raw_value;
+    {{ struct.name }}_t* b_struct = ({{ struct.name }}_t*)b.data.raw_value;
 
+    data_value_t a_value = { 0 };
+    data_value_t b_value = { 0 };
 {% for field in struct.fields %}
     // Check {{ field.name }}
-{% if field.type in ('INT', 'FLOAT', 'ENUM') %}
-    if (current->{{ field.snake_name }} != def->{{ field.snake_name }}) return false;
-{% elif field.type == 'BYTE_ARRAY' %}
-    buffer_t* current_bytes = (buffer_t*)(current->{{ field.snake_name }});
-    buffer_t* default_bytes = (buffer_t*)(def->{{ field.snake_name }});
-    if (current_bytes->len != default_bytes->len) return false;
-    if (memcmp(current_bytes->buf, default_bytes->buf, default_bytes->len) != 0) return false;
-{% elif field.type == 'BUFFER' %}
-    if (current->{{ field.snake_name }}->len != def->{{ field.snake_name }}->len) return false;
-    if (memcmp(current->{{ field.snake_name }}->buf, def->{{ field.snake_name }}->buf, def->{{ field.snake_name }}->len) != 0) return false;
-{% elif field.type == 'STRING' %}
-    if (strcmp(current->{{ field.snake_name }}, def->{{ field.snake_name }}) != 0) return false;
-{% elif field.type == 'STRUCT' %}
-    {
-        {{ field.nested_struct_name }}_t* f_cur = current->{{ field.snake_name }};
-        {{ field.nested_struct_name }}_t* f_def = def->{{ field.snake_name }};
-        if (f_cur == NULL || f_def == NULL) return false;
-{% for nfield in field.nested_struct_fields %}
-{% if nfield.type in ('INT', 'FLOAT', 'ENUM') %}
-        if (f_cur->{{ nfield.snake_name }} != f_def->{{ nfield.snake_name }}) return false;
-{% elif nfield.type == 'BYTE_ARRAY' %}
-        if (memcmp(f_cur->{{ nfield.snake_name }}, f_def->{{ nfield.snake_name }}, {{ nfield.constraints_dict.max_len }}) != 0) return false;
-{% elif nfield.type in ('BUFFER', 'STRING', 'STRUCT') %}
-        (void)f_cur; (void)f_def; return false; /* conservative: nested pointer fields always not-default */
-{% endif %}
-{% endfor %}
-    }
-{% endif %}
+    a_value.type = {{ field.c_type_enum }};
+    a_value.data.{{ field.data_member }} = {{ field.data_member_cast }}a_struct->{{ field.snake_name }};
+    b_value.type = {{ field.c_type_enum }};
+    b_value.data.{{ field.data_member }} = {{ field.data_member_cast }}b_struct->{{ field.snake_name }};
+    if (!{{ field.interface_sym }}.is_equal(a_value, b_value)) return false;
 {% endfor %}
 
     return true;
@@ -459,7 +438,7 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
 
 const struct datastore_item_interface datastore_struct_{{ struct.snake_name }}_interface = {
     .validate = validate,
-    .is_default = is_default,
+    .is_equal = is_equal,
     .set = set,
     .get = get,
     .release = release,

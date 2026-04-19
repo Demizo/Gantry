@@ -32,7 +32,7 @@ LOG_MODULE_REGISTER(datastore_type_enum, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 //**********************************************************
 
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
-static bool is_default(const struct datastore_item_const_metadata* item);
+static bool is_equal(data_value_t a, data_value_t b);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
@@ -57,12 +57,11 @@ static bool validate(const union datastore_constraints* constraints, data_value_
     return (enum_get_name_from_value(constraints, new_value, &name) == SUCCESS);
 }
 
-static bool is_default(const struct datastore_item_const_metadata* item)
+static bool is_equal(data_value_t a, data_value_t b)
 {
-    int current_value = *(int*)item->value_ptr;
-    int default_value = item->default_value.int_value;
+    ASSERT((a.type == DATASTORE_ITEM_TYPE_ENUM) && (b.type == DATASTORE_ITEM_TYPE_ENUM), "Unexpected value type");
 
-    return current_value == default_value;
+    return a.data.int_value == b.data.int_value;
 }
 
 static void set(const struct datastore_item_const_metadata* item, data_value_t value)
@@ -150,7 +149,7 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
 
 const struct datastore_item_interface datastore_enum_interface = {
     .validate = validate,
-    .is_default = is_default,
+    .is_equal = is_equal,
     .set = set,
     .get = get,
     .release = release,

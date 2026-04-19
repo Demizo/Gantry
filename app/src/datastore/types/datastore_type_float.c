@@ -32,7 +32,7 @@ LOG_MODULE_REGISTER(datastore_type_float, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 //**********************************************************
 
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
-static bool is_default(const struct datastore_item_const_metadata* item);
+static bool is_equal(data_value_t a, data_value_t b);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
@@ -55,12 +55,11 @@ static bool validate(const union datastore_constraints* constraints, data_value_
     return ((new_value >= constraints->float_constraints.min) && (new_value <= constraints->float_constraints.max));
 }
 
-static bool is_default(const struct datastore_item_const_metadata* item)
+static bool is_equal(data_value_t a, data_value_t b)
 {
-    float current_value = *(float*)item->value_ptr;
-    float default_value = item->default_value.float_value;
+    ASSERT((a.type == DATASTORE_ITEM_TYPE_FLOAT) && (b.type == DATASTORE_ITEM_TYPE_FLOAT), "Unexpected value type");
 
-    return current_value == default_value;
+    return a.data.float_value == b.data.float_value;
 }
 
 static void set(const struct datastore_item_const_metadata* item, data_value_t value)
@@ -127,7 +126,7 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
 
 const struct datastore_item_interface datastore_float_interface = {
     .validate = validate,
-    .is_default = is_default,
+    .is_equal = is_equal,
     .set = set,
     .get = get,
     .release = release,

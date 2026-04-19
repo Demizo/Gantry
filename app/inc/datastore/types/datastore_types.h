@@ -171,8 +171,7 @@ struct datastore_item_interface
     bool (*validate)(
         const union datastore_constraints* constraints,
         data_value_t value); /**< Function to determine if a given value is valid based on the provided constraints */
-    bool (*is_default)(
-        const struct datastore_item_const_metadata* item); /**< Function to check if an item is at its default value */
+    bool (*is_equal)(data_value_t a, data_value_t b); /**< Function to check if two values of the same type are equal */
     void (*set)(
         const struct datastore_item_const_metadata* item, data_value_t value); /**< Function to set an item value */
     int (*get)(

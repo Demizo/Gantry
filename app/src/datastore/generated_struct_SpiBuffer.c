@@ -42,7 +42,7 @@ LOG_MODULE_REGISTER(datastore_struct_spi_buffer, CONFIG_DATASTORE_TYPES_LOG_LEVE
 //**********************************************************
 
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
-static bool is_default(const struct datastore_item_const_metadata* item);
+static bool is_equal(data_value_t a, data_value_t b);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
@@ -116,24 +116,38 @@ static bool validate(const union datastore_constraints* constraints, data_value_
     return true;
 }
 
-static bool is_default(const struct datastore_item_const_metadata* item)
+static bool is_equal(data_value_t a, data_value_t b)
 {
-    SpiBuffer_t* current = *(SpiBuffer_t**)item->value_ptr;
-    if (current == NULL) return false;
-    SpiBuffer_t* def = (SpiBuffer_t*)item->default_value.raw_value;
+    ASSERT((a.type == DATASTORE_ITEM_TYPE_STRUCT) && (b.type == DATASTORE_ITEM_TYPE_STRUCT), "Unexpected value type");
+    SpiBuffer_t* a_struct = (SpiBuffer_t*)a.data.raw_value;
+    SpiBuffer_t* b_struct = (SpiBuffer_t*)b.data.raw_value;
 
+    data_value_t a_value = { 0 };
+    data_value_t b_value = { 0 };
     // Check CS
-    if (current->cs != def->cs) return false;
+    a_value.type = DATASTORE_ITEM_TYPE_ENUM;
+    a_value.data.int_value = a_struct->cs;
+    b_value.type = DATASTORE_ITEM_TYPE_ENUM;
+    b_value.data.int_value = b_struct->cs;
+    if (!datastore_enum_interface.is_equal(a_value, b_value)) return false;
     // Check Bytes
-    buffer_t* current_bytes = (buffer_t*)(current->bytes);
-    buffer_t* default_bytes = (buffer_t*)(def->bytes);
-    if (current_bytes->len != default_bytes->len) return false;
-    if (memcmp(current_bytes->buf, default_bytes->buf, default_bytes->len) != 0) return false;
+    a_value.type = DATASTORE_ITEM_TYPE_BYTE_ARRAY;
+    a_value.data.buffer_value = (buffer_t*)a_struct->bytes;
+    b_value.type = DATASTORE_ITEM_TYPE_BYTE_ARRAY;
+    b_value.data.buffer_value = (buffer_t*)b_struct->bytes;
+    if (!datastore_byte_array_interface.is_equal(a_value, b_value)) return false;
     // Check Text
-    if (strcmp(current->text, def->text) != 0) return false;
+    a_value.type = DATASTORE_ITEM_TYPE_STRING;
+    a_value.data.string_value = a_struct->text;
+    b_value.type = DATASTORE_ITEM_TYPE_STRING;
+    b_value.data.string_value = b_struct->text;
+    if (!datastore_string_interface.is_equal(a_value, b_value)) return false;
     // Check Buffer
-    if (current->buffer->len != def->buffer->len) return false;
-    if (memcmp(current->buffer->buf, def->buffer->buf, def->buffer->len) != 0) return false;
+    a_value.type = DATASTORE_ITEM_TYPE_BUFFER;
+    a_value.data.buffer_value = a_struct->buffer;
+    b_value.type = DATASTORE_ITEM_TYPE_BUFFER;
+    b_value.data.buffer_value = b_struct->buffer;
+    if (!datastore_buffer_interface.is_equal(a_value, b_value)) return false;
 
     return true;
 }
@@ -486,7 +500,7 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
 
 const struct datastore_item_interface datastore_struct_spi_buffer_interface = {
     .validate = validate,
-    .is_default = is_default,
+    .is_equal = is_equal,
     .set = set,
     .get = get,
     .release = release,
