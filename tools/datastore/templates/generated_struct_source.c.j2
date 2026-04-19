@@ -35,6 +35,7 @@
 #include "generated_struct_{{ field.nested_struct_name }}.h"
 {% endif %}
 {% endfor %}
+#include "string_utils.h"
 
 /**
  * @brief Logger for module
@@ -109,39 +110,16 @@ static const struct datastore_item_const_metadata s_{{ struct.snake_name }}_{{ f
 
 static bool validate(const struct datastore_item_const_metadata* item, data_value_t value)
 {
+    ARG_UNUSED(item);
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRUCT, "Unexpected value type");
     {{ struct.name }}_t* s = ({{ struct.name }}_t*)value.data.raw_value;
 
 {% for field in struct.fields %}
-{% if field.type in ('INT', 'FLOAT', 'ENUM') %}
+    // Check {{ field.name }}
     {
         data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = s->{{ field.snake_name }} };
         if (!{{ field.interface_sym }}.validate(&s_{{ struct.snake_name }}_{{ field.snake_name }}_meta, fval)) return false;
     }
-{% elif field.type == 'BUFFER' %}
-    {
-        data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = s->{{ field.snake_name }} };
-        if (!{{ field.interface_sym }}.validate(&s_{{ struct.snake_name }}_{{ field.snake_name }}_meta, fval)) return false;
-    }
-{% elif field.type == 'STRING' %}
-    {
-        data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = s->{{ field.snake_name }} };
-        if (!{{ field.interface_sym }}.validate(&s_{{ struct.snake_name }}_{{ field.snake_name }}_meta, fval)) return false;
-    }
-{% elif field.type == 'BYTE_ARRAY' %}
-    {
-        union { buffer_t buf; uint8_t raw[sizeof(buffer_t) + {{ field.constraints_dict.max_len }}]; } fview = { 0 };
-        fview.buf.len = {{ field.constraints_dict.max_len }};
-        memcpy(fview.buf.buf, s->{{ field.snake_name }}, {{ field.constraints_dict.max_len }});
-        data_value_t fval = { .type = {{ field.c_type_enum }}, .data.buffer_value = &fview.buf };
-        if (!{{ field.interface_sym }}.validate(&s_{{ struct.snake_name }}_{{ field.snake_name }}_meta, fval)) return false;
-    }
-{% elif field.type == 'STRUCT' %}
-    {
-        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_STRUCT, .data.raw_value = s->{{ field.snake_name }} };
-        if (!{{ field.interface_sym }}.validate(&s_{{ struct.snake_name }}_{{ field.snake_name }}_meta, fval)) return false;
-    }
-{% endif %}
 {% endfor %}
 
     return true;
@@ -154,10 +132,14 @@ static bool is_default(const struct datastore_item_const_metadata* item)
     {{ struct.name }}_t* def = ({{ struct.name }}_t*)item->default_value.raw_value;
 
 {% for field in struct.fields %}
+    // Check {{ field.name }}
 {% if field.type in ('INT', 'FLOAT', 'ENUM') %}
     if (current->{{ field.snake_name }} != def->{{ field.snake_name }}) return false;
 {% elif field.type == 'BYTE_ARRAY' %}
-    if (memcmp(current->{{ field.snake_name }}, def->{{ field.snake_name }}, {{ field.constraints_dict.max_len }}) != 0) return false;
+    buffer_t* current_bytes = (buffer_t*)(current->{{ field.snake_name }});
+    buffer_t* default_bytes = (buffer_t*)(def->{{ field.snake_name }});
+    if (current_bytes->len != default_bytes->len) return false;
+    if (memcmp(current_bytes->buf, default_bytes->buf, default_bytes->len) != 0) return false;
 {% elif field.type == 'BUFFER' %}
     if (current->{{ field.snake_name }}->len != def->{{ field.snake_name }}->len) return false;
     if (memcmp(current->{{ field.snake_name }}->buf, def->{{ field.snake_name }}->buf, def->{{ field.snake_name }}->len) != 0) return false;
@@ -223,13 +205,16 @@ static void set(const struct datastore_item_const_metadata* item, data_value_t v
 
     {{ struct.name }}_t* new_struct = ({{ struct.name }}_t*)new_block;
     memset(new_struct, 0, sizeof({{ struct.name }}_t));
-
-    // Copy/deep-copy each field
 {% for field in struct.fields %}
+
+    // Copy {{ field.name }}
 {% if field.type in ('INT', 'FLOAT', 'ENUM') %}
     new_struct->{{ field.snake_name }} = src->{{ field.snake_name }};
 {% elif field.type == 'BYTE_ARRAY' %}
-    memcpy(new_struct->{{ field.snake_name }}, src->{{ field.snake_name }}, {{ field.constraints_dict.max_len }});
+    buffer_t* new_bytes = (buffer_t*)(new_struct->{{ field.snake_name }});
+    buffer_t* src_bytes = (buffer_t*)(src->{{ field.snake_name }});
+    new_bytes->len = src_bytes->len;
+    memcpy(new_bytes->buf, src_bytes->buf, src_bytes->len);
 {% elif field.type == 'BUFFER' %}
     {
         void* new_field_block = NULL;
@@ -289,9 +274,8 @@ static void set(const struct datastore_item_const_metadata* item, data_value_t v
     {{ struct.name }}_t* old_struct = *({{ struct.name }}_t**)item->value_ptr;
     if (old_struct != NULL)
     {
-        release_struct_fields(old_struct);
-        void* old_ptr = old_struct;
-        mem_unref(&old_ptr);
+        data_value_t old_value = { .type = DATASTORE_ITEM_TYPE_STRUCT, .data.raw_value = old_struct };
+        release(&old_value);
     }
 
     *({{ struct.name }}_t**)item->value_ptr = ({{ struct.name }}_t*)new_block;
@@ -303,26 +287,6 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
     {{ struct.name }}_t* current = *({{ struct.name }}_t**)item->value_ptr;
 
     mem_ref(current);
-{% for field in struct.fields %}
-{% if field.is_pointer and field.type != 'STRUCT' %}
-    {
-        void* field_ptr = current->{{ field.snake_name }};
-        mem_ref(field_ptr);
-        PASS_OWNERSHIP(field_ptr);
-    }
-{% elif field.type == 'STRUCT' %}
-    {
-        void* inner_field_ptr = current->{{ field.snake_name }};
-        struct datastore_item_const_metadata inner_tmp = { .value_ptr = &inner_field_ptr };
-        data_value_t inner_val;
-        {{ field.interface_sym }}.get(&inner_tmp, &inner_val);
-        void* inner_raw = inner_val.data.raw_value;
-        PASS_OWNERSHIP(inner_raw);
-        (void)inner_raw;
-    }
-{% endif %}
-{% endfor %}
-
     out_value->type = DATASTORE_ITEM_TYPE_STRUCT;
     out_value->data.raw_value = current;
 
@@ -335,7 +299,12 @@ static void release(data_value_t* value)
     ASSERT(value->type == DATASTORE_ITEM_TYPE_STRUCT, "Unexpected value type");
 
     {{ struct.name }}_t* s = ({{ struct.name }}_t*)value->data.raw_value;
-    release_struct_fields(s);
+
+    // Free fields if struct is about to be freed
+    if (s != NULL && mem_get_ref_count((void*)s) == 1)
+    {
+        release_struct_fields(s);
+    }
 
     void* ptr = s;
     mem_unref(&ptr);
@@ -352,30 +321,12 @@ static int encode(zcbor_state_t* encoder, data_value_t value)
     }
 
 {% for field in struct.fields %}
-{% if field.type in ('INT', 'FLOAT', 'ENUM') %}
+    // Encode {{ field.name }}
     {
         data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = s->{{ field.snake_name }} };
         int ret = {{ field.interface_sym }}.encode(encoder, fval);
         if (ret != SUCCESS) return ret;
     }
-{% elif field.type in ('BUFFER', 'STRING') %}
-    {
-        data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = s->{{ field.snake_name }} };
-        int ret = {{ field.interface_sym }}.encode(encoder, fval);
-        if (ret != SUCCESS) return ret;
-    }
-{% elif field.type == 'BYTE_ARRAY' %}
-    {
-        struct zcbor_string str = { .value = s->{{ field.snake_name }}, .len = {{ field.constraints_dict.max_len }} };
-        if (!zcbor_bstr_encode(encoder, &str)) return -ENOMEM;
-    }
-{% elif field.type == 'STRUCT' %}
-    {
-        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_STRUCT, .data.raw_value = s->{{ field.snake_name }} };
-        int ret = {{ field.interface_sym }}.encode(encoder, fval);
-        if (ret != SUCCESS) return ret;
-    }
-{% endif %}
 {% endfor %}
 
     if (!zcbor_list_end_encode(encoder, {{ struct.n_fields }}))
@@ -405,6 +356,7 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     memset(new_struct, 0, sizeof({{ struct.name }}_t));
 
 {% for field in struct.fields %}
+    // Decode {{ field.name }}
 {% if field.type in ('INT', 'FLOAT', 'ENUM') %}
     {
         data_value_t fval = { 0 };
@@ -412,8 +364,9 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         ret = {{ field.interface_sym }}.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
         new_struct->{{ field.snake_name }} = fval.data.{{ field.data_member }};
+        {{ field.interface_sym }}.release(&fval);
     }
-{% elif field.type in ('BUFFER', 'STRING') %}
+{% elif field.type in ('BUFFER', 'STRING', 'STRUCT') %}
     {
         data_value_t fval = { 0 };
         fval.type = {{ field.c_type_enum }};
@@ -425,20 +378,21 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     }
 {% elif field.type == 'BYTE_ARRAY' %}
     {
-        struct zcbor_string str;
-        if (!zcbor_bstr_decode(decoder, &str)) { ret = -EBADMSG; goto decode_cleanup; }
-        if (str.len != {{ field.constraints_dict.max_len }}) { ret = -EBADMSG; goto decode_cleanup; }
-        memcpy(new_struct->{{ field.snake_name }}, str.value, str.len);
-    }
-{% elif field.type == 'STRUCT' %}
-    {
         data_value_t fval = { 0 };
-        fval.type = DATASTORE_ITEM_TYPE_STRUCT;
+        fval.type = {{ field.c_type_enum }};
         ret = {{ field.interface_sym }}.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
-        void* decoded_field_ptr = fval.data.raw_value;
-        new_struct->{{ field.snake_name }} = ({{ field.nested_struct_name }}_t*)decoded_field_ptr;
-        PASS_OWNERSHIP(decoded_field_ptr);
+        // Validate now to avoid copying an invalid buffer
+        if (!{{ field.interface_sym }}.validate(&s_{{ struct.snake_name }}_{{ field.snake_name }}_meta, fval)) 
+        {
+            {{ field.interface_sym }}.release(&fval);
+            goto decode_cleanup;
+        }
+        buffer_t* new_bytes = (buffer_t*)(new_struct->{{ field.snake_name }});
+        buffer_t* decoded_bytes = fval.data.{{ field.data_member }};
+        new_bytes->len = decoded_bytes->len;
+        memcpy(new_bytes->buf, decoded_bytes->buf, decoded_bytes->len);
+        {{ field.interface_sym }}.release(&fval);
     }
 {% endif %}
 {% endfor %}

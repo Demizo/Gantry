@@ -86,7 +86,7 @@ def _preprocess_struct_fields(fields: list, enums: dict, structs_by_name: dict |
             c_decl = f"int {fsnake}"
             interface_sym = INTERFACE_MAP["ENUM"]
         elif ftype == "BYTE_ARRAY":
-            c_decl = f"uint8_t {fsnake}[{fcdict['max_len']}]"
+            c_decl = f"uint8_t {fsnake}[sizeof(buffer_t) + {fcdict['max_len']}]"
             interface_sym = INTERFACE_MAP["BYTE_ARRAY"]
         elif ftype == "BUFFER":
             c_decl = f"buffer_t* {fsnake}"
