@@ -171,7 +171,7 @@ static int datastore_set_handler(const char* name, size_t len, settings_read_cb 
         return ret;
     }
 
-    if (!item->interface->validate(item, decoded_value))
+    if (!item->interface->validate(&item->constraints, decoded_value))
     {
         LOG_ERR("Stored value for %s was not valid", name);
         item->interface->release(&decoded_value);

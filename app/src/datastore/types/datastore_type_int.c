@@ -31,14 +31,14 @@ LOG_MODULE_REGISTER(datastore_type_int, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 //* Static Function Declarations
 //**********************************************************
 
-static bool validate(const struct datastore_item_const_metadata* item, data_value_t value);
+static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_default(const struct datastore_item_const_metadata* item);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
-static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item);
+static int encode_constraints(zcbor_state_t* encoder, const union datastore_constraints* constraints);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -48,12 +48,11 @@ static int encode_constraints(zcbor_state_t* encoder, const struct datastore_ite
 //* Static Function Definitions
 //**********************************************************
 
-static bool validate(const struct datastore_item_const_metadata* item, data_value_t value)
+static bool validate(const union datastore_constraints* constraints, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_INT, "Unexpected value type");
     const int new_value = value.data.int_value;
-    return (
-        (new_value >= item->constraints.int_constraints.min) && (new_value <= item->constraints.int_constraints.max));
+    return ((new_value >= constraints->int_constraints.min) && (new_value <= constraints->int_constraints.max));
 }
 
 static bool is_default(const struct datastore_item_const_metadata* item)
@@ -110,11 +109,11 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     return SUCCESS;
 }
 
-static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item)
+static int encode_constraints(zcbor_state_t* encoder, const union datastore_constraints* constraints)
 {
     if (!zcbor_map_start_encode(encoder, 2) || !zcbor_tstr_put_lit(encoder, "min") ||
-        !zcbor_int32_put(encoder, item->constraints.int_constraints.min) || !zcbor_tstr_put_lit(encoder, "max") ||
-        !zcbor_int32_put(encoder, item->constraints.int_constraints.max) || !zcbor_map_end_encode(encoder, 2))
+        !zcbor_int32_put(encoder, constraints->int_constraints.min) || !zcbor_tstr_put_lit(encoder, "max") ||
+        !zcbor_int32_put(encoder, constraints->int_constraints.max) || !zcbor_map_end_encode(encoder, 2))
     {
         return -ENOMEM;
     }

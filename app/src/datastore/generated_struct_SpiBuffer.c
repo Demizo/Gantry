@@ -41,46 +41,42 @@ LOG_MODULE_REGISTER(datastore_struct_spi_buffer, CONFIG_DATASTORE_TYPES_LOG_LEVE
 //* Static Function Declarations
 //**********************************************************
 
-static bool validate(const struct datastore_item_const_metadata* item, data_value_t value);
+static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_default(const struct datastore_item_const_metadata* item);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
-static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item);
+static int encode_constraints(zcbor_state_t* encoder, const union datastore_constraints* constraints);
 
 //**********************************************************
 //* Static Variable Definitions
 //**********************************************************
 
-static const struct datastore_item_const_metadata s_spi_buffer_cs_meta = {
-    .type = DATASTORE_ITEM_TYPE_ENUM,
-    .constraints.enum_constraints = {
+static const union datastore_constraints cs_constraints = {
+    .enum_constraints = {
         .value_count = 2,
         .values = SpiChipSelect_enum_values,
     },
 };
 
-static const struct datastore_item_const_metadata s_spi_buffer_bytes_meta = {
-    .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY,
-    .constraints.buffer_constraints = {
+static const union datastore_constraints bytes_constraints = {
+    .buffer_constraints = {
         .min_len = 0,
         .max_len = 6,
     },
 };
 
-static const struct datastore_item_const_metadata s_spi_buffer_text_meta = {
-    .type = DATASTORE_ITEM_TYPE_STRING,
-    .constraints.buffer_constraints = {
+static const union datastore_constraints text_constraints = {
+    .buffer_constraints = {
         .min_len = 3,
         .max_len = 12,
     },
 };
 
-static const struct datastore_item_const_metadata s_spi_buffer_buffer_meta = {
-    .type = DATASTORE_ITEM_TYPE_BUFFER,
-    .constraints.buffer_constraints = {
+static const union datastore_constraints buffer_constraints = {
+    .buffer_constraints = {
         .min_len = 0,
         .max_len = 512,
     },
@@ -90,31 +86,31 @@ static const struct datastore_item_const_metadata s_spi_buffer_buffer_meta = {
 //* Static Function Definitions
 //**********************************************************
 
-static bool validate(const struct datastore_item_const_metadata* item, data_value_t value)
+static bool validate(const union datastore_constraints* constraints, data_value_t value)
 {
-    ARG_UNUSED(item);
+    ARG_UNUSED(constraints);
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRUCT, "Unexpected value type");
     SpiBuffer_t* s = (SpiBuffer_t*)value.data.raw_value;
 
     // Check CS
     {
         data_value_t fval = { .type = DATASTORE_ITEM_TYPE_ENUM, .data.int_value = s->cs };
-        if (!datastore_enum_interface.validate(&s_spi_buffer_cs_meta, fval)) return false;
+        if (!datastore_enum_interface.validate(&cs_constraints, fval)) return false;
     }
     // Check Bytes
     {
-        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = s->bytes };
-        if (!datastore_byte_array_interface.validate(&s_spi_buffer_bytes_meta, fval)) return false;
+        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = (buffer_t*)s->bytes };
+        if (!datastore_byte_array_interface.validate(&bytes_constraints, fval)) return false;
     }
     // Check Text
     {
         data_value_t fval = { .type = DATASTORE_ITEM_TYPE_STRING, .data.string_value = s->text };
-        if (!datastore_string_interface.validate(&s_spi_buffer_text_meta, fval)) return false;
+        if (!datastore_string_interface.validate(&text_constraints, fval)) return false;
     }
     // Check Buffer
     {
         data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BUFFER, .data.buffer_value = s->buffer };
-        if (!datastore_buffer_interface.validate(&s_spi_buffer_buffer_meta, fval)) return false;
+        if (!datastore_buffer_interface.validate(&buffer_constraints, fval)) return false;
     }
 
     return true;
@@ -183,8 +179,7 @@ static void set(const struct datastore_item_const_metadata* item, data_value_t v
 
     // Copy Text
     {
-        uint16_t str_len =
-            (uint16_t)strnlen(src->text, s_spi_buffer_text_meta.constraints.buffer_constraints.max_len) + 1;
+        uint16_t str_len = (uint16_t)strnlen(src->text, text_constraints.buffer_constraints.max_len) + 1;
         void* new_str_block = NULL;
         ret = mem_alloc(str_len, &new_str_block);
         if (ret != SUCCESS)
@@ -275,7 +270,7 @@ static int encode(zcbor_state_t* encoder, data_value_t value)
     }
     // Encode Bytes
     {
-        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = s->bytes };
+        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = (buffer_t*)s->bytes };
         int ret = datastore_byte_array_interface.encode(encoder, fval);
         if (ret != SUCCESS) return ret;
     }
@@ -334,7 +329,7 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         ret = datastore_byte_array_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
         // Validate now to avoid copying an invalid buffer
-        if (!datastore_byte_array_interface.validate(&s_spi_buffer_bytes_meta, fval))
+        if (!datastore_byte_array_interface.validate(&bytes_constraints, fval))
         {
             datastore_byte_array_interface.release(&fval);
             goto decode_cleanup;
@@ -383,9 +378,9 @@ decode_cleanup:
     return ret;
 }
 
-static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item)
+static int encode_constraints(zcbor_state_t* encoder, const union datastore_constraints* constraints)
 {
-    (void)item;
+    ARG_UNUSED(constraints);
 
     if (!zcbor_list_start_encode(encoder, 4))
     {
@@ -405,7 +400,7 @@ static int encode_constraints(zcbor_state_t* encoder, const struct datastore_ite
             return -ENOMEM;
         }
         {
-            int ret = datastore_enum_interface.encode_constraints(encoder, &s_spi_buffer_cs_meta);
+            int ret = datastore_enum_interface.encode_constraints(encoder, &cs_constraints);
             if (ret != SUCCESS) return ret;
         }
         if (!zcbor_map_end_encode(encoder, 3))
@@ -426,7 +421,7 @@ static int encode_constraints(zcbor_state_t* encoder, const struct datastore_ite
             return -ENOMEM;
         }
         {
-            int ret = datastore_byte_array_interface.encode_constraints(encoder, &s_spi_buffer_bytes_meta);
+            int ret = datastore_byte_array_interface.encode_constraints(encoder, &bytes_constraints);
             if (ret != SUCCESS) return ret;
         }
         if (!zcbor_map_end_encode(encoder, 3))
@@ -447,7 +442,7 @@ static int encode_constraints(zcbor_state_t* encoder, const struct datastore_ite
             return -ENOMEM;
         }
         {
-            int ret = datastore_string_interface.encode_constraints(encoder, &s_spi_buffer_text_meta);
+            int ret = datastore_string_interface.encode_constraints(encoder, &text_constraints);
             if (ret != SUCCESS) return ret;
         }
         if (!zcbor_map_end_encode(encoder, 3))
@@ -468,7 +463,7 @@ static int encode_constraints(zcbor_state_t* encoder, const struct datastore_ite
             return -ENOMEM;
         }
         {
-            int ret = datastore_buffer_interface.encode_constraints(encoder, &s_spi_buffer_buffer_meta);
+            int ret = datastore_buffer_interface.encode_constraints(encoder, &buffer_constraints);
             if (ret != SUCCESS) return ret;
         }
         if (!zcbor_map_end_encode(encoder, 3))

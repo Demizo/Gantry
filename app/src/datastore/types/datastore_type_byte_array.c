@@ -34,14 +34,14 @@ LOG_MODULE_REGISTER(datastore_type_byte_array, CONFIG_DATASTORE_TYPES_LOG_LEVEL)
 //* Static Function Declarations
 //**********************************************************
 
-static bool validate(const struct datastore_item_const_metadata* item, data_value_t value);
+static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_default(const struct datastore_item_const_metadata* item);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
-static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item);
+static int encode_constraints(zcbor_state_t* encoder, const union datastore_constraints* constraints);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -51,13 +51,13 @@ static int encode_constraints(zcbor_state_t* encoder, const struct datastore_ite
 //* Static Function Definitions
 //**********************************************************
 
-static bool validate(const struct datastore_item_const_metadata* item, data_value_t value)
+static bool validate(const union datastore_constraints* constraints, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_BYTE_ARRAY, "Unexpected value type");
     const buffer_t* new_value = value.data.buffer_value;
     return (
-        (new_value->len >= item->constraints.buffer_constraints.min_len) &&
-        (new_value->len <= item->constraints.buffer_constraints.max_len));
+        (new_value->len >= constraints->buffer_constraints.min_len) &&
+        (new_value->len <= constraints->buffer_constraints.max_len));
 }
 
 static bool is_default(const struct datastore_item_const_metadata* item)
@@ -152,12 +152,12 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     return SUCCESS;
 }
 
-static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item)
+static int encode_constraints(zcbor_state_t* encoder, const union datastore_constraints* constraints)
 {
     if (!zcbor_map_start_encode(encoder, 2) || !zcbor_tstr_put_lit(encoder, "min_len") ||
-        !zcbor_uint32_put(encoder, item->constraints.buffer_constraints.min_len) ||
+        !zcbor_uint32_put(encoder, constraints->buffer_constraints.min_len) ||
         !zcbor_tstr_put_lit(encoder, "max_len") ||
-        !zcbor_uint32_put(encoder, item->constraints.buffer_constraints.max_len) || !zcbor_map_end_encode(encoder, 2))
+        !zcbor_uint32_put(encoder, constraints->buffer_constraints.max_len) || !zcbor_map_end_encode(encoder, 2))
     {
         return -ENOMEM;
     }

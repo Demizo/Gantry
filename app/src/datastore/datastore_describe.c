@@ -86,7 +86,7 @@ static int encode_item(zcbor_state_t* encoder, const struct datastore_item_const
         return -ENOMEM;
     }
 
-    ret = item->interface->encode_constraints(encoder, item);
+    ret = item->interface->encode_constraints(encoder, &item->constraints);
     if (ret != SUCCESS)
     {
         return ret;

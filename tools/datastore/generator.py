@@ -28,6 +28,16 @@ FIELD_DATA_MEMBER = {
     "STRUCT": "raw_value",
 }
 
+FIELD_DATA_MEMBER_CAST = {
+    "INT": "",
+    "FLOAT": "",
+    "ENUM": "",
+    "BYTE_ARRAY": "(buffer_t *)",
+    "BUFFER": "",
+    "STRING": "",
+    "STRUCT": "",
+}
+
 FIELD_C_TYPE_ENUM = {
     "INT": "DATASTORE_ITEM_TYPE_INT",
     "FLOAT": "DATASTORE_ITEM_TYPE_FLOAT",
@@ -119,6 +129,7 @@ def _preprocess_struct_fields(fields: list, enums: dict, structs_by_name: dict |
                 "c_type_enum": FIELD_C_TYPE_ENUM.get(ftype, ""),
                 "interface_sym": interface_sym,
                 "data_member": FIELD_DATA_MEMBER.get(ftype, ""),
+                "data_member_cast": FIELD_DATA_MEMBER_CAST.get(ftype, ""),
                 "is_pointer": is_pointer,
                 "constraints_dict": fcdict,
                 "enum_name": fcdict.get("enum", ""),

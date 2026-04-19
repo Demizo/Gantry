@@ -31,14 +31,14 @@ LOG_MODULE_REGISTER(datastore_type_enum, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 //* Static Function Declarations
 //**********************************************************
 
-static bool validate(const struct datastore_item_const_metadata* item, data_value_t value);
+static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_default(const struct datastore_item_const_metadata* item);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
-static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item);
+static int encode_constraints(zcbor_state_t* encoder, const union datastore_constraints* constraints);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -48,13 +48,13 @@ static int encode_constraints(zcbor_state_t* encoder, const struct datastore_ite
 //* Static Function Definitions
 //**********************************************************
 
-static bool validate(const struct datastore_item_const_metadata* item, data_value_t value)
+static bool validate(const union datastore_constraints* constraints, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_ENUM, "Unexpected value type");
     const int new_value = value.data.int_value;
 
     char* name = NULL;
-    return (enum_get_name_from_value(item, new_value, &name) == SUCCESS);
+    return (enum_get_name_from_value(constraints, new_value, &name) == SUCCESS);
 }
 
 static bool is_default(const struct datastore_item_const_metadata* item)
@@ -111,10 +111,10 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     return SUCCESS;
 }
 
-static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item)
+static int encode_constraints(zcbor_state_t* encoder, const union datastore_constraints* constraints)
 {
-    uint16_t count = item->constraints.enum_constraints.value_count;
-    const struct data_enum_value* values = item->constraints.enum_constraints.values;
+    uint16_t count = constraints->enum_constraints.value_count;
+    const struct data_enum_value* values = constraints->enum_constraints.values;
 
     if (!zcbor_list_start_encode(encoder, count))
     {
@@ -159,13 +159,13 @@ const struct datastore_item_interface datastore_enum_interface = {
     .encode_constraints = encode_constraints,
 };
 
-int enum_get_name_from_value(const struct datastore_item_const_metadata* item, int value, char** out_name)
+int enum_get_name_from_value(const union datastore_constraints* constraints, int value, char** out_name)
 {
     int ret = -EINVAL;
 
-    for (int i = 0; i < item->constraints.enum_constraints.value_count; i++)
+    for (int i = 0; i < constraints->enum_constraints.value_count; i++)
     {
-        struct data_enum_value enum_value = item->constraints.enum_constraints.values[i];
+        struct data_enum_value enum_value = constraints->enum_constraints.values[i];
         if (enum_value.value == value)
         {
             *out_name = enum_value.name;
@@ -177,13 +177,13 @@ int enum_get_name_from_value(const struct datastore_item_const_metadata* item, i
     return ret;
 }
 
-int enum_get_value_from_name(const struct datastore_item_const_metadata* item, char* name, int* out_value)
+int enum_get_value_from_name(const union datastore_constraints* constraints, char* name, int* out_value)
 {
     int ret = -EINVAL;
 
-    for (int i = 0; i < item->constraints.enum_constraints.value_count; i++)
+    for (int i = 0; i < constraints->enum_constraints.value_count; i++)
     {
-        struct data_enum_value enum_value = item->constraints.enum_constraints.values[i];
+        struct data_enum_value enum_value = constraints->enum_constraints.values[i];
         // SAFETY: The enum value names are constant always terminated, strcmp will end.
         if (strcmp(enum_value.name, name) == 0)
         {

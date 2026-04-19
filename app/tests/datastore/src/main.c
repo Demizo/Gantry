@@ -185,7 +185,7 @@ ZTEST(datastore_enum, test_name_from_value)
 {
     const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[DATASTORE_ID_TEST_ENUM];
     char* name = NULL;
-    int ret = enum_get_name_from_value(item, Color_GREEN, &name);
+    int ret = enum_get_name_from_value(&item->constraints, Color_GREEN, &name);
     zassert_equal(ret, 0);
     zassert_str_equal(name, "GREEN");
 }
@@ -194,7 +194,7 @@ ZTEST(datastore_enum, test_value_from_name)
 {
     const struct datastore_item_const_metadata* item = &g_datastore_const_metadata[DATASTORE_ID_TEST_ENUM];
     int value = -1;
-    int ret = enum_get_value_from_name(item, "BLUE", &value);
+    int ret = enum_get_value_from_name(&item->constraints, "BLUE", &value);
     zassert_equal(ret, 0);
     zassert_equal(value, Color_BLUE);
 }

@@ -45,24 +45,24 @@ extern const struct datastore_item_interface datastore_enum_interface;
 /**
  * @brief Get the enum value's name from its numeric value
  *
- * @param[in] item the datastore item metadata
+ * @param[in] constraints the enum's constraints
  * @param[in] value the numeric enum value
  * @param[out] out_name the name of the enum value, only populated on success
  * @return int SUCCESS if the value existed
  * @return -EINVAL when the provided value was invalid
  */
-int enum_get_name_from_value(const struct datastore_item_const_metadata* item, int value, char** out_name);
+int enum_get_name_from_value(const union datastore_constraints* constraints, int value, char** out_name);
 
 /**
  * @brief Get the enum value's numeric value from its name
  *
- * @param[in] item the datastore item metadata
+ * @param[in] constraints the enum's constraints
  * @param[in] name the name of the enum value
  * @param[out] out_value numeric value of the enum value, only populated on success
  * @return int SUCCESS if the name was valid
  * @return -EINVAL when the provided name was invalid
  */
-int enum_get_value_from_name(const struct datastore_item_const_metadata* item, char* name, int* out_value);
+int enum_get_value_from_name(const union datastore_constraints* constraints, char* name, int* out_value);
 
 /**
  * @}

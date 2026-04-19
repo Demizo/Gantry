@@ -46,14 +46,14 @@ LOG_MODULE_REGISTER(datastore_struct_{{ struct.snake_name }}, CONFIG_DATASTORE_T
 //* Static Function Declarations
 //**********************************************************
 
-static bool validate(const struct datastore_item_const_metadata* item, data_value_t value);
+static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_default(const struct datastore_item_const_metadata* item);
 static void set(const struct datastore_item_const_metadata* item, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
-static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item);
+static int encode_constraints(zcbor_state_t* encoder, const union datastore_constraints* constraints);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -61,44 +61,40 @@ static int encode_constraints(zcbor_state_t* encoder, const struct datastore_ite
 
 {% for field in struct.fields %}
 {% if field.type == 'ENUM' %}
-static const struct datastore_item_const_metadata s_{{ struct.snake_name }}_{{ field.snake_name }}_meta = {
-    .type = DATASTORE_ITEM_TYPE_ENUM,
-    .constraints.enum_constraints = {
+static const union datastore_constraints {{ field.snake_name }}_constraints = {
+    .enum_constraints = {
         .value_count = {{ field.enum_values | length }},
         .values = {{ field.enum_name }}_enum_values,
     },
 };
 
-{% elif field.type == 'INT' %}
-static const struct datastore_item_const_metadata s_{{ struct.snake_name }}_{{ field.snake_name }}_meta = {
-    .type = DATASTORE_ITEM_TYPE_INT,
-    .constraints.int_constraints = {
+{% elif field.type in 'INT' %}
+static const union datastore_constraints {{ field.snake_name }}_constraints = {
+    .int_constraints = {
         .min = {{ field.constraints_dict.min }},
         .max = {{ field.constraints_dict.max }},
     },
 };
 
 {% elif field.type == 'FLOAT' %}
-static const struct datastore_item_const_metadata s_{{ struct.snake_name }}_{{ field.snake_name }}_meta = {
-    .type = DATASTORE_ITEM_TYPE_FLOAT,
-    .constraints.float_constraints = {
+static const union datastore_constraints {{ field.snake_name }}_constraints = {
+    .float_constraints = {
         .min = {{ field.constraints_dict.min }}f,
         .max = {{ field.constraints_dict.max }}f,
     },
 };
 
 {% elif field.type in ('STRING', 'BUFFER', 'BYTE_ARRAY') %}
-static const struct datastore_item_const_metadata s_{{ struct.snake_name }}_{{ field.snake_name }}_meta = {
-    .type = {{ field.c_type_enum }},
-    .constraints.buffer_constraints = {
+static const union datastore_constraints {{ field.snake_name }}_constraints = {
+    .buffer_constraints = {
         .min_len = {{ field.constraints_dict.min_len }},
         .max_len = {{ field.constraints_dict.max_len }},
     },
 };
 
 {% elif field.type == 'STRUCT' %}
-static const struct datastore_item_const_metadata s_{{ struct.snake_name }}_{{ field.snake_name }}_meta = {
-    .type = DATASTORE_ITEM_TYPE_STRUCT,
+static const union datastore_constraints {{ field.snake_name }}_constraints = {
+    .buffer_constraints = { 0 },
 };
 
 {% endif %}
@@ -108,17 +104,17 @@ static const struct datastore_item_const_metadata s_{{ struct.snake_name }}_{{ f
 //* Static Function Definitions
 //**********************************************************
 
-static bool validate(const struct datastore_item_const_metadata* item, data_value_t value)
+static bool validate(const union datastore_constraints* constraints, data_value_t value)
 {
-    ARG_UNUSED(item);
+    ARG_UNUSED(constraints);
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRUCT, "Unexpected value type");
     {{ struct.name }}_t* s = ({{ struct.name }}_t*)value.data.raw_value;
 
 {% for field in struct.fields %}
     // Check {{ field.name }}
     {
-        data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = s->{{ field.snake_name }} };
-        if (!{{ field.interface_sym }}.validate(&s_{{ struct.snake_name }}_{{ field.snake_name }}_meta, fval)) return false;
+        data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = {{ field.data_member_cast }}s->{{ field.snake_name }} };
+        if (!{{ field.interface_sym }}.validate(&{{ field.snake_name }}_constraints, fval)) return false;
     }
 {% endfor %}
 
@@ -234,7 +230,7 @@ static void set(const struct datastore_item_const_metadata* item, data_value_t v
     }
 {% elif field.type == 'STRING' %}
     {
-        uint16_t str_len = (uint16_t)strnlen(src->{{ field.snake_name }}, s_{{ struct.snake_name }}_{{ field.snake_name }}_meta.constraints.buffer_constraints.max_len) + 1;
+        uint16_t str_len = (uint16_t)strnlen(src->{{ field.snake_name }}, {{ field.snake_name }}_constraints.buffer_constraints.max_len) + 1;
         void* new_str_block = NULL;
         ret = mem_alloc(str_len, &new_str_block);
         if (ret != SUCCESS)
@@ -323,7 +319,7 @@ static int encode(zcbor_state_t* encoder, data_value_t value)
 {% for field in struct.fields %}
     // Encode {{ field.name }}
     {
-        data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = s->{{ field.snake_name }} };
+        data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = {{ field.data_member_cast }}s->{{ field.snake_name }} };
         int ret = {{ field.interface_sym }}.encode(encoder, fval);
         if (ret != SUCCESS) return ret;
     }
@@ -383,7 +379,7 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         ret = {{ field.interface_sym }}.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
         // Validate now to avoid copying an invalid buffer
-        if (!{{ field.interface_sym }}.validate(&s_{{ struct.snake_name }}_{{ field.snake_name }}_meta, fval)) 
+        if (!{{ field.interface_sym }}.validate(&{{ field.snake_name }}_constraints, fval)) 
         {
             {{ field.interface_sym }}.release(&fval);
             goto decode_cleanup;
@@ -414,9 +410,9 @@ decode_cleanup:
     return ret;
 }
 
-static int encode_constraints(zcbor_state_t* encoder, const struct datastore_item_const_metadata* item)
+static int encode_constraints(zcbor_state_t* encoder, const union datastore_constraints* constraints)
 {
-    (void)item;
+    ARG_UNUSED(constraints);
 
     if (!zcbor_list_start_encode(encoder, {{ struct.n_fields }}))
     {
@@ -438,7 +434,7 @@ static int encode_constraints(zcbor_state_t* encoder, const struct datastore_ite
             return -ENOMEM;
         }
         {
-            int ret = {{ field.interface_sym }}.encode_constraints(encoder, &s_{{ struct.snake_name }}_{{ field.snake_name }}_meta);
+            int ret = {{ field.interface_sym }}.encode_constraints(encoder, &{{ field.snake_name }}_constraints);
             if (ret != SUCCESS) return ret;
         }
 {% endif %}

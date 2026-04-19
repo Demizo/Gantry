@@ -214,7 +214,7 @@ int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id
     }
 
     // Validate value
-    if (!item->interface->validate(item, value))
+    if (!item->interface->validate(&item->constraints, value))
     {
         LOG_ERR("Failed to set item %d, invalid value", id);
         return -EINVAL;

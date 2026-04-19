@@ -95,7 +95,7 @@ int main(void)
     DATASTORE_GET(AUTH_INTERNAL, DATASTORE_ID_TEST_ENUM, &test_enum);
     char* name = NULL;
     (void)enum_get_name_from_value(
-        &g_datastore_const_metadata[DATASTORE_ID_TEST_ENUM], test_enum.data.int_value, &name);
+        &g_datastore_const_metadata[DATASTORE_ID_TEST_ENUM].constraints, test_enum.data.int_value, &name);
     LOG_INF("Test enum %d (%s)", test_enum.data.int_value, name);
     DATASTORE_RELEASE(DATASTORE_ID_TEST_ENUM, &test_enum);
 
@@ -156,7 +156,7 @@ int main(void)
     DATASTORE_GET(AUTH_INTERNAL, DATASTORE_ID_TEST_ENUM, &test_enum);
     char* new_name = NULL;
     (void)enum_get_name_from_value(
-        &g_datastore_const_metadata[DATASTORE_ID_TEST_ENUM], test_enum.data.int_value, &new_name);
+        &g_datastore_const_metadata[DATASTORE_ID_TEST_ENUM].constraints, test_enum.data.int_value, &new_name);
     LOG_INF("Test enum %d (%s)", test_enum.data.int_value, new_name);
     DATASTORE_RELEASE(DATASTORE_ID_TEST_ENUM, &test_enum);
 

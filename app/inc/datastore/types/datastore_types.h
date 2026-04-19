@@ -169,8 +169,8 @@ struct datastore_item_const_metadata;
 struct datastore_item_interface
 {
     bool (*validate)(
-        const struct datastore_item_const_metadata* item,
-        data_value_t value); /**< Function to determine if a given value is valid */
+        const union datastore_constraints* constraints,
+        data_value_t value); /**< Function to determine if a given value is valid based on the provided constraints */
     bool (*is_default)(
         const struct datastore_item_const_metadata* item); /**< Function to check if an item is at its default value */
     void (*set)(
@@ -182,8 +182,8 @@ struct datastore_item_interface
     int (*decode)(zcbor_state_t* decoder, data_value_t* out_value); /**< Function to decode an item value from CBOR */
     int (*encode)(zcbor_state_t* encoder, data_value_t value); /**< Function to encode a data item value into CBOR */
     int (*encode_constraints)(
-        zcbor_state_t* encoder, const struct datastore_item_const_metadata*
-                                    item); /**< Function to encode the item's type-specific constraints */
+        zcbor_state_t* encoder,
+        const union datastore_constraints* constraints); /**< Function to encode the type-specific constraints */
 };
 
 /**
