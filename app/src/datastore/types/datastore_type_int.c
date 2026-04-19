@@ -33,7 +33,7 @@ LOG_MODULE_REGISTER(datastore_type_int, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
-static void set(const struct datastore_item_const_metadata* item, data_value_t value);
+static void set(void* dest, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
@@ -62,10 +62,10 @@ static bool is_equal(data_value_t a, data_value_t b)
     return a.data.int_value == b.data.int_value;
 }
 
-static void set(const struct datastore_item_const_metadata* item, data_value_t value)
+static void set(void* dest, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_INT, "Unexpected value type");
-    *(int*)(item->value_ptr) = value.data.int_value;
+    *(int*)dest = value.data.int_value;
 }
 
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value)

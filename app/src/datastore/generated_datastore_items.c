@@ -36,14 +36,13 @@ static buffer_t default_test_bytes = {
 static buffer_t default_test_buffer = {
     .len = 0,
 };
-static char default_spi_tx_buffer_text[] = "Test";
 static buffer_t default_spi_tx_buffer_buffer = {
     .len = 0,
 };
 static SpiBuffer_t default_spi_tx_buffer = {
     .cs = SpiChipSelect_SPI_CS0,
     .bytes = { 0x01, 0x02, 0x03 },
-    .text = default_spi_tx_buffer_text,
+    .text = "Test",
     .buffer = &default_spi_tx_buffer_buffer,
 };
 

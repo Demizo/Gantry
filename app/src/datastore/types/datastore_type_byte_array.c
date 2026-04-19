@@ -36,7 +36,7 @@ LOG_MODULE_REGISTER(datastore_type_byte_array, CONFIG_DATASTORE_TYPES_LOG_LEVEL)
 
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
-static void set(const struct datastore_item_const_metadata* item, data_value_t value);
+static void set(void* dest, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
@@ -70,10 +70,10 @@ static bool is_equal(data_value_t a, data_value_t b)
     return (memcmp(a.data.buffer_value->buf, b.data.buffer_value->buf, b.data.buffer_value->len) == 0);
 }
 
-static void set(const struct datastore_item_const_metadata* item, data_value_t value)
+static void set(void* dest, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_BYTE_ARRAY, "Unexpected value type");
-    buffer_t* current_value = (buffer_t*)item->value_ptr;
+    buffer_t* current_value = (buffer_t*)dest;
     buffer_t* new_value = value.data.buffer_value;
 
     current_value->len = new_value->len;

@@ -172,8 +172,7 @@ struct datastore_item_interface
         const union datastore_constraints* constraints,
         data_value_t value); /**< Function to determine if a given value is valid based on the provided constraints */
     bool (*is_equal)(data_value_t a, data_value_t b); /**< Function to check if two values of the same type are equal */
-    void (*set)(
-        const struct datastore_item_const_metadata* item, data_value_t value); /**< Function to set an item value */
+    void (*set)(void* dest, data_value_t value); /**< Function to copy a value's data to the provided destination */
     int (*get)(
         const struct datastore_item_const_metadata* item,
         data_value_t* out_value);                                   /**< Function to get an item value */

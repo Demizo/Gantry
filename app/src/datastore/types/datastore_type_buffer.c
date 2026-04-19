@@ -36,7 +36,7 @@ LOG_MODULE_REGISTER(datastore_type_buffer, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
-static void set(const struct datastore_item_const_metadata* item, data_value_t value);
+static void set(void* dest, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
@@ -68,7 +68,7 @@ static bool is_equal(data_value_t a, data_value_t b)
     return (memcmp(a.data.buffer_value->buf, b.data.buffer_value->buf, b.data.buffer_value->len) == 0);
 }
 
-static void set(const struct datastore_item_const_metadata* item, data_value_t value)
+static void set(void* dest, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_BUFFER, "Unexpected value type");
     int ret = SUCCESS;
@@ -90,11 +90,11 @@ static void set(const struct datastore_item_const_metadata* item, data_value_t v
     memcpy(new_buffer->buf, buffer->buf, buffer->len);
 
     // Unreference old buffer block
-    void* old_buffer_block = *(void**)item->value_ptr;
+    void* old_buffer_block = *(void**)dest;
     mem_unref(&old_buffer_block);
 
     // Set item to new buffer
-    *(buffer_t**)(item->value_ptr) = (buffer_t*)new_buffer_block;
+    *(buffer_t**)(dest) = (buffer_t*)new_buffer_block;
     PASS_OWNERSHIP(new_buffer_block);
 }
 

@@ -37,7 +37,7 @@ LOG_MODULE_REGISTER(datastore_type_string, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
-static void set(const struct datastore_item_const_metadata* item, data_value_t value);
+static void set(void* dest, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
@@ -69,10 +69,12 @@ static bool is_equal(data_value_t a, data_value_t b)
     return (strcmp(a.data.string_value, b.data.string_value) == 0);
 }
 
-static void set(const struct datastore_item_const_metadata* item, data_value_t value)
+static void set(void* dest, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRING, "Unexpected value type");
-    strscpy((char*)item->value_ptr, value.data.string_value, item->constraints.buffer_constraints.max_len + 1);
+    // SAFETY: This API assumes that the provided value has already been validated. This means the incoming value is
+    // known to fit in the destination buffer and will terminate.
+    strcpy((char*)dest, value.data.string_value);
 }
 
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value)

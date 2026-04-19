@@ -174,7 +174,7 @@ void datastore_init(void)
             .type = item->type,
             .data = item->default_value,
         };
-        TRACE_WRAP_VOID(item->interface->set(item, value));
+        TRACE_WRAP_VOID(item->interface->set(item->value_ptr, value));
     }
 
     // Initialize dynamic metadata
@@ -239,7 +239,7 @@ int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id
     uint32_t key = irq_lock();
 
     // Apply new value
-    item->interface->set(item, value);
+    item->interface->set(item->value_ptr, value);
 
     // Save to persistent storage, if relevant
     if ((item->storage_type == DATASTORE_STORAGE_PERSISTENT) || item->storage_type == DATASTORE_STORAGE_TOFU)

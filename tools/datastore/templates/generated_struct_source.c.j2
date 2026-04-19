@@ -35,7 +35,6 @@
 #include "generated_struct_{{ field.nested_struct_name }}.h"
 {% endif %}
 {% endfor %}
-#include "string_utils.h"
 
 /**
  * @brief Logger for module
@@ -48,7 +47,7 @@ LOG_MODULE_REGISTER(datastore_struct_{{ struct.snake_name }}, CONFIG_DATASTORE_T
 
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
-static void set(const struct datastore_item_const_metadata* item, data_value_t value);
+static void set(void* dest, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
@@ -164,7 +163,7 @@ static void release_struct_fields({{ struct.name }}_t* s)
     (void)s;
 }
 
-static void set(const struct datastore_item_const_metadata* item, data_value_t value)
+static void set(void* dest, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRUCT, "Unexpected value type");
     {{ struct.name }}_t* src = ({{ struct.name }}_t*)value.data.raw_value;
@@ -183,77 +182,21 @@ static void set(const struct datastore_item_const_metadata* item, data_value_t v
 {% for field in struct.fields %}
 
     // Copy {{ field.name }}
-{% if field.type in ('INT', 'FLOAT', 'ENUM') %}
-    new_struct->{{ field.snake_name }} = src->{{ field.snake_name }};
-{% elif field.type == 'BYTE_ARRAY' %}
-    buffer_t* new_bytes = (buffer_t*)(new_struct->{{ field.snake_name }});
-    buffer_t* src_bytes = (buffer_t*)(src->{{ field.snake_name }});
-    new_bytes->len = src_bytes->len;
-    memcpy(new_bytes->buf, src_bytes->buf, src_bytes->len);
-{% elif field.type == 'BUFFER' %}
     {
-        void* new_field_block = NULL;
-        ret = mem_alloc(sizeof(buffer_t) + src->{{ field.snake_name }}->len, &new_field_block);
-        if (ret != SUCCESS)
-        {
-            NOT_REFERENCED(new_field_block);
-            release_struct_fields(new_struct);
-            mem_unref(&new_block);
-            return;
-        }
-        buffer_t* new_field = (buffer_t*)new_field_block;
-        new_field->len = src->{{ field.snake_name }}->len;
-        memcpy(new_field->buf, src->{{ field.snake_name }}->buf, src->{{ field.snake_name }}->len);
-        new_struct->{{ field.snake_name }} = new_field;
-        PASS_OWNERSHIP(new_field_block);
+        data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = {{ field.data_member_cast }}src->{{ field.snake_name }} };
+        {{ field.interface_sym }}.set(&(new_struct->{{ field.snake_name }}), fval);
     }
-{% elif field.type == 'STRING' %}
-    {
-        uint16_t str_len = (uint16_t)strnlen(src->{{ field.snake_name }}, {{ field.snake_name }}_constraints.buffer_constraints.max_len) + 1;
-        void* new_str_block = NULL;
-        ret = mem_alloc(str_len, &new_str_block);
-        if (ret != SUCCESS)
-        {
-            NOT_REFERENCED(new_str_block);
-            release_struct_fields(new_struct);
-            mem_unref(&new_block);
-            return;
-        }
-        strscpy((char*)new_str_block, src->{{ field.snake_name }}, str_len);
-        new_struct->{{ field.snake_name }} = (char*)new_str_block;
-        PASS_OWNERSHIP(new_str_block);
-    }
-{% elif field.type == 'STRUCT' %}
-    {
-        void* new_field_ptr = NULL;
-        struct datastore_item_const_metadata tmp_meta = {
-            .type = DATASTORE_ITEM_TYPE_STRUCT,
-            .interface = &{{ field.interface_sym }},
-            .value_ptr = &new_field_ptr,
-        };
-        data_value_t fsrc_val = { .type = DATASTORE_ITEM_TYPE_STRUCT, .data.raw_value = src->{{ field.snake_name }} };
-        {{ field.interface_sym }}.set(&tmp_meta, fsrc_val);
-        if (new_field_ptr == NULL)
-        {
-            release_struct_fields(new_struct);
-            mem_unref(&new_block);
-            return;
-        }
-        new_struct->{{ field.snake_name }} = ({{ field.nested_struct_name }}_t*)new_field_ptr;
-        PASS_OWNERSHIP(new_field_ptr);
-    }
-{% endif %}
 {% endfor %}
 
     // Release old value
-    {{ struct.name }}_t* old_struct = *({{ struct.name }}_t**)item->value_ptr;
+    {{ struct.name }}_t* old_struct = *({{ struct.name }}_t**)dest;
     if (old_struct != NULL)
     {
         data_value_t old_value = { .type = DATASTORE_ITEM_TYPE_STRUCT, .data.raw_value = old_struct };
         release(&old_value);
     }
 
-    *({{ struct.name }}_t**)item->value_ptr = ({{ struct.name }}_t*)new_block;
+    *({{ struct.name }}_t**)dest = ({{ struct.name }}_t*)new_block;
     PASS_OWNERSHIP(new_block);
 }
 
@@ -332,44 +275,14 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
 
 {% for field in struct.fields %}
     // Decode {{ field.name }}
-{% if field.type in ('INT', 'FLOAT', 'ENUM') %}
     {
         data_value_t fval = { 0 };
         fval.type = {{ field.c_type_enum }};
         ret = {{ field.interface_sym }}.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
-        new_struct->{{ field.snake_name }} = fval.data.{{ field.data_member }};
+        {{ field.interface_sym }}.set(&(new_struct->{{ field.snake_name }}), fval);
         {{ field.interface_sym }}.release(&fval);
     }
-{% elif field.type in ('BUFFER', 'STRING', 'STRUCT') %}
-    {
-        data_value_t fval = { 0 };
-        fval.type = {{ field.c_type_enum }};
-        ret = {{ field.interface_sym }}.decode(decoder, &fval);
-        if (ret != SUCCESS) goto decode_cleanup;
-        void* decoded_field_ptr = fval.data.{{ field.data_member }};
-        new_struct->{{ field.snake_name }} = decoded_field_ptr;
-        PASS_OWNERSHIP(decoded_field_ptr);
-    }
-{% elif field.type == 'BYTE_ARRAY' %}
-    {
-        data_value_t fval = { 0 };
-        fval.type = {{ field.c_type_enum }};
-        ret = {{ field.interface_sym }}.decode(decoder, &fval);
-        if (ret != SUCCESS) goto decode_cleanup;
-        // Validate now to avoid copying an invalid buffer
-        if (!{{ field.interface_sym }}.validate(&{{ field.snake_name }}_constraints, fval)) 
-        {
-            {{ field.interface_sym }}.release(&fval);
-            goto decode_cleanup;
-        }
-        buffer_t* new_bytes = (buffer_t*)(new_struct->{{ field.snake_name }});
-        buffer_t* decoded_bytes = fval.data.{{ field.data_member }};
-        new_bytes->len = decoded_bytes->len;
-        memcpy(new_bytes->buf, decoded_bytes->buf, decoded_bytes->len);
-        {{ field.interface_sym }}.release(&fval);
-    }
-{% endif %}
 {% endfor %}
 
     if (!zcbor_list_end_decode(decoder))

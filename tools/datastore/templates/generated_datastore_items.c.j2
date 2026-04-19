@@ -51,8 +51,6 @@ static buffer_t {{ decl.c_name }} = {
     .buf = { {% for b in decl.bytes_hex %}{{ b }}, {% endfor %}},
 {% endif %}
 };
-{% elif decl.kind == 'string' %}
-static char {{ decl.c_name }}[] = "{{ decl.value }}";
 {% elif decl.kind == 'struct' %}
 static {{ decl.struct_type }}_t {{ decl.c_name }} = {
 {% for field in decl.fields %}

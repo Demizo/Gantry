@@ -30,7 +30,6 @@
 #include "error.h"
 #include "generated_datastore_enums.h"
 #include "memory.h"
-#include "string_utils.h"
 
 /**
  * @brief Logger for module
@@ -43,7 +42,7 @@ LOG_MODULE_REGISTER(datastore_struct_spi_buffer, CONFIG_DATASTORE_TYPES_LOG_LEVE
 
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
-static void set(const struct datastore_item_const_metadata* item, data_value_t value);
+static void set(void* dest, data_value_t value);
 static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
@@ -165,7 +164,7 @@ static void release_struct_fields(SpiBuffer_t* s)
     (void)s;
 }
 
-static void set(const struct datastore_item_const_metadata* item, data_value_t value)
+static void set(void* dest, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRUCT, "Unexpected value type");
     SpiBuffer_t* src = (SpiBuffer_t*)value.data.raw_value;
@@ -183,58 +182,38 @@ static void set(const struct datastore_item_const_metadata* item, data_value_t v
     memset(new_struct, 0, sizeof(SpiBuffer_t));
 
     // Copy CS
-    new_struct->cs = src->cs;
+    {
+        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_ENUM, .data.int_value = src->cs };
+        datastore_enum_interface.set(&(new_struct->cs), fval);
+    }
 
     // Copy Bytes
-    buffer_t* new_bytes = (buffer_t*)(new_struct->bytes);
-    buffer_t* src_bytes = (buffer_t*)(src->bytes);
-    new_bytes->len = src_bytes->len;
-    memcpy(new_bytes->buf, src_bytes->buf, src_bytes->len);
+    {
+        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = (buffer_t*)src->bytes };
+        datastore_byte_array_interface.set(&(new_struct->bytes), fval);
+    }
 
     // Copy Text
     {
-        uint16_t str_len = (uint16_t)strnlen(src->text, text_constraints.buffer_constraints.max_len) + 1;
-        void* new_str_block = NULL;
-        ret = mem_alloc(str_len, &new_str_block);
-        if (ret != SUCCESS)
-        {
-            NOT_REFERENCED(new_str_block);
-            release_struct_fields(new_struct);
-            mem_unref(&new_block);
-            return;
-        }
-        strscpy((char*)new_str_block, src->text, str_len);
-        new_struct->text = (char*)new_str_block;
-        PASS_OWNERSHIP(new_str_block);
+        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_STRING, .data.string_value = src->text };
+        datastore_string_interface.set(&(new_struct->text), fval);
     }
 
     // Copy Buffer
     {
-        void* new_field_block = NULL;
-        ret = mem_alloc(sizeof(buffer_t) + src->buffer->len, &new_field_block);
-        if (ret != SUCCESS)
-        {
-            NOT_REFERENCED(new_field_block);
-            release_struct_fields(new_struct);
-            mem_unref(&new_block);
-            return;
-        }
-        buffer_t* new_field = (buffer_t*)new_field_block;
-        new_field->len = src->buffer->len;
-        memcpy(new_field->buf, src->buffer->buf, src->buffer->len);
-        new_struct->buffer = new_field;
-        PASS_OWNERSHIP(new_field_block);
+        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BUFFER, .data.buffer_value = src->buffer };
+        datastore_buffer_interface.set(&(new_struct->buffer), fval);
     }
 
     // Release old value
-    SpiBuffer_t* old_struct = *(SpiBuffer_t**)item->value_ptr;
+    SpiBuffer_t* old_struct = *(SpiBuffer_t**)dest;
     if (old_struct != NULL)
     {
         data_value_t old_value = { .type = DATASTORE_ITEM_TYPE_STRUCT, .data.raw_value = old_struct };
         release(&old_value);
     }
 
-    *(SpiBuffer_t**)item->value_ptr = (SpiBuffer_t*)new_block;
+    *(SpiBuffer_t**)dest = (SpiBuffer_t*)new_block;
     PASS_OWNERSHIP(new_block);
 }
 
@@ -333,7 +312,7 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = DATASTORE_ITEM_TYPE_ENUM;
         ret = datastore_enum_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
-        new_struct->cs = fval.data.int_value;
+        datastore_enum_interface.set(&(new_struct->cs), fval);
         datastore_enum_interface.release(&fval);
     }
     // Decode Bytes
@@ -342,16 +321,7 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = DATASTORE_ITEM_TYPE_BYTE_ARRAY;
         ret = datastore_byte_array_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
-        // Validate now to avoid copying an invalid buffer
-        if (!datastore_byte_array_interface.validate(&bytes_constraints, fval))
-        {
-            datastore_byte_array_interface.release(&fval);
-            goto decode_cleanup;
-        }
-        buffer_t* new_bytes = (buffer_t*)(new_struct->bytes);
-        buffer_t* decoded_bytes = fval.data.buffer_value;
-        new_bytes->len = decoded_bytes->len;
-        memcpy(new_bytes->buf, decoded_bytes->buf, decoded_bytes->len);
+        datastore_byte_array_interface.set(&(new_struct->bytes), fval);
         datastore_byte_array_interface.release(&fval);
     }
     // Decode Text
@@ -360,9 +330,8 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = DATASTORE_ITEM_TYPE_STRING;
         ret = datastore_string_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
-        void* decoded_field_ptr = fval.data.string_value;
-        new_struct->text = decoded_field_ptr;
-        PASS_OWNERSHIP(decoded_field_ptr);
+        datastore_string_interface.set(&(new_struct->text), fval);
+        datastore_string_interface.release(&fval);
     }
     // Decode Buffer
     {
@@ -370,9 +339,8 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = DATASTORE_ITEM_TYPE_BUFFER;
         ret = datastore_buffer_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
-        void* decoded_field_ptr = fval.data.buffer_value;
-        new_struct->buffer = decoded_field_ptr;
-        PASS_OWNERSHIP(decoded_field_ptr);
+        datastore_buffer_interface.set(&(new_struct->buffer), fval);
+        datastore_buffer_interface.release(&fval);
     }
 
     if (!zcbor_list_end_decode(decoder))

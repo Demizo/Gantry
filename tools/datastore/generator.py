@@ -102,7 +102,7 @@ def _preprocess_struct_fields(fields: list, enums: dict, structs_by_name: dict |
             c_decl = f"buffer_t* {fsnake}"
             interface_sym = INTERFACE_MAP["BUFFER"]
         elif ftype == "STRING":
-            c_decl = f"char* {fsnake}"
+            c_decl = f"char {fsnake}[{fcdict['max_len']} + 1]"
             interface_sym = INTERFACE_MAP["STRING"]
         elif ftype == "STRUCT":
             nested_struct_name = fcdict.get("struct", "")
@@ -210,13 +210,7 @@ def _build_struct_default(prefix: str, struct_def: dict, default_list, structs: 
                 "bytes_hex": [f"0x{b:02X}" for b in bytes_list],
             })
         elif ftype == "STRING":
-            c_name = f"default_{prefix}_{fsnake}"
-            entry["c_default_expr"] = c_name
-            pre_decls.append({
-                "kind": "string",
-                "c_name": c_name,
-                "value": fval if fval is not None else "",
-            })
+            entry["c_default_expr"] = f"\"{fval if fval is not None else ""}\""
         elif ftype == "STRUCT":
             nested_struct_name = fcdict.get("struct", "")
             nested_struct_def = structs.get(nested_struct_name, {})

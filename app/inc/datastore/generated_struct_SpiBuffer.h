@@ -31,7 +31,7 @@ typedef struct
 {
     int cs;                              /**< CS field */
     uint8_t bytes[sizeof(buffer_t) + 6]; /**< Bytes field */
-    char* text;                          /**< Text field */
+    char text[12 + 1];                   /**< Text field */
     buffer_t* buffer;                    /**< Buffer field */
 } SpiBuffer_t;
 
