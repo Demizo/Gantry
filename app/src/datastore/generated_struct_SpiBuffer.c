@@ -184,25 +184,25 @@ static void set(void* dest, data_value_t value)
     // Copy CS
     {
         data_value_t fval = { .type = DATASTORE_ITEM_TYPE_ENUM, .data.int_value = src->cs };
-        datastore_enum_interface.set(&(new_struct->cs), fval);
+        datastore_enum_interface.set((void*)&(new_struct->cs), fval);
     }
 
     // Copy Bytes
     {
         data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = (buffer_t*)src->bytes };
-        datastore_byte_array_interface.set(&(new_struct->bytes), fval);
+        datastore_byte_array_interface.set((void*)&(new_struct->bytes), fval);
     }
 
     // Copy Text
     {
         data_value_t fval = { .type = DATASTORE_ITEM_TYPE_STRING, .data.string_value = src->text };
-        datastore_string_interface.set(&(new_struct->text), fval);
+        datastore_string_interface.set((void*)&(new_struct->text), fval);
     }
 
     // Copy Buffer
     {
         data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BUFFER, .data.buffer_value = src->buffer };
-        datastore_buffer_interface.set(&(new_struct->buffer), fval);
+        datastore_buffer_interface.set((void*)&(new_struct->buffer), fval);
     }
 
     // Release old value
@@ -235,14 +235,29 @@ static void release(data_value_t* value)
 
     SpiBuffer_t* s = (SpiBuffer_t*)value->data.raw_value;
 
-    // Free fields if struct is about to be freed
-    if (s != NULL && mem_get_ref_count((void*)s) == 1)
+    // Release CS
     {
-        release_struct_fields(s);
+        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_ENUM, .data.int_value = s->cs };
+        datastore_enum_interface.release(&fval);
+    }
+    // Release Bytes
+    {
+        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = (buffer_t*)s->bytes };
+        datastore_byte_array_interface.release(&fval);
+    }
+    // Release Text
+    {
+        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_STRING, .data.string_value = s->text };
+        datastore_string_interface.release(&fval);
+    }
+    // Release Buffer
+    {
+        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BUFFER, .data.buffer_value = s->buffer };
+        datastore_buffer_interface.release(&fval);
     }
 
-    void* ptr = s;
-    mem_unref(&ptr);
+    void* s_ptr = s;
+    mem_unref(&s_ptr);
 }
 
 static int encode(zcbor_state_t* encoder, data_value_t value)
@@ -312,7 +327,7 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = DATASTORE_ITEM_TYPE_ENUM;
         ret = datastore_enum_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
-        datastore_enum_interface.set(&(new_struct->cs), fval);
+        datastore_enum_interface.set((void*)&(new_struct->cs), fval);
         datastore_enum_interface.release(&fval);
     }
     // Decode Bytes
@@ -321,7 +336,7 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = DATASTORE_ITEM_TYPE_BYTE_ARRAY;
         ret = datastore_byte_array_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
-        datastore_byte_array_interface.set(&(new_struct->bytes), fval);
+        datastore_byte_array_interface.set((void*)&(new_struct->bytes), fval);
         datastore_byte_array_interface.release(&fval);
     }
     // Decode Text
@@ -330,7 +345,7 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = DATASTORE_ITEM_TYPE_STRING;
         ret = datastore_string_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
-        datastore_string_interface.set(&(new_struct->text), fval);
+        datastore_string_interface.set((void*)&(new_struct->text), fval);
         datastore_string_interface.release(&fval);
     }
     // Decode Buffer
@@ -339,7 +354,7 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = DATASTORE_ITEM_TYPE_BUFFER;
         ret = datastore_buffer_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
-        datastore_buffer_interface.set(&(new_struct->buffer), fval);
+        datastore_buffer_interface.set((void*)&(new_struct->buffer), fval);
         datastore_buffer_interface.release(&fval);
     }
 
@@ -363,12 +378,14 @@ decode_cleanup:
 static int encode_constraints(zcbor_state_t* encoder, const union datastore_constraints* constraints)
 {
     ARG_UNUSED(constraints);
+    int ret = SUCCESS;
 
     if (!zcbor_list_start_encode(encoder, 4))
     {
         return -ENOMEM;
     }
 
+    // Encode CS constraints
     {
         struct zcbor_string name_str = { .value = "CS", .len = 2 };
         if (!zcbor_map_start_encode(encoder, 3) || !zcbor_tstr_put_lit(encoder, "name") ||
@@ -377,19 +394,15 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
         {
             return -ENOMEM;
         }
-        if (!zcbor_tstr_put_lit(encoder, "constraints"))
-        {
-            return -ENOMEM;
-        }
-        {
-            int ret = datastore_enum_interface.encode_constraints(encoder, &cs_constraints);
-            if (ret != SUCCESS) return ret;
-        }
-        if (!zcbor_map_end_encode(encoder, 3))
-        {
-            return -ENOMEM;
-        }
+
+        if (!zcbor_tstr_put_lit(encoder, "constraints")) return -ENOMEM;
+
+        ret = datastore_enum_interface.encode_constraints(encoder, &cs_constraints);
+        if (ret != SUCCESS) return ret;
+
+        if (!zcbor_map_end_encode(encoder, 3)) return -ENOMEM;
     }
+    // Encode Bytes constraints
     {
         struct zcbor_string name_str = { .value = "Bytes", .len = 5 };
         if (!zcbor_map_start_encode(encoder, 3) || !zcbor_tstr_put_lit(encoder, "name") ||
@@ -398,19 +411,15 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
         {
             return -ENOMEM;
         }
-        if (!zcbor_tstr_put_lit(encoder, "constraints"))
-        {
-            return -ENOMEM;
-        }
-        {
-            int ret = datastore_byte_array_interface.encode_constraints(encoder, &bytes_constraints);
-            if (ret != SUCCESS) return ret;
-        }
-        if (!zcbor_map_end_encode(encoder, 3))
-        {
-            return -ENOMEM;
-        }
+
+        if (!zcbor_tstr_put_lit(encoder, "constraints")) return -ENOMEM;
+
+        ret = datastore_byte_array_interface.encode_constraints(encoder, &bytes_constraints);
+        if (ret != SUCCESS) return ret;
+
+        if (!zcbor_map_end_encode(encoder, 3)) return -ENOMEM;
     }
+    // Encode Text constraints
     {
         struct zcbor_string name_str = { .value = "Text", .len = 4 };
         if (!zcbor_map_start_encode(encoder, 3) || !zcbor_tstr_put_lit(encoder, "name") ||
@@ -419,19 +428,15 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
         {
             return -ENOMEM;
         }
-        if (!zcbor_tstr_put_lit(encoder, "constraints"))
-        {
-            return -ENOMEM;
-        }
-        {
-            int ret = datastore_string_interface.encode_constraints(encoder, &text_constraints);
-            if (ret != SUCCESS) return ret;
-        }
-        if (!zcbor_map_end_encode(encoder, 3))
-        {
-            return -ENOMEM;
-        }
+
+        if (!zcbor_tstr_put_lit(encoder, "constraints")) return -ENOMEM;
+
+        ret = datastore_string_interface.encode_constraints(encoder, &text_constraints);
+        if (ret != SUCCESS) return ret;
+
+        if (!zcbor_map_end_encode(encoder, 3)) return -ENOMEM;
     }
+    // Encode Buffer constraints
     {
         struct zcbor_string name_str = { .value = "Buffer", .len = 6 };
         if (!zcbor_map_start_encode(encoder, 3) || !zcbor_tstr_put_lit(encoder, "name") ||
@@ -440,18 +445,13 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
         {
             return -ENOMEM;
         }
-        if (!zcbor_tstr_put_lit(encoder, "constraints"))
-        {
-            return -ENOMEM;
-        }
-        {
-            int ret = datastore_buffer_interface.encode_constraints(encoder, &buffer_constraints);
-            if (ret != SUCCESS) return ret;
-        }
-        if (!zcbor_map_end_encode(encoder, 3))
-        {
-            return -ENOMEM;
-        }
+
+        if (!zcbor_tstr_put_lit(encoder, "constraints")) return -ENOMEM;
+
+        ret = datastore_buffer_interface.encode_constraints(encoder, &buffer_constraints);
+        if (ret != SUCCESS) return ret;
+
+        if (!zcbor_map_end_encode(encoder, 3)) return -ENOMEM;
     }
 
     if (!zcbor_list_end_encode(encoder, 4))
@@ -459,7 +459,7 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
         return -ENOMEM;
     }
 
-    return SUCCESS;
+    return ret;
 }
 
 //**********************************************************

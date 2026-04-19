@@ -184,7 +184,7 @@ static void set(void* dest, data_value_t value)
     // Copy {{ field.name }}
     {
         data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = {{ field.data_member_cast }}src->{{ field.snake_name }} };
-        {{ field.interface_sym }}.set(&(new_struct->{{ field.snake_name }}), fval);
+        {{ field.interface_sym }}.set((void*)&(new_struct->{{ field.snake_name }}), fval);
     }
 {% endfor %}
 
@@ -218,14 +218,16 @@ static void release(data_value_t* value)
 
     {{ struct.name }}_t* s = ({{ struct.name }}_t*)value->data.raw_value;
 
-    // Free fields if struct is about to be freed
-    if (s != NULL && mem_get_ref_count((void*)s) == 1)
-    {
-        release_struct_fields(s);
-    }
+    {% for field in struct.fields %}
+        // Release {{ field.name }}
+        {
+            data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = {{ field.data_member_cast }}s->{{ field.snake_name }} };
+            {{ field.interface_sym }}.release(&fval);
+        }
+    {% endfor %}
 
-    void* ptr = s;
-    mem_unref(&ptr);
+    void* s_ptr = s;
+    mem_unref(&s_ptr);
 }
 
 static int encode(zcbor_state_t* encoder, data_value_t value)
@@ -280,7 +282,7 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = {{ field.c_type_enum }};
         ret = {{ field.interface_sym }}.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
-        {{ field.interface_sym }}.set(&(new_struct->{{ field.snake_name }}), fval);
+        {{ field.interface_sym }}.set((void*)&(new_struct->{{ field.snake_name }}), fval);
         {{ field.interface_sym }}.release(&fval);
     }
 {% endfor %}
@@ -305,6 +307,7 @@ decode_cleanup:
 static int encode_constraints(zcbor_state_t* encoder, const union datastore_constraints* constraints)
 {
     ARG_UNUSED(constraints);
+    int ret = SUCCESS;
 
     if (!zcbor_list_start_encode(encoder, {{ struct.n_fields }}))
     {
@@ -312,6 +315,7 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
     }
 
 {% for field in struct.fields %}
+    // Encode {{ field.name }} constraints
     {
         struct zcbor_string name_str = { .value = "{{ field.name }}", .len = {{ field.name | length }} };
         if (!zcbor_map_start_encode(encoder, 3) ||
@@ -320,20 +324,13 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
         {
             return -ENOMEM;
         }
-{% if field.type in ('INT', 'FLOAT', 'ENUM', 'BUFFER', 'STRING', 'BYTE_ARRAY', 'STRUCT') %}
-        if (!zcbor_tstr_put_lit(encoder, "constraints"))
-        {
-            return -ENOMEM;
-        }
-        {
-            int ret = {{ field.interface_sym }}.encode_constraints(encoder, &{{ field.snake_name }}_constraints);
-            if (ret != SUCCESS) return ret;
-        }
-{% endif %}
-        if (!zcbor_map_end_encode(encoder, 3))
-        {
-            return -ENOMEM;
-        }
+
+        if (!zcbor_tstr_put_lit(encoder, "constraints")) return -ENOMEM;
+
+        ret = {{ field.interface_sym }}.encode_constraints(encoder, &{{ field.snake_name }}_constraints);
+        if (ret != SUCCESS) return ret;
+        
+        if (!zcbor_map_end_encode(encoder, 3)) return -ENOMEM;
     }
 {% endfor %}
 
@@ -342,7 +339,7 @@ static int encode_constraints(zcbor_state_t* encoder, const union datastore_cons
         return -ENOMEM;
     }
 
-    return SUCCESS;
+    return ret;
 }
 
 //**********************************************************
