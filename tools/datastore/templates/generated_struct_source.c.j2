@@ -199,12 +199,15 @@ static void release(data_value_t* value)
 
     if (mem_get_ref_count((void*)s) == 1)
     {
+        // Free any fields that contain pointers to nested memory blocks
         {% for field in struct.fields %}
-            // Release {{ field.name }}
-            {
-                data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = {{ field.data_member_cast }}s->{{ field.snake_name }} };
-                {{ field.interface_sym }}.release(&fval);
-            }
+        {% if field.type in ['STRUCT', 'BUFFER'] %}
+        // Release {{ field.name }}
+        {
+            data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = {{ field.data_member_cast }}s->{{ field.snake_name }} };
+            {{ field.interface_sym }}.release(&fval);
+        }
+        {% endif %}
         {% endfor %}
     }
 
@@ -270,6 +273,8 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         if (!{{ field.interface_sym }}.validate(&{{ field.snake_name }}_constraints, fval))
         {
             {{ field.interface_sym }}.release(&fval);
+            LOG_ERR("Failed to decode, {{ field.name }} was invalid");
+            ret = -EINVAL;
             goto decode_cleanup;
         }
         {{ field.interface_sym }}.set((void*)&(new_struct->{{ field.snake_name }}), fval);

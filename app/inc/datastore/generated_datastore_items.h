@@ -77,16 +77,17 @@ enum datastore_item_id
  */
 struct datastore_values
 {
-    char device_name[DEVICE_NAME_MAX_LEN + 1];                 /**< The name of the device */
-    char serial_number[SERIAL_NUMBER_MAX_LEN + 1];             /**< The device serial number */
-    char firmware_version[FIRMWARE_VERSION_MAX_LEN + 1];       /**< The current firmware version */
-    int ble_connection_state;                                  /**< The current BLE connection state */
-    int test_enum;                                             /**< Test enum value */
-    int test_int;                                              /**< Test int value */
-    float test_float;                                          /**< Test float value */
-    uint8_t test_bytes[sizeof(buffer_t) + TEST_BYTES_MAX_LEN]; /**< Test bytes */
-    buffer_t* test_buffer;                                     /**< Test buffer */
-    SpiBuffer_t* spi_tx_buffer;                                /**< SPI TX buffer */
+    char device_name[DEVICE_NAME_MAX_LEN + 1];           /**< The name of the device */
+    char serial_number[SERIAL_NUMBER_MAX_LEN + 1];       /**< The device serial number */
+    char firmware_version[FIRMWARE_VERSION_MAX_LEN + 1]; /**< The current firmware version */
+    int ble_connection_state;                            /**< The current BLE connection state */
+    int test_enum;                                       /**< Test enum value */
+    int test_int;                                        /**< Test int value */
+    float test_float;                                    /**< Test float value */
+    uint8_t test_bytes[sizeof(buffer_t) + TEST_BYTES_MAX_LEN]
+        __attribute__((aligned(sizeof(void*)))); /**< Test bytes */
+    buffer_t* test_buffer;                       /**< Test buffer */
+    SpiBuffer_t* spi_tx_buffer;                  /**< SPI TX buffer */
 };
 
 /**

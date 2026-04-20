@@ -24,6 +24,25 @@ structs:
         constraints:
           - min: 0
           - max: 255
+      - name: FloatField
+        type: FLOAT
+        constraints:
+          - min: 0.0f
+          - max: 32.5f
+      - name: EnumField
+        type: ENUM
+        constraints:
+          - enum: Color
+      - name: BytesField
+        type: BYTE_ARRAY
+        constraints:
+          - min_len: 0
+          - max_len: 6
+      - name: StringField
+        type: STRING
+        constraints:
+          - min_len: 0
+          - max_len: 10
       - name: BufField
         type: BUFFER
         constraints:
@@ -152,6 +171,14 @@ items:
     default:
       - field: IntField
         value: 7
+      - field: FloatField
+        value: 5.0
+      - field: EnumField
+        value: GREEN
+      - field: BytesField
+        value: [0x03, 0x02, 0x01]
+      - field: StringField
+        value: "Text"
       - field: BufField
         value: []
     constraints:
@@ -169,6 +196,14 @@ items:
         value:
           - field: IntField
             value: 0
+          - field: FloatField
+            value: 0.0
+          - field: EnumField
+            value: RED
+          - field: BytesField
+            value: [0x01, 0x02, 0x03]
+          - field: StringField
+            value: "Test"
           - field: BufField
             value: []
       - field: Flag

@@ -54,14 +54,28 @@ static buffer_t {{ decl.c_name }} = {
 {% elif decl.kind == 'struct' %}
 static {{ decl.struct_type }}_t {{ decl.c_name }} = {
 {% for field in decl.fields %}
+{% if field.type == 'BYTE_ARRAY' %}
+    .inline_{{ field.snake_name }} = {
+        .len = {{ field.byte_array_len }},
+        .buf = {{ field.c_default_expr }},
+    },
+{% else %}
     .{{ field.snake_name }} = {{ field.c_default_expr }},
+{% endif %}
 {% endfor %}
 };
 {% endif %}
 {% endfor %}
 static {{ item.struct_name }}_t default_{{ item.snake_name }} = {
 {% for field in item.struct_default_fields %}
+{% if field.type == 'BYTE_ARRAY' %}
+    .inline_{{ field.snake_name }} = {
+        .len = {{ field.byte_array_len }},
+        .buf = {{ field.c_default_expr }},
+    },
+{% else %}
     .{{ field.snake_name }} = {{ field.c_default_expr }},
+{% endif %}
 {% endfor %}
 };
 {% endif %}

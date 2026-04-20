@@ -41,8 +41,8 @@
 #define {{ field.define_prefix }}_MIN {{ field.constraints_dict.min }} /**< Minimum value of {{ field.name }} */
 #define {{ field.define_prefix }}_MAX {{ field.constraints_dict.max }} /**< Maximum value of {{ field.name }} */
 {% elif field.type == 'FLOAT' %}
-#define {{ field.define_prefix }}_MIN {{ field.constraints_dict.min }}f /**< Minimum value of {{ field.name }} */
-#define {{ field.define_prefix }}_MAX {{ field.constraints_dict.max }}f /**< Maximum value of {{ field.name }} */
+#define {{ field.define_prefix }}_MIN {{ field.constraints_dict.min }} /**< Minimum value of {{ field.name }} */
+#define {{ field.define_prefix }}_MAX {{ field.constraints_dict.max }} /**< Maximum value of {{ field.name }} */
 {% endif %}
 {% endfor %}
 

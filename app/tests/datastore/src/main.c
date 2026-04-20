@@ -682,7 +682,7 @@ ZTEST(datastore_describe, test_chunked_describe_covers_all_items)
 
     while (state.current_id < DATASTORE_ID_COUNT)
     {
-        uint8_t buf[512];
+        uint8_t buf[1024];
         zcbor_state_t enc[4];
         zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), DATASTORE_ID_COUNT);
 
@@ -696,7 +696,9 @@ ZTEST(datastore_describe, test_chunked_describe_covers_all_items)
         }
         else if (ret == -ENOMEM)
         {
-            items_encoded += state.current_id - id_before;
+            uint32_t newly_encoded_count = state.current_id - id_before;
+            zassert_true(newly_encoded_count > 0);
+            items_encoded += newly_encoded_count;
         }
         else
         {
@@ -801,6 +803,10 @@ ZTEST(datastore_struct, test_set_and_get_scalar_field)
 
     TestStruct_t src = {
         .int_field = 42,
+        .float_field = 0.0f,
+        .enum_field = Color_BLUE,
+        .string_field = "Hello",
+        .inline_bytes_field = { .len = 3, .buf = { 0x01, 0x02, 0x03 } },
         .buf_field = empty_buf,
     };
 
@@ -831,6 +837,10 @@ ZTEST(datastore_struct, test_set_and_get_buffer_field)
 
     TestStruct_t src = {
         .int_field = 0,
+        .float_field = 0.0f,
+        .enum_field = Color_BLUE,
+        .string_field = "Hi",
+        .bytes_field = { 0 },
         .buf_field = field_buf,
     };
 
@@ -859,6 +869,10 @@ ZTEST(datastore_struct, test_validate_buffer_field_too_large)
 
     TestStruct_t src = {
         .int_field = 0,
+        .float_field = 0.0f,
+        .enum_field = Color_BLUE,
+        .string_field = "Hello",
+        .bytes_field = { 0 },
         .buf_field = field_buf,
     };
 
@@ -878,6 +892,10 @@ ZTEST(datastore_struct, test_validate_int_field_out_of_range)
 
     TestStruct_t src = {
         .int_field = 256,  // max is 255
+        .float_field = 0.0f,
+        .enum_field = Color_BLUE,
+        .string_field = "Hi",
+        .bytes_field = { 0 },
         .buf_field = empty_buf,
     };
 
@@ -899,6 +917,10 @@ ZTEST(datastore_struct, test_encode_decode)
 
     TestStruct_t src = {
         .int_field = 99,
+        .float_field = 0.0f,
+        .enum_field = Color_BLUE,
+        .string_field = "hi",
+        .bytes_field = { 0 },
         .buf_field = field_buf,
     };
 
@@ -964,6 +986,10 @@ ZTEST(datastore_nested_struct, test_set_get_roundtrip)
 
     TestStruct_t inner_src = {
         .int_field = 55,
+        .float_field = 0.0f,
+        .enum_field = Color_BLUE,
+        .string_field = "hi",
+        .bytes_field = { 0 },
         .buf_field = inner_buf,
     };
     NestedStruct_t outer_src = {
@@ -1011,16 +1037,28 @@ ZTEST(datastore_nested_struct, test_release_frees_recursively)
     int ret = datastore_set(AUTH_ANY, DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, val);
     zassert_equal(ret, 0);
 
+    uint32_t used_after = 0;
+    mem_get_pool_usage(0, &used_after, &total);
+    zassert_equal(used_after, used_before);
+
     data_value_t got;
     ret = datastore_get(AUTH_ANY, DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, &got);
     zassert_equal(ret, 0);
 
+    used_after = 0;
+    mem_get_pool_usage(0, &used_after, &total);
+    zassert_equal(used_after, used_before);
+
     datastore_release(DATASTORE_ID_TEST_NESTED_STRUCT_ITEM, &got);
+
+    used_after = 0;
+    mem_get_pool_usage(0, &used_after, &total);
+    zassert_equal(used_after, used_before);
 
     // Re-init resets stored value, releasing all heap blocks
     datastore_init();
 
-    uint32_t used_after = 0;
+    used_after = 0;
     mem_get_pool_usage(0, &used_after, &total);
     zassert_equal(used_after, used_before);
 }
@@ -1033,7 +1071,14 @@ ZTEST(datastore_nested_struct, test_encode_decode_roundtrip)
     inner_buf->buf[0] = 0xCA;
     inner_buf->buf[1] = 0xFE;
 
-    TestStruct_t inner_src = { .int_field = 77, .buf_field = inner_buf };
+    TestStruct_t inner_src = {
+        .int_field = 77,
+        .float_field = 0.0f,
+        .enum_field = Color_BLUE,
+        .string_field = "Test",
+        .bytes_field = { 0 },
+        .buf_field = inner_buf,
+    };
     NestedStruct_t outer_src = { .inner = &inner_src, .flag = 1 };
 
     data_value_t val = { .type = DATASTORE_ITEM_TYPE_STRUCT, .data.raw_value = &outer_src };

@@ -227,21 +227,7 @@ static void release(data_value_t* value)
 
     if (mem_get_ref_count((void*)s) == 1)
     {
-        // Release CS
-        {
-            data_value_t fval = { .type = DATASTORE_ITEM_TYPE_ENUM, .data.int_value = s->cs };
-            datastore_enum_interface.release(&fval);
-        }
-        // Release Bytes
-        {
-            data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = (buffer_t*)s->bytes };
-            datastore_byte_array_interface.release(&fval);
-        }
-        // Release Text
-        {
-            data_value_t fval = { .type = DATASTORE_ITEM_TYPE_STRING, .data.string_value = s->text };
-            datastore_string_interface.release(&fval);
-        }
+        // Free any fields that contain pointers to nested memory blocks
         // Release Buffer
         {
             data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BUFFER, .data.buffer_value = s->buffer };
@@ -326,6 +312,8 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         if (!datastore_enum_interface.validate(&cs_constraints, fval))
         {
             datastore_enum_interface.release(&fval);
+            LOG_ERR("Failed to decode, CS was invalid");
+            ret = -EINVAL;
             goto decode_cleanup;
         }
         datastore_enum_interface.set((void*)&(new_struct->cs), fval);
@@ -341,6 +329,8 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         if (!datastore_byte_array_interface.validate(&bytes_constraints, fval))
         {
             datastore_byte_array_interface.release(&fval);
+            LOG_ERR("Failed to decode, Bytes was invalid");
+            ret = -EINVAL;
             goto decode_cleanup;
         }
         datastore_byte_array_interface.set((void*)&(new_struct->bytes), fval);
@@ -356,6 +346,8 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         if (!datastore_string_interface.validate(&text_constraints, fval))
         {
             datastore_string_interface.release(&fval);
+            LOG_ERR("Failed to decode, Text was invalid");
+            ret = -EINVAL;
             goto decode_cleanup;
         }
         datastore_string_interface.set((void*)&(new_struct->text), fval);
@@ -371,6 +363,8 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         if (!datastore_buffer_interface.validate(&buffer_constraints, fval))
         {
             datastore_buffer_interface.release(&fval);
+            LOG_ERR("Failed to decode, Buffer was invalid");
+            ret = -EINVAL;
             goto decode_cleanup;
         }
         datastore_buffer_interface.set((void*)&(new_struct->buffer), fval);

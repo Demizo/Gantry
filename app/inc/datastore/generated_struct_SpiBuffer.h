@@ -44,10 +44,18 @@
  */
 typedef struct
 {
-    int cs;                                                     /**< CS field */
-    uint8_t bytes[sizeof(buffer_t) + SPI_BUFFER_BYTES_MAX_LEN]; /**< Bytes field */
-    char text[SPI_BUFFER_TEXT_MAX_LEN + 1];                     /**< Text field */
-    buffer_t* buffer;                                           /**< Buffer field */
+    int cs; /**< CS field */
+    union
+    {
+        uint8_t bytes[sizeof(buffer_t) + SPI_BUFFER_BYTES_MAX_LEN] __attribute__((aligned(sizeof(void*))));
+        struct
+        {
+            uint16_t len;
+            uint8_t buf[SPI_BUFFER_BYTES_MAX_LEN] __attribute__((aligned(sizeof(void*))));
+        } inline_bytes;
+    }; /**< Bytes field */
+    char text[SPI_BUFFER_TEXT_MAX_LEN + 1]; /**< Text field */
+    buffer_t* buffer;                       /**< Buffer field */
 } SpiBuffer_t;
 
 /**

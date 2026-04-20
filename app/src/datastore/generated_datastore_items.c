@@ -41,7 +41,10 @@ static buffer_t default_spi_tx_buffer_buffer = {
 };
 static SpiBuffer_t default_spi_tx_buffer = {
     .cs = SpiChipSelect_SPI_CS0,
-    .bytes = { 0x01, 0x02, 0x03 },
+    .inline_bytes = {
+        .len = 3,
+        .buf = { 0x01, 0x02, 0x03 },
+    },
     .text = "Test",
     .buffer = &default_spi_tx_buffer_buffer,
 };

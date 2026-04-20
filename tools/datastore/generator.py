@@ -92,7 +92,14 @@ def _preprocess_struct_fields(struct_name: str, fields: list, enums: dict, struc
             c_decl = f"int {fsnake}"
             interface_sym = INTERFACE_MAP["ENUM"]
         elif ftype == "BYTE_ARRAY":
-            c_decl = f"uint8_t {fsnake}[sizeof(buffer_t) + {fdefine_prefix}_MAX_LEN]"
+            c_decl = f"uint8_t {fsnake}[sizeof(buffer_t) + {fdefine_prefix}_MAX_LEN] __attribute__((aligned(sizeof(void*))))"
+            c_decl = f"""union {{
+    uint8_t {fsnake}[sizeof(buffer_t) + {fdefine_prefix}_MAX_LEN] __attribute__((aligned(sizeof(void*))));
+    struct {{
+        uint16_t len;
+        uint8_t buf[{fdefine_prefix}_MAX_LEN] __attribute__((aligned(sizeof(void*))));
+    }} inline_{fsnake};
+}}"""
             interface_sym = INTERFACE_MAP["BYTE_ARRAY"]
         elif ftype == "BUFFER":
             c_decl = f"buffer_t* {fsnake}"
@@ -194,6 +201,7 @@ def _build_struct_default(prefix: str, struct_def: dict, default_list, structs: 
             entry["c_default_expr"] = f"{fcdict['enum']}_{fval}" if fval is not None else "0"
         elif ftype == "BYTE_ARRAY":
             bytes_list = fval if isinstance(fval, list) else []
+            entry["byte_array_len"] = len(bytes_list)
             entry["c_default_expr"] = "{ " + ", ".join(f"0x{b:02X}" for b in bytes_list) + " }"
         elif ftype == "BUFFER":
             bytes_list = fval if isinstance(fval, list) else []
@@ -260,7 +268,7 @@ def _preprocess_items(items: list, enums: dict, structs: dict) -> list:
             c_field_decl = f"int {snake}"
         elif item_type == "BYTE_ARRAY":
             c_default = f".buffer_value = &default_{snake}"
-            c_field_decl = f"uint8_t {snake}[sizeof(buffer_t) + {upper}_MAX_LEN]"
+            c_field_decl = f"uint8_t {snake}[sizeof(buffer_t) + {upper}_MAX_LEN] __attribute__((aligned(sizeof(void*))))"
         elif item_type == "STRUCT":
             c_default = f".raw_value = &default_{snake}"
             c_field_decl = f"{struct_name}_t* {snake}"
