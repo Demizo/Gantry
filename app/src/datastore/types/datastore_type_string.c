@@ -130,7 +130,7 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     }
 
     void* string_block = NULL;
-    int ret = mem_alloc(str.len, &string_block);
+    int ret = mem_alloc(str.len + 1, &string_block);
     if (ret != SUCCESS)
     {
         NOT_REFERENCED(string_block);
@@ -138,6 +138,7 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     }
 
     memcpy((char*)string_block, str.value, str.len);
+    ((char*)string_block)[str.len] = 0;
 
     out_value->type = DATASTORE_ITEM_TYPE_STRING;
     out_value->data.string_value = string_block;
