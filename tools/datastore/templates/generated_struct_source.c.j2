@@ -70,24 +70,24 @@ static const union datastore_constraints {{ field.snake_name }}_constraints = {
 {% elif field.type in 'INT' %}
 static const union datastore_constraints {{ field.snake_name }}_constraints = {
     .int_constraints = {
-        .min = {{ field.constraints_dict.min }},
-        .max = {{ field.constraints_dict.max }},
+        .min = {{ field.define_prefix }}_MIN,
+        .max = {{ field.define_prefix }}_MAX,
     },
 };
 
 {% elif field.type == 'FLOAT' %}
 static const union datastore_constraints {{ field.snake_name }}_constraints = {
     .float_constraints = {
-        .min = {{ field.constraints_dict.min }}f,
-        .max = {{ field.constraints_dict.max }}f,
+        .min = {{ field.define_prefix }}_MIN,
+        .max = {{ field.define_prefix }}_MAX,
     },
 };
 
 {% elif field.type in ('STRING', 'BUFFER', 'BYTE_ARRAY') %}
 static const union datastore_constraints {{ field.snake_name }}_constraints = {
     .buffer_constraints = {
-        .min_len = {{ field.constraints_dict.min_len }},
-        .max_len = {{ field.constraints_dict.max_len }},
+        .min_len = {{ field.define_prefix }}_MIN_LEN,
+        .max_len = {{ field.define_prefix }}_MAX_LEN,
     },
 };
 

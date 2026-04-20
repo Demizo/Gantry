@@ -18,7 +18,7 @@
  * @{
  */
 
-const struct data_enum_value BleConnectionState_enum_values[2] = {
+const struct data_enum_value BleConnectionState_enum_values[BleConnectionState_COUNT] = {
     {
         .value = 0,
         .name = "DISCONNECTED",
@@ -29,7 +29,7 @@ const struct data_enum_value BleConnectionState_enum_values[2] = {
     },
 };
 
-const struct data_enum_value Toggle_enum_values[2] = {
+const struct data_enum_value Toggle_enum_values[Toggle_COUNT] = {
     {
         .value = 0,
         .name = "DISABLED",
@@ -40,7 +40,7 @@ const struct data_enum_value Toggle_enum_values[2] = {
     },
 };
 
-const struct data_enum_value SpiChipSelect_enum_values[2] = {
+const struct data_enum_value SpiChipSelect_enum_values[SpiChipSelect_COUNT] = {
     {
         .value = 0,
         .name = "SPI_CS0",

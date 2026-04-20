@@ -24,15 +24,30 @@
  * @{
  */
 
+//**********************************************************
+//* Definitions
+//**********************************************************
+
+#define SPI_BUFFER_BYTES_MIN_LEN 0    /**< Minimum length of Bytes */
+#define SPI_BUFFER_BYTES_MAX_LEN 6    /**< Maximum length of Bytes */
+#define SPI_BUFFER_TEXT_MIN_LEN 3     /**< Minimum length of Text */
+#define SPI_BUFFER_TEXT_MAX_LEN 12    /**< Maximum length of Text */
+#define SPI_BUFFER_BUFFER_MIN_LEN 0   /**< Minimum length of Buffer */
+#define SPI_BUFFER_BUFFER_MAX_LEN 512 /**< Maximum length of Buffer */
+
+//**********************************************************
+//* Typedefs, Enums, and Structs
+//**********************************************************
+
 /**
  * @brief A SPI buffer containing a chip select and transeive data
  */
 typedef struct
 {
-    int cs;                              /**< CS field */
-    uint8_t bytes[sizeof(buffer_t) + 6]; /**< Bytes field */
-    char text[12 + 1];                   /**< Text field */
-    buffer_t* buffer;                    /**< Buffer field */
+    int cs;                                                     /**< CS field */
+    uint8_t bytes[sizeof(buffer_t) + SPI_BUFFER_BYTES_MAX_LEN]; /**< Bytes field */
+    char text[SPI_BUFFER_TEXT_MAX_LEN + 1];                     /**< Text field */
+    buffer_t* buffer;                                           /**< Buffer field */
 } SpiBuffer_t;
 
 /**

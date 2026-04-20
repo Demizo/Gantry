@@ -1,3 +1,4 @@
+#include <generated_datastore_enums.h>
 #include <generated_datastore_items.h>
 #include <stdint.h>
 #include <string.h>

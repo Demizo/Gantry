@@ -62,22 +62,22 @@ static const union datastore_constraints cs_constraints = {
 
 static const union datastore_constraints bytes_constraints = {
     .buffer_constraints = {
-        .min_len = 0,
-        .max_len = 6,
+        .min_len = SPI_BUFFER_BYTES_MIN_LEN,
+        .max_len = SPI_BUFFER_BYTES_MAX_LEN,
     },
 };
 
 static const union datastore_constraints text_constraints = {
     .buffer_constraints = {
-        .min_len = 3,
-        .max_len = 12,
+        .min_len = SPI_BUFFER_TEXT_MIN_LEN,
+        .max_len = SPI_BUFFER_TEXT_MAX_LEN,
     },
 };
 
 static const union datastore_constraints buffer_constraints = {
     .buffer_constraints = {
-        .min_len = 0,
-        .max_len = 512,
+        .min_len = SPI_BUFFER_BUFFER_MIN_LEN,
+        .max_len = SPI_BUFFER_BUFFER_MAX_LEN,
     },
 };
 

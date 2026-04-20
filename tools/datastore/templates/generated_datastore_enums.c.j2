@@ -19,7 +19,7 @@
  */
 
 {% for enum_name, enum_def in enums.items() %}
-const struct data_enum_value {{ enum_name }}_enum_values[{{ enum_def['values'] | length }}] = {
+const struct data_enum_value {{ enum_name }}_enum_values[{{ enum_name }}_COUNT] = {
 {% for val in enum_def['values'] %}
     {
         .value = {{ val.value }},

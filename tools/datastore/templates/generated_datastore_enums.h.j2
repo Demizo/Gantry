@@ -30,12 +30,13 @@ enum {{ enum_name }}
 {% for val in enum_def['values'] %}
     {{ enum_name }}_{{ val.name }} = {{ val.value }},
 {% endfor %}
+    {{ enum_name }}_COUNT,
 };
 
 /**
  * @brief Values for {{ enum_name }}
  */
-extern const struct data_enum_value {{ enum_name }}_enum_values[{{ enum_def['values'] | length }}];
+extern const struct data_enum_value {{ enum_name }}_enum_values[{{ enum_name }}_COUNT];
 
 {% endfor %}
 /**

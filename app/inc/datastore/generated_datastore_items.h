@@ -20,7 +20,6 @@
 
 #include "buffer.h"
 #include "datastore_types.h"
-#include "generated_datastore_enums.h"
 #include "generated_struct_SpiBuffer.h"
 
 /**

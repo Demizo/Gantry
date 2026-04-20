@@ -48,9 +48,6 @@ FIELD_C_TYPE_ENUM = {
     "STRUCT": "DATASTORE_ITEM_TYPE_STRUCT",
 }
 
-POINTER_FIELD_TYPES = {"BUFFER", "STRING", "STRUCT"}
-
-
 def _to_snake(name: str) -> str:
     s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
     s = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", s)
@@ -71,7 +68,7 @@ def _fmt_float(v) -> str:
     return s + "f"
 
 
-def _preprocess_struct_fields(fields: list, enums: dict, structs_by_name: dict | None = None) -> list:
+def _preprocess_struct_fields(struct_name: str, fields: list, enums: dict, structs_by_name: dict | None = None) -> list:
     if structs_by_name is None:
         structs_by_name = {}
     result = []
@@ -81,8 +78,7 @@ def _preprocess_struct_fields(fields: list, enums: dict, structs_by_name: dict |
         ftype = field["type"]
         fsnake = _to_snake(fname)
         fcdict = _flatten(field["constraints"])
-
-        is_pointer = ftype in POINTER_FIELD_TYPES
+        fdefine_prefix = f"{struct_name.upper()}_{fsnake.upper()}"
 
         nested_struct_name = ""
         nested_struct_snake = ""
@@ -96,13 +92,13 @@ def _preprocess_struct_fields(fields: list, enums: dict, structs_by_name: dict |
             c_decl = f"int {fsnake}"
             interface_sym = INTERFACE_MAP["ENUM"]
         elif ftype == "BYTE_ARRAY":
-            c_decl = f"uint8_t {fsnake}[sizeof(buffer_t) + {fcdict['max_len']}]"
+            c_decl = f"uint8_t {fsnake}[sizeof(buffer_t) + {fdefine_prefix}_MAX_LEN]"
             interface_sym = INTERFACE_MAP["BYTE_ARRAY"]
         elif ftype == "BUFFER":
             c_decl = f"buffer_t* {fsnake}"
             interface_sym = INTERFACE_MAP["BUFFER"]
         elif ftype == "STRING":
-            c_decl = f"char {fsnake}[{fcdict['max_len']} + 1]"
+            c_decl = f"char {fsnake}[{fdefine_prefix}_MAX_LEN + 1]"
             interface_sym = INTERFACE_MAP["STRING"]
         elif ftype == "STRUCT":
             nested_struct_name = fcdict.get("struct", "")
@@ -130,8 +126,8 @@ def _preprocess_struct_fields(fields: list, enums: dict, structs_by_name: dict |
                 "interface_sym": interface_sym,
                 "data_member": FIELD_DATA_MEMBER.get(ftype, ""),
                 "data_member_cast": FIELD_DATA_MEMBER_CAST.get(ftype, ""),
-                "is_pointer": is_pointer,
                 "constraints_dict": fcdict,
+                "define_prefix": fdefine_prefix,
                 "enum_name": fcdict.get("enum", ""),
                 "enum_values": enum_values,
                 "nested_struct_name": nested_struct_name,
@@ -150,7 +146,7 @@ def _preprocess_structs(structs_list: list, enums: dict) -> dict:
     for struct in structs_list:
         name = struct["name"]
         snake = _to_snake(name)
-        fields = _preprocess_struct_fields(struct["fields"], enums, result)
+        fields = _preprocess_struct_fields(snake, struct["fields"], enums, result)
         result[name] = {
             "name": name,
             "snake_name": snake,

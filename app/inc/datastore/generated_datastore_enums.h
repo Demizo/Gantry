@@ -28,12 +28,13 @@ enum BleConnectionState
 {
     BleConnectionState_DISCONNECTED = 0,
     BleConnectionState_CONNECTED = 1,
+    BleConnectionState_COUNT,
 };
 
 /**
  * @brief Values for BleConnectionState
  */
-extern const struct data_enum_value BleConnectionState_enum_values[2];
+extern const struct data_enum_value BleConnectionState_enum_values[BleConnectionState_COUNT];
 
 /**
  * @brief A toggle to enable or disable
@@ -42,12 +43,13 @@ enum Toggle
 {
     Toggle_DISABLED = 0,
     Toggle_ENABLED = 1,
+    Toggle_COUNT,
 };
 
 /**
  * @brief Values for Toggle
  */
-extern const struct data_enum_value Toggle_enum_values[2];
+extern const struct data_enum_value Toggle_enum_values[Toggle_COUNT];
 
 /**
  * @brief A SPI chip select index
@@ -56,12 +58,13 @@ enum SpiChipSelect
 {
     SpiChipSelect_SPI_CS0 = 0,
     SpiChipSelect_SPI_CS1 = 1,
+    SpiChipSelect_COUNT,
 };
 
 /**
  * @brief Values for SpiChipSelect
  */
-extern const struct data_enum_value SpiChipSelect_enum_values[2];
+extern const struct data_enum_value SpiChipSelect_enum_values[SpiChipSelect_COUNT];
 
 /**
  * @}
