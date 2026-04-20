@@ -11,7 +11,11 @@
 #include "generated_struct_NestedStruct.h"
 #include "generated_struct_TestStruct.h"
 #include "memory.h"
+#include "zephyr/logging/log.h"
+#include "zephyr/logging/log_core.h"
 #include "zephyr/ztest_assert.h"
+
+LOG_MODULE_REGISTER(test_datastore, LOG_LEVEL_DBG);
 
 // ---------------------------------------------------------------------------
 // Helpers

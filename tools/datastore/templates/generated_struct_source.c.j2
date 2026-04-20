@@ -140,29 +140,6 @@ static bool is_equal(data_value_t a, data_value_t b)
     return true;
 }
 
-static void release_struct_fields({{ struct.name }}_t* s)
-{
-{% for field in struct.fields %}
-{% if field.type == 'BUFFER' %}
-    {
-        data_value_t fval = { .type = {{ field.c_type_enum }}, .data.buffer_value = s->{{ field.snake_name }} };
-        {{ field.interface_sym }}.release(&fval);
-    }
-{% elif field.type == 'STRING' %}
-    {
-        data_value_t fval = { .type = {{ field.c_type_enum }}, .data.string_value = s->{{ field.snake_name }} };
-        {{ field.interface_sym }}.release(&fval);
-    }
-{% elif field.type == 'STRUCT' %}
-    {
-        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_STRUCT, .data.raw_value = s->{{ field.snake_name }} };
-        {{ field.interface_sym }}.release(&fval);
-    }
-{% endif %}
-{% endfor %}
-    (void)s;
-}
-
 static void set(void* dest, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRUCT, "Unexpected value type");
@@ -215,16 +192,21 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
 static void release(data_value_t* value)
 {
     ASSERT(value->type == DATASTORE_ITEM_TYPE_STRUCT, "Unexpected value type");
+    // Release may be called when a decode fails when partially complete. For this reason release must gracefully handle NULL for the data value.
+    if (value->data.raw_value == NULL) return;
 
     {{ struct.name }}_t* s = ({{ struct.name }}_t*)value->data.raw_value;
 
-    {% for field in struct.fields %}
-        // Release {{ field.name }}
-        {
-            data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = {{ field.data_member_cast }}s->{{ field.snake_name }} };
-            {{ field.interface_sym }}.release(&fval);
-        }
-    {% endfor %}
+    if (mem_get_ref_count((void*)s) == 1)
+    {
+        {% for field in struct.fields %}
+            // Release {{ field.name }}
+            {
+                data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = {{ field.data_member_cast }}s->{{ field.snake_name }} };
+                {{ field.interface_sym }}.release(&fval);
+            }
+        {% endfor %}
+    }
 
     void* s_ptr = s;
     mem_unref(&s_ptr);
@@ -273,6 +255,8 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     }
 
     {{ struct.name }}_t* new_struct = ({{ struct.name }}_t*)new_block;
+    // Zero all fields. If the decode fails release will be called. In this case, fields that have not been populated will be NULL.
+    // Release can be called on NULL data values.
     memset(new_struct, 0, sizeof({{ struct.name }}_t));
 
 {% for field in struct.fields %}
@@ -282,6 +266,12 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = {{ field.c_type_enum }};
         ret = {{ field.interface_sym }}.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
+        // Validate before setting to ensure buffers fit within the struct field
+        if (!{{ field.interface_sym }}.validate(&{{ field.snake_name }}_constraints, fval))
+        {
+            {{ field.interface_sym }}.release(&fval);
+            goto decode_cleanup;
+        }
         {{ field.interface_sym }}.set((void*)&(new_struct->{{ field.snake_name }}), fval);
         {{ field.interface_sym }}.release(&fval);
     }
@@ -299,8 +289,11 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     return SUCCESS;
 
 decode_cleanup:
-    release_struct_fields(new_struct);
-    mem_unref(&new_block);
+{
+    data_value_t decoded_value = { .type = DATASTORE_ITEM_TYPE_STRUCT, .data.raw_value = new_block };
+    PASS_OWNERSHIP(new_block); // Release will free the block
+    release(&decoded_value);
+}
     return ret;
 }
 

@@ -151,19 +151,6 @@ static bool is_equal(data_value_t a, data_value_t b)
     return true;
 }
 
-static void release_struct_fields(SpiBuffer_t* s)
-{
-    {
-        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_STRING, .data.string_value = s->text };
-        datastore_string_interface.release(&fval);
-    }
-    {
-        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BUFFER, .data.buffer_value = s->buffer };
-        datastore_buffer_interface.release(&fval);
-    }
-    (void)s;
-}
-
 static void set(void* dest, data_value_t value)
 {
     ASSERT(value.type == DATASTORE_ITEM_TYPE_STRUCT, "Unexpected value type");
@@ -232,28 +219,34 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
 static void release(data_value_t* value)
 {
     ASSERT(value->type == DATASTORE_ITEM_TYPE_STRUCT, "Unexpected value type");
+    // Release may be called when a decode fails when partially complete. For this reason release must gracefully handle
+    // NULL for the data value.
+    if (value->data.raw_value == NULL) return;
 
     SpiBuffer_t* s = (SpiBuffer_t*)value->data.raw_value;
 
-    // Release CS
+    if (mem_get_ref_count((void*)s) == 1)
     {
-        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_ENUM, .data.int_value = s->cs };
-        datastore_enum_interface.release(&fval);
-    }
-    // Release Bytes
-    {
-        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = (buffer_t*)s->bytes };
-        datastore_byte_array_interface.release(&fval);
-    }
-    // Release Text
-    {
-        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_STRING, .data.string_value = s->text };
-        datastore_string_interface.release(&fval);
-    }
-    // Release Buffer
-    {
-        data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BUFFER, .data.buffer_value = s->buffer };
-        datastore_buffer_interface.release(&fval);
+        // Release CS
+        {
+            data_value_t fval = { .type = DATASTORE_ITEM_TYPE_ENUM, .data.int_value = s->cs };
+            datastore_enum_interface.release(&fval);
+        }
+        // Release Bytes
+        {
+            data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = (buffer_t*)s->bytes };
+            datastore_byte_array_interface.release(&fval);
+        }
+        // Release Text
+        {
+            data_value_t fval = { .type = DATASTORE_ITEM_TYPE_STRING, .data.string_value = s->text };
+            datastore_string_interface.release(&fval);
+        }
+        // Release Buffer
+        {
+            data_value_t fval = { .type = DATASTORE_ITEM_TYPE_BUFFER, .data.buffer_value = s->buffer };
+            datastore_buffer_interface.release(&fval);
+        }
     }
 
     void* s_ptr = s;
@@ -319,6 +312,8 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     }
 
     SpiBuffer_t* new_struct = (SpiBuffer_t*)new_block;
+    // Zero all fields. If the decode fails release will be called. In this case, fields that have not been populated
+    // will be NULL. Release can be called on NULL data values.
     memset(new_struct, 0, sizeof(SpiBuffer_t));
 
     // Decode CS
@@ -327,6 +322,12 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = DATASTORE_ITEM_TYPE_ENUM;
         ret = datastore_enum_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
+        // Validate before setting to ensure buffers fit within the struct field
+        if (!datastore_enum_interface.validate(&cs_constraints, fval))
+        {
+            datastore_enum_interface.release(&fval);
+            goto decode_cleanup;
+        }
         datastore_enum_interface.set((void*)&(new_struct->cs), fval);
         datastore_enum_interface.release(&fval);
     }
@@ -336,6 +337,12 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = DATASTORE_ITEM_TYPE_BYTE_ARRAY;
         ret = datastore_byte_array_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
+        // Validate before setting to ensure buffers fit within the struct field
+        if (!datastore_byte_array_interface.validate(&bytes_constraints, fval))
+        {
+            datastore_byte_array_interface.release(&fval);
+            goto decode_cleanup;
+        }
         datastore_byte_array_interface.set((void*)&(new_struct->bytes), fval);
         datastore_byte_array_interface.release(&fval);
     }
@@ -345,6 +352,12 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = DATASTORE_ITEM_TYPE_STRING;
         ret = datastore_string_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
+        // Validate before setting to ensure buffers fit within the struct field
+        if (!datastore_string_interface.validate(&text_constraints, fval))
+        {
+            datastore_string_interface.release(&fval);
+            goto decode_cleanup;
+        }
         datastore_string_interface.set((void*)&(new_struct->text), fval);
         datastore_string_interface.release(&fval);
     }
@@ -354,6 +367,12 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
         fval.type = DATASTORE_ITEM_TYPE_BUFFER;
         ret = datastore_buffer_interface.decode(decoder, &fval);
         if (ret != SUCCESS) goto decode_cleanup;
+        // Validate before setting to ensure buffers fit within the struct field
+        if (!datastore_buffer_interface.validate(&buffer_constraints, fval))
+        {
+            datastore_buffer_interface.release(&fval);
+            goto decode_cleanup;
+        }
         datastore_buffer_interface.set((void*)&(new_struct->buffer), fval);
         datastore_buffer_interface.release(&fval);
     }
@@ -370,8 +389,11 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     return SUCCESS;
 
 decode_cleanup:
-    release_struct_fields(new_struct);
-    mem_unref(&new_block);
+{
+    data_value_t decoded_value = { .type = DATASTORE_ITEM_TYPE_STRUCT, .data.raw_value = new_block };
+    PASS_OWNERSHIP(new_block);  // Release will free the block
+    release(&decoded_value);
+}
     return ret;
 }
 
