@@ -16,5 +16,24 @@
             "interface": "swd",
             "gdbPath": "${env:ZEPHYR_SDK_INSTALL_DIR}/gnu/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb",
         },
+        {
+            "name": "ZTest Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/app/tests/build/zephyr/zephyr.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+        }
     ]
 }

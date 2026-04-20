@@ -26,5 +26,6 @@ pkgs.mkShell {
     coccinelle
     clang-tools
     vscodium-fhs
+    gdb
   ];
 }

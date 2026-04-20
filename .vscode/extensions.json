@@ -15,6 +15,7 @@
         "lextudio.restructuredtext",
         "trond-snekvik.simple-rst",
         "nefrob.vscode-just-syntax",
-        "redhat.vscode-xml"
+        "redhat.vscode-xml",
+        "kylinideteam.cppdebug"
     ]
 }
