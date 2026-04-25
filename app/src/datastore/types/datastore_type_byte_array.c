@@ -105,6 +105,7 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
 static void release(data_value_t* value)
 {
     ASSERT(value->type == DATASTORE_ITEM_TYPE_BYTE_ARRAY, "Unexpected value type");
+    if (value->data.buffer_value == NULL) return;
 
     void* buffer_block = value->data.buffer_value;
     mem_unref(&buffer_block);

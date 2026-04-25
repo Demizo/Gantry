@@ -99,6 +99,7 @@ static int get(const struct datastore_item_const_metadata* item, data_value_t* o
 static void release(data_value_t* value)
 {
     ASSERT(value->type == DATASTORE_ITEM_TYPE_STRING, "Unexpected value type");
+    if (value->data.string_value == NULL) return;
 
     void* string_block = value->data.string_value;
     mem_unref(&string_block);
