@@ -172,10 +172,8 @@ struct datastore_item_interface
         const union datastore_constraints* constraints,
         data_value_t value); /**< Function to determine if a given value is valid based on the provided constraints */
     bool (*is_equal)(data_value_t a, data_value_t b); /**< Function to check if two values of the same type are equal */
-    void (*set)(void* dest, data_value_t value); /**< Function to copy a value's data to the provided destination */
-    int (*get)(
-        const struct datastore_item_const_metadata* item,
-        data_value_t* out_value);         /**< Function to get an item value */
+    void (*set)(void* dest, data_value_t value);    /**< Function to copy a value's data to the provided destination */
+    int (*get)(void* src, data_value_t* out_value); /**< Function to get an item value from the provided source */
     void (*release)(data_value_t* value); /**< Function to release an item value. Note: the inner value may be NULL in
                                              which case release should do nothing. */
     int (*decode)(zcbor_state_t* decoder, data_value_t* out_value); /**< Function to decode an item value from CBOR */

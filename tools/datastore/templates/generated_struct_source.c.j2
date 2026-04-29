@@ -48,7 +48,7 @@ LOG_MODULE_REGISTER(datastore_struct_{{ struct.snake_name }}, CONFIG_DATASTORE_T
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
 static void set(void* dest, data_value_t value);
-static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
+static int get(void* src, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
@@ -177,9 +177,9 @@ static void set(void* dest, data_value_t value)
     PASS_OWNERSHIP(new_block);
 }
 
-static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value)
+static int get(void* src, data_value_t* out_value)
 {
-    {{ struct.name }}_t* current = *({{ struct.name }}_t**)item->value_ptr;
+    {{ struct.name }}_t* current = *({{ struct.name }}_t**)src;
 
     mem_ref(current);
     out_value->type = DATASTORE_ITEM_TYPE_STRUCT;

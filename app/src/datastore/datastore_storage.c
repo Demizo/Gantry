@@ -250,7 +250,7 @@ int datastore_storage_save_item(const struct datastore_item_const_metadata* item
 
     ZCBOR_STATE_E(encoder, 1, encoded_value_block, CONFIG_DATASTORE_ITEM_STORAGE_SIZE_MAX, 1);
     data_value_t current_value = { 0 };
-    ret = item->interface->get(item, &current_value);
+    ret = item->interface->get(item->value_ptr, &current_value);
     if (ret != SUCCESS)
     {
         LOG_ERR("Failed to get current value when saving %s (%d)", item->name, ret);

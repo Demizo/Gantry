@@ -124,7 +124,7 @@ void notify_subscribers(const struct datastore_item_const_metadata* item)
 
         // Set value copy to current value
         data_value_t current_value = { 0 };
-        ret = item->interface->get(item, &current_value);
+        ret = item->interface->get(item->value_ptr, &current_value);
         if (ret != SUCCESS)
         {
             LOG_ERR("Failed to get current item value (%d)", ret);
@@ -211,7 +211,7 @@ int datastore_set(enum datastore_auth_level current_auth, enum datastore_item_id
         // Disallow changing TOFU values after they are first modified
         data_value_t default_value = { .type = item->type, .data = item->default_value };
         data_value_t current_value = { 0 };
-        ret = item->interface->get(item, &current_value);
+        ret = item->interface->get(item->value_ptr, &current_value);
         if (ret != SUCCESS)
         {
             LOG_ERR("Failed to check item %d against current value: %d", id, ret);
@@ -268,7 +268,7 @@ int datastore_get(enum datastore_auth_level current_auth, enum datastore_item_id
 
     // Get current value
     uint32_t key = irq_lock();
-    ret = item->interface->get(item, out_value);
+    ret = item->interface->get(item->value_ptr, out_value);
     irq_unlock(key);
 
     return ret;

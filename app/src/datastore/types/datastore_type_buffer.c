@@ -37,7 +37,7 @@ LOG_MODULE_REGISTER(datastore_type_buffer, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
 static void set(void* dest, data_value_t value);
-static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
+static int get(void* src, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
@@ -98,9 +98,9 @@ static void set(void* dest, data_value_t value)
     PASS_OWNERSHIP(new_buffer_block);
 }
 
-static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value)
+static int get(void* src, data_value_t* out_value)
 {
-    void* current_buffer_block = *(void**)item->value_ptr;
+    void* current_buffer_block = *(void**)src;
 
     mem_ref(current_buffer_block);
     out_value->type = DATASTORE_ITEM_TYPE_BUFFER;

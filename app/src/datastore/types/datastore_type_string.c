@@ -38,7 +38,7 @@ LOG_MODULE_REGISTER(datastore_type_string, CONFIG_DATASTORE_TYPES_LOG_LEVEL);
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
 static void set(void* dest, data_value_t value);
-static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
+static int get(void* src, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
@@ -77,16 +77,17 @@ static void set(void* dest, data_value_t value)
     strcpy((char*)dest, value.data.string_value);
 }
 
-static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value)
+static int get(void* src, data_value_t* out_value)
 {
     int ret = SUCCESS;
-    uint16_t len = strnlen((const char*)item->value_ptr, item->constraints.buffer_constraints.max_len) + 1;
+    // SAFETY: The source will only ever contain a validated string which ensures it is terminated.
+    uint16_t len = strlen((const char*)src) + 1;
 
     void* string_block = NULL;
     ret = mem_alloc(len, &string_block);
     if (ret == SUCCESS)
     {
-        strscpy((char*)string_block, (const char*)item->value_ptr, len);
+        strscpy((char*)string_block, (const char*)src, len);
 
         out_value->type = DATASTORE_ITEM_TYPE_STRING;
         out_value->data.string_value = string_block;

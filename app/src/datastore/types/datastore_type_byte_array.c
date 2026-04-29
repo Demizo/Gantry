@@ -37,7 +37,7 @@ LOG_MODULE_REGISTER(datastore_type_byte_array, CONFIG_DATASTORE_TYPES_LOG_LEVEL)
 static bool validate(const union datastore_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
 static void set(void* dest, data_value_t value);
-static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value);
+static int get(void* src, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
 static int decode(zcbor_state_t* decoder, data_value_t* out_value);
@@ -80,10 +80,10 @@ static void set(void* dest, data_value_t value)
     memcpy(current_value->buf, new_value->buf, new_value->len);
 }
 
-static int get(const struct datastore_item_const_metadata* item, data_value_t* out_value)
+static int get(void* src, data_value_t* out_value)
 {
     int ret = SUCCESS;
-    buffer_t* current_value = (buffer_t*)item->value_ptr;
+    buffer_t* current_value = (buffer_t*)src;
     uint16_t len = current_value->len;
 
     void* buffer_block = NULL;
