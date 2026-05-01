@@ -1,7 +1,7 @@
 Memory Management
 ===================
 
-Memory Management details
+Memory Management details.
 
 .. toctree::
    :maxdepth: 2
