@@ -76,6 +76,31 @@ errors += 1
 print(f"[{file_name}] ERROR: Variable '{ptr}' allocated/referenced on line {alloc_line} was not dereferenced. Leaked at line {leak_line}")
 
 // ===================================
+// Check irq_lock/irq_unlock
+// ===================================
+@irq_lock_leak exists@
+identifier key;
+position p1, p2;
+@@
+key = irq_lock()@p1
+...
+when != irq_unlock(key)
+return ...;@p2
+
+@script:python@
+key << irq_lock_leak.key;
+p1 << irq_lock_leak.p1;
+p2 << irq_lock_leak.p2;
+@@
+file_name = p1[0].file
+lock_line = p1[0].line
+return_line = p2[0].line
+
+global errors
+errors += 1
+print(f"[{file_name}] ERROR: Variable '{key}' locked on line {lock_line} was not unlocked. Leaked lock at line {return_line}")
+
+// ===================================
 // Fail if errors were detected
 // ===================================
 @finalize:python@
@@ -84,4 +109,4 @@ import sys
 if errors > 0:
     sys.exit(1)
 else:
-    print("SUCCESS: No memory leaks detected.")
+    print("SUCCESS: No resource leaks detected.")

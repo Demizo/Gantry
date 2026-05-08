@@ -15,8 +15,8 @@ def normalize_functions(funcs):
 
 def main():
     script_dir = Path(__file__).parent
-    function_spec_path = script_dir / "memory_functions.yaml"
-    output_patch_file = script_dir / "generated_leak_check.cocci"
+    function_spec_path = script_dir / "resource_functions.yaml"
+    output_patch_file = script_dir / "generated_resource_check.cocci"
 
     # Load YAML config
     with open(function_spec_path, "r") as f:
@@ -32,7 +32,7 @@ def main():
         lstrip_blocks=True
     )
 
-    template = env.get_template("generated_leak_check.cocci.j2")
+    template = env.get_template("generated_resource_check.cocci.j2")
 
     output = template.render(
         alloc_functions=alloc_functions,
