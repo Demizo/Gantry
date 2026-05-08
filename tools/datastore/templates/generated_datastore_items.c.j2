@@ -29,6 +29,20 @@
 //* Static Variable Definitions
 //**********************************************************
 
+/* Category name strings — each stored once */
+{% for cat_name, cat_snake in categories_meta.items() %}
+static const char g_datastore_cat_{{ cat_snake }}[] = "{{ cat_name }}";
+{% endfor %}
+
+/* Per-item category pointer arrays */
+{% for item in items %}
+static const char* const {{ item.snake_name }}_categories[] = {
+{% for cat_snake in item.item_categories_snake %}
+    g_datastore_cat_{{ cat_snake }},
+{% endfor %}
+};
+{% endfor %}
+
 {% for item in items %}
 {% if item.type == 'BYTE_ARRAY' %}
 static buffer_t default_{{ item.snake_name }} = {
@@ -132,6 +146,8 @@ const struct datastore_item_const_metadata
                         .buffer_constraints = { 0 },
 {% endif %}
                     },
+                .categories     = {{ item.snake_name }}_categories,
+                .category_count = {{ item.item_categories | length }},
             },
 {% endfor %}
     };

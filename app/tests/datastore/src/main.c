@@ -770,6 +770,10 @@ ZTEST(datastore_describe, test_describe_encoding)
     EXPECT_KEY(dec, "constraints");
     zassert_true(zcbor_any_skip(dec, NULL), "Failed to skip 'constraints' value");
 
+    // categories (Skip the value)
+    EXPECT_KEY(dec, "categories");
+    zassert_true(zcbor_any_skip(dec, NULL), "Failed to skip 'categories' value");
+
     // End map decode
     zassert_true(zcbor_map_end_decode(dec), "Failed to end map decode");
 }

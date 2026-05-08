@@ -197,6 +197,8 @@ struct datastore_item_const_metadata
     void* value_ptr;                                  /**< Pointer to the item's value */
     const raw_data_value_t default_value;             /**< The item's default value */
     union datastore_constraints constraints;          /**< The item's value constraints */
+    const char* const* categories;                    /**< Pointer to array of category name string pointers */
+    uint8_t category_count;                           /**< Number of categories */
 };
 
 //**********************************************************

@@ -302,6 +302,9 @@ def _preprocess_items(items: list, enums: dict, structs: dict) -> list:
         else:
             c_interface = INTERFACE_MAP[item_type]
 
+        item_cats = item.get("categories", [])
+        item_cats_snake = [_to_snake(c) for c in item_cats]
+
         item.update(
             {
                 "snake_name": snake,
@@ -323,6 +326,8 @@ def _preprocess_items(items: list, enums: dict, structs: dict) -> list:
                 "struct_def": struct_def,
                 "struct_default_fields": struct_default_fields,
                 "struct_pre_decls": struct_pre_decls,
+                "item_categories": item_cats,
+                "item_categories_snake": item_cats_snake,
             }
         )
         result.append(item)
@@ -338,6 +343,8 @@ def generate(yaml_path: Path, output_dir: Path) -> None:
     enums = data.get("enums") or {}
     structs_list = data.get("structs") or []
     structs = _preprocess_structs(structs_list, enums)
+    categories_list = data.get("categories") or []
+    categories_meta = {name: _to_snake(name) for name in categories_list}
     items = _preprocess_items(data["items"], enums, structs)
 
     referenced_enum_names = []
@@ -363,6 +370,7 @@ def generate(yaml_path: Path, output_dir: Path) -> None:
         "structs": structs,
         "items": items,
         "referenced_enum_names": referenced_enum_names,
+        "categories_meta": categories_meta,
     }
 
     output_dir.mkdir(parents=True, exist_ok=True)

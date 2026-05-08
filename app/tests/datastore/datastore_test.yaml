@@ -63,11 +63,18 @@ structs:
           - max: 1
 
 # ==============================================================================
+# Categories
+# ==============================================================================
+categories:
+  - General
+
+# ==============================================================================
 # Items
 # ==============================================================================
 items:
   - name: TestString
     description: "A test string item"
+    categories: [General]
     type: STRING
     storage: PERSISTENT
     permissions:
@@ -80,6 +87,7 @@ items:
 
   - name: TestInt
     description: "A test int item"
+    categories: [General]
     type: INT
     storage: EPHEMERAL
     permissions:
@@ -92,6 +100,7 @@ items:
 
   - name: TestFloat
     description: "A test float item"
+    categories: [General]
     type: FLOAT
     storage: EPHEMERAL
     permissions:
@@ -104,6 +113,7 @@ items:
 
   - name: TestEnum
     description: "A test enum item"
+    categories: [General]
     type: ENUM
     storage: EPHEMERAL
     permissions:
@@ -115,6 +125,7 @@ items:
 
   - name: TestBytes
     description: "A test byte array item"
+    categories: [General]
     type: BYTE_ARRAY
     storage: EPHEMERAL
     permissions:
@@ -127,6 +138,7 @@ items:
 
   - name: TestBuffer
     description: "A test buffer item"
+    categories: [General]
     type: BUFFER
     storage: EPHEMERAL
     permissions:
@@ -139,6 +151,7 @@ items:
 
   - name: TestTofu
     description: "A test TOFU item"
+    categories: [General]
     type: STRING
     storage: TOFU
     permissions:
@@ -151,6 +164,7 @@ items:
 
   - name: TestReadOnly
     description: "A test read-only item"
+    categories: [General]
     type: INT
     storage: EPHEMERAL
     permissions:
@@ -163,6 +177,7 @@ items:
 
   - name: TestStructItem
     description: "A test struct item"
+    categories: [General]
     type: STRUCT
     storage: EPHEMERAL
     permissions:
@@ -186,6 +201,7 @@ items:
 
   - name: TestNestedStructItem
     description: "A test nested struct item"
+    categories: [General]
     type: STRUCT
     storage: EPHEMERAL
     permissions:
