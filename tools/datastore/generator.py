@@ -365,6 +365,8 @@ def generate(yaml_path: Path, output_dir: Path) -> None:
         "referenced_enum_names": referenced_enum_names,
     }
 
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     h_out = output_dir / "inc" / "datastore" / "generated_datastore_items.h"
     c_out = output_dir / "src" / "datastore" / "generated_datastore_items.c"
     enums_h_out = output_dir / "inc" / "datastore" / "generated_datastore_enums.h"
