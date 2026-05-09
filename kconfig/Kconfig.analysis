@@ -1,0 +1,16 @@
+config ZDS_ANALYSIS_CPPCHECK
+    bool "Run cppcheck on application code"
+    depends on ZDS
+    default n
+    help
+      Enable cppcheck static analysis on the consuming application's src/
+      directory during the build.
+
+config ZDS_ANALYSIS_CHECK_LIBRARY
+    bool "Include ZDS library sources in static analysis"
+    depends on ZDS
+    default n
+    help
+      When enabled, cppcheck and the resource-leak checker also run over the
+      ZDS library source tree. Enable during library development; leave off
+      for normal application builds.

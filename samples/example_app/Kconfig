@@ -1,0 +1,5 @@
+source "Kconfig.zephyr"
+
+config MAIN_LOG_LEVEL
+    int "Main log level"
+    default 3

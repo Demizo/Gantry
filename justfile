@@ -1,11 +1,12 @@
 board := "nrf52840dk/nrf52840"
+sample := "samples/example_app"
 
 default:
   @just --list
 
-# Initialize the west workspace
+# Initialize the west workspace (manifest is the repo root)
 init:
-  west init -l app
+  west init -l .
   west update
 
 # Update the west workspace
@@ -13,61 +14,62 @@ update-workspace:
   west update
 
 alias b := build
-# Build the firmware
+# Build the sample application
 build:
-  west build -b {{board}} app
+  west build -b {{board}} {{sample}} -d build
 
 alias p := rebuild
-# Rebuild the firmware (pristine build)
-rebuild: 
-  west build -p -b {{board}} app
- 
+# Pristine rebuild of the sample application
+rebuild:
+  west build -p -b {{board}} {{sample}} -d build
+
 alias f := flash
-# Flash the firmware
+# Flash the sample
 flash:
   west flash --runner openocd
 
 alias e := erase
-# Erase the firmware
+# Mass-erase the board
 erase:
-  openocd -f app/openocd.cfg -c "init; halt; nrf5 mass_erase; exit"
+  openocd -f {{sample}}/openocd.cfg -c "init; halt; nrf5 mass_erase; exit"
 
 # Recover the board
 recover:
-  openocd -f app/openocd.cfg -c "init; nrf52_recover; exit"
+  openocd -f {{sample}}/openocd.cfg -c "init; nrf52_recover; exit"
 
-# Generate the datastore
-gen-datastore:
-  uv run tools/datastore/generate_datastore.py --yaml app/datastore.yaml --output-dir app
-  just format
-
-# Run static analysis
+# Static + resource analysis on library and sample sources
 analyze:
-  uv run tools/memory_analysis/generate_leak_check.py 
-  spatch --sp-file tools/memory_analysis/generated_leak_check.cocci --dir app/src/ --no-includes --very-quiet
-  cppcheck --quiet --inline-suppr --enable=warning,performance,portability --check-level=exhaustive --error-exitcode=1 --inconclusive app/src/
+  uv run tools/check_headers.py
+  uv run tools/resource_check/generate_resource_check.py
+  -spatch --sp-file tools/resource_check/generated_resource_check.cocci --dir lib/ --no-includes --very-quiet
+  -spatch --sp-file tools/resource_check/generated_resource_check.cocci --dir {{sample}}/src/ --no-includes --very-quiet
+  cppcheck --quiet --inline-suppr --enable=warning,performance,portability --check-level=exhaustive --error-exitcode=1 --inconclusive lib/ {{sample}}/src/
 
-# Format all files
+# Format the library, sample, and test sources
 format:
-  find app -path "*/build" -prune -o \( -iname "*.c" -o -iname "*.h" \) -print | xargs clang-format -i
+  find lib include {{sample}} tests -path "*/build" -prune -o \( -iname "*.c" -o -iname "*.h" \) -print | xargs clang-format -i
 
-# Build a test suite
+# Build a single test suite
 build-test component:
-  west build -p -b native_sim -d app/tests/build app/tests/{{component}} -- -DCONF_FILE='prj.conf;../test_prj.conf'
+  west build -p -b native_sim -d tests/build tests/{{component}} -- -DCONF_FILE='prj.conf;../test_prj.conf'
 
-# Run all unit tests for the project
+# Run all unit tests
 test-all:
-    west twister -T app/tests/ -p native_sim --clobber-output -i -v
+  west twister -T tests/ -p native_sim --clobber-output -i -v
 
-# Run tests for a specific component (e.g., 'just test memory')
+# Run tests for a specific component (e.g. `just test memory`)
 test component:
-    west twister -T app/tests/{{component}} -p native_sim --clobber-output -i -vv
+  west twister -T tests/{{component}} -p native_sim --clobber-output -i -vv
 
-# Generate documentation
+# Build documentation
 docs:
-  cd app && doxygen Doxyfile
-  cd app/docs && uv run make html
+  doxygen Doxyfile
+  cd docs && uv run make html
 
-# Open documentation
+# Open documentation in browser
 docs-open:
-  xdg-open app/docs/build/html/index.html
+  xdg-open docs/build/html/index.html
+
+# Open doxygen documents
+doxy-open:
+  xdg-open docs/doxygen/html/index.html

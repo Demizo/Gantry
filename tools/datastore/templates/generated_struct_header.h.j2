@@ -16,8 +16,8 @@
 
 #include <stdint.h>
 
-#include "buffer.h"
-#include "datastore_types.h"
+#include <zds/buffer.h>
+#include <zds/datastore/types/datastore_types.h>
 {% for field in struct.fields %}
 {% if field.type == 'STRUCT' %}
 #include "generated_struct_{{ field.nested_struct_name }}.h"

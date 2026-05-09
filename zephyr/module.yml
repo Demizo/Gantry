@@ -1,0 +1,4 @@
+name: zds
+build:
+  cmake: .
+  kconfig: Kconfig

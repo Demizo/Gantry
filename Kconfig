@@ -1,0 +1,67 @@
+menuconfig ZDS
+    bool "Zephyr Datastore (ZDS) module"
+    default n
+    help
+      Enable the ZDS module providing a reactive datastore plus the
+      supporting memory pool, event, and flag subsystems.
+
+if ZDS
+
+rsource "kconfig/Kconfig.analysis"
+
+config ZDS_BUILD_LIBRARY
+    bool "Build ZDS sources as a Zephyr library"
+    default y
+    help
+      When enabled, the module compiles its sources into a Zephyr library
+      that is linked into the consumer app. Disable when an external build
+      (e.g. the in-tree unit tests) wants to compile the sources directly.
+
+config UNIT_TESTING
+    bool "Enable unit testing build modifications"
+    default n
+    help
+      Changes the firmware to unit testing mode (e.g. exposing some
+      static functions publicly).
+
+menuconfig GANTRY_FLAGS
+    bool "Flags"
+    default y
+    help
+      Enable runtime flag validation helpers.
+
+if GANTRY_FLAGS
+    rsource "kconfig/Kconfig.flags"
+endif
+
+menuconfig GANTRY_MEMORY
+    bool "Memory management"
+    default y
+    help
+      Enable the reference-counted memory pool subsystem.
+
+if GANTRY_MEMORY
+    rsource "kconfig/Kconfig.memory"
+endif
+
+menuconfig GANTRY_EVENTS
+    bool "Events"
+    default y
+    help
+      Enable the event/message-passing subsystem.
+
+if GANTRY_EVENTS
+    rsource "kconfig/Kconfig.events"
+endif
+
+menuconfig GANTRY_STOW
+    bool "Datastore"
+    default y
+    help
+      Enable the reactive datastore.
+
+if GANTRY_STOW
+    rsource "kconfig/Kconfig.datastore"
+endif
+
+endif # ZDS

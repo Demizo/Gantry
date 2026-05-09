@@ -1,7 +1,6 @@
 .west
 **/build
-zephyr
-modules
+/deps/
 **/.cache
 twister-out*
 

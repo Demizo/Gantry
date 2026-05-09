@@ -18,8 +18,8 @@
 #include <stdint.h>
 #include <zephyr/kernel.h>
 
-#include "buffer.h"
-#include "datastore_types.h"
+#include <zds/buffer.h>
+#include <zds/datastore/types/datastore_types.h>
 {% for struct_name in structs %}
 #include "generated_struct_{{ struct_name }}.h"
 {% endfor %}
