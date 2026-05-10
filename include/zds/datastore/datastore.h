@@ -77,7 +77,7 @@ void datastore_init(void);
  * @brief Check if a numeric ID is a valid datastore item ID
  *
  * @param id the numeric ID to check
- * @return true If the ID can be cast to a @ref datastore_item_id
+ * @return true If the ID can be cast to a datastore_item_id
  * @return false If the ID is not a valid item ID
  */
 bool datastore_is_id_valid(uint32_t id);

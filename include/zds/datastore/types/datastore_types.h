@@ -187,7 +187,7 @@ struct datastore_item_interface
  */
 struct datastore_item_const_metadata
 {
-    uint32_t id;                   /**< A datastore item ID, see @ref datastore_item_id */
+    uint32_t id;                   /**< A datastore item ID, see datastore_item_id */
     const char* name;              /**< Name of the item. This must be unique, including across firmware versions */
     const char* const* categories; /**< Pointer to array of category names */
     uint8_t category_count;        /**< Number of categories */
