@@ -58,8 +58,33 @@ static int encode_item(zcbor_state_t* encoder, const struct datastore_item_const
 
     if (!zcbor_map_start_encode(encoder, 9) || !zcbor_tstr_put_lit(encoder, "id") ||
         !zcbor_uint32_put(encoder, item->id) || !zcbor_tstr_put_lit(encoder, "name") ||
-        !zcbor_tstr_encode(encoder, &name_str) || !zcbor_tstr_put_lit(encoder, "storage") ||
-        !zcbor_uint32_put(encoder, (uint32_t)item->storage_type) || !zcbor_tstr_put_lit(encoder, "read_perm") ||
+        !zcbor_tstr_encode(encoder, &name_str))
+    {
+        return -ENOMEM;
+    }
+
+    if (!zcbor_tstr_put_lit(encoder, "categories") || !zcbor_list_start_encode(encoder, item->category_count))
+    {
+        return -ENOMEM;
+    }
+    for (uint8_t i = 0; i < item->category_count; i++)
+    {
+        struct zcbor_string category_str = {
+            .value = item->categories[i],
+            .len = strlen(item->categories[i]),
+        };
+        if (!zcbor_tstr_encode(encoder, &category_str))
+        {
+            return -ENOMEM;
+        }
+    }
+    if (!zcbor_list_end_encode(encoder, item->category_count))
+    {
+        return -ENOMEM;
+    }
+
+    if (!zcbor_tstr_put_lit(encoder, "storage") || !zcbor_uint32_put(encoder, (uint32_t)item->storage_type) ||
+        !zcbor_tstr_put_lit(encoder, "read_perm") ||
         !zcbor_uint32_put(encoder, (uint32_t)item->permissions.read_permissions) ||
         !zcbor_tstr_put_lit(encoder, "write_perm") ||
         !zcbor_uint32_put(encoder, (uint32_t)item->permissions.write_permissions) ||
@@ -88,26 +113,6 @@ static int encode_item(zcbor_state_t* encoder, const struct datastore_item_const
     if (ret != SUCCESS)
     {
         return ret;
-    }
-
-    if (!zcbor_tstr_put_lit(encoder, "categories") || !zcbor_list_start_encode(encoder, item->category_count))
-    {
-        return -ENOMEM;
-    }
-    for (uint8_t i = 0; i < item->category_count; i++)
-    {
-        struct zcbor_string cat_str = {
-            .value = item->categories[i],
-            .len = strlen(item->categories[i]),
-        };
-        if (!zcbor_tstr_encode(encoder, &cat_str))
-        {
-            return -ENOMEM;
-        }
-    }
-    if (!zcbor_list_end_encode(encoder, item->category_count))
-    {
-        return -ENOMEM;
     }
 
     if (!zcbor_map_end_encode(encoder, 9))

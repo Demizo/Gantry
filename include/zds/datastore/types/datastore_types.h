@@ -187,8 +187,10 @@ struct datastore_item_interface
  */
 struct datastore_item_const_metadata
 {
-    uint32_t id;      /**< A datastore item ID, see @ref datastore_item_id */
-    const char* name; /**< Name of the item. This must be unique, including across firmware versions */
+    uint32_t id;                   /**< A datastore item ID, see @ref datastore_item_id */
+    const char* name;              /**< Name of the item. This must be unique, including across firmware versions */
+    const char* const* categories; /**< Pointer to array of category names */
+    uint8_t category_count;        /**< Number of categories */
     enum datastore_storage_type storage_type;         /**< Storage type of the data item */
     struct datastore_permissions permissions;         /**< Read/write permissions for the data item */
     enum datastore_item_type type;                    /**< Type of the data item */
@@ -196,8 +198,6 @@ struct datastore_item_const_metadata
     void* value_ptr;                                  /**< Pointer to the item's value */
     const raw_data_value_t default_value;             /**< The item's default value */
     union datastore_constraints constraints;          /**< The item's value constraints */
-    const char* const* categories;                    /**< Pointer to array of category name string pointers */
-    uint8_t category_count;                           /**< Number of categories */
 };
 
 //**********************************************************

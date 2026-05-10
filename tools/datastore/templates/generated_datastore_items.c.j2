@@ -29,16 +29,16 @@
 //* Static Variable Definitions
 //**********************************************************
 
-/* Category name strings — each stored once */
-{% for cat_name, cat_snake in categories_meta.items() %}
-static const char g_datastore_cat_{{ cat_snake }}[] = "{{ cat_name }}";
+/* Category names */
+{% for category_name, category_snake in categories_meta.items() %}
+static const char g_datastore_category_{{ category_snake }}[] = "{{ category_name }}";
 {% endfor %}
 
-/* Per-item category pointer arrays */
+/* Per-item categories */
 {% for item in items %}
 static const char* const {{ item.snake_name }}_categories[] = {
-{% for cat_snake in item.item_categories_snake %}
-    g_datastore_cat_{{ cat_snake }},
+{% for category_snake in item.item_categories_snake %}
+    g_datastore_category_{{ category_snake }},
 {% endfor %}
 };
 {% endfor %}
@@ -108,6 +108,8 @@ const struct datastore_item_const_metadata
             {
                 .id = {{ item.id_enum }},
                 .name = "{{ item.name }}",
+                .categories     = {{ item.snake_name }}_categories,
+                .category_count = {{ item.item_categories | length }},
                 .storage_type = {{ item.c_storage_enum }},
                 .permissions = { {{ item.c_read_perm }}, {{ item.c_write_perm }} },
                 .type = {{ item.c_type_enum }},
@@ -146,8 +148,6 @@ const struct datastore_item_const_metadata
                         .buffer_constraints = { 0 },
 {% endif %}
                     },
-                .categories     = {{ item.snake_name }}_categories,
-                .category_count = {{ item.item_categories | length }},
             },
 {% endfor %}
     };

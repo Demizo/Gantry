@@ -27,15 +27,6 @@ enums:
         value: 1
 
 # ==============================================================================
-# Categories
-# ==============================================================================
-categories:
-  - System
-  - BLE
-  - SPI
-  - Test
-
-# ==============================================================================
 # Structures
 # ==============================================================================
 structs:
@@ -63,11 +54,21 @@ structs:
           - max_len: 512
 
 # ==============================================================================
+# Categories
+# ==============================================================================
+categories:
+  - System
+  - BLE
+  - SPI
+  - Test
+
+# ==============================================================================
 # Items
 # ==============================================================================
 items:
   - name: DeviceName
     description: "The name of the device"
+    categories: [System]
     type: STRING
     storage: PERSISTENT
     permissions:
@@ -77,10 +78,10 @@ items:
     constraints:
       - min_len: 3
       - max_len: 25
-    categories: [System]
 
   - name: SerialNumber
     description: "The device serial number"
+    categories: [System]
     type: STRING
     storage: TOFU
     permissions:
@@ -90,10 +91,10 @@ items:
     constraints:
       - min_len: 16
       - max_len: 16
-    categories: [System]
 
   - name: FirmwareVersion
     description: "The current firmware version"
+    categories: [System]
     type: STRING
     storage: PERSISTENT
     permissions:
@@ -103,10 +104,10 @@ items:
     constraints:
       - min_len: 6
       - max_len: 32
-    categories: [System]
 
   - name: BleConnectionState
     description: "The current BLE connection state"
+    categories: [System, BLE]
     type: ENUM
     storage: EPHEMERAL
     permissions:
@@ -115,10 +116,10 @@ items:
     default: DISCONNECTED
     constraints:
       - enum: BleConnectionState
-    categories: [System, BLE]
 
   - name: TestEnum
     description: "Test enum value"
+    categories: [Test]
     type: ENUM
     storage: EPHEMERAL
     permissions:
@@ -127,10 +128,10 @@ items:
     default: DISABLED
     constraints:
       - enum: Toggle
-    categories: [Test]
 
   - name: TestInt
     description: "Test int value"
+    categories: [Test]
     type: INT
     storage: EPHEMERAL
     permissions:
@@ -140,10 +141,10 @@ items:
     constraints:
       - min: -100
       - max: 100
-    categories: [Test]
 
   - name: TestFloat
     description: "Test float value"
+    categories: [Test]
     type: FLOAT
     storage: EPHEMERAL
     permissions:
@@ -153,23 +154,24 @@ items:
     constraints:
       - min: 15.0
       - max: 30.0
-    categories: [Test]
 
   - name: TestBytes
     description: "Test bytes"
+    categories: [Test]
     type: BYTE_ARRAY
     storage: EPHEMERAL
     permissions:
       - read: ANY
       - write: ANY
-    default: [0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]
+    default:
+      [0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]
     constraints:
       - min_len: 12
       - max_len: 12
-    categories: [Test]
 
   - name: TestBuffer
     description: "Test buffer"
+    categories: [Test]
     type: BUFFER
     storage: EPHEMERAL
     permissions:
@@ -179,10 +181,10 @@ items:
     constraints:
       - min_len: 0
       - max_len: 20
-    categories: [Test]
 
   - name: SpiTxBuffer
     description: "SPI TX buffer"
+    categories: [SPI]
     type: STRUCT
     storage: EPHEMERAL
     permissions:
@@ -199,4 +201,3 @@ items:
         value: []
     constraints:
       - struct: SpiBuffer
-    categories: [SPI]

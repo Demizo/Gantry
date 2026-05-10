@@ -2,7 +2,7 @@ VALID_TYPES = {"STRING", "INT", "FLOAT", "ENUM", "BYTE_ARRAY", "BUFFER", "STRUCT
 VALID_STRUCT_FIELD_TYPES = {"STRING", "INT", "FLOAT", "ENUM", "BYTE_ARRAY", "BUFFER", "STRUCT"}
 VALID_STORAGE_TYPES = {"EPHEMERAL", "PERSISTENT", "TOFU"}
 VALID_PERMS = {"ANY", "SESSION", "DEV", "INTERNAL", "NONE"}
-ITEM_REQUIRED_FIELDS = {"name", "description", "type", "storage", "permissions", "default", "constraints", "categories"}
+ITEM_REQUIRED_FIELDS = {"name", "description", "categories", "type", "storage", "permissions", "default", "constraints"}
 
 
 def _flatten(lst: list, ctx: str) -> dict:
@@ -124,10 +124,10 @@ def validate(data: dict) -> None:
         if missing:
             raise ValueError(f"{ctx}: missing required fields: {', '.join(sorted(missing))}")
 
-        item_cats = item["categories"]
-        if not isinstance(item_cats, list) or not item_cats:
+        item_categories = item["categories"]
+        if not isinstance(item_categories, list) or not item_categories:
             raise ValueError(f"{ctx}: 'categories' must be a non-empty list")
-        for cat in item_cats:
+        for cat in item_categories:
             if cat not in valid_categories:
                 raise ValueError(f"{ctx}: category '{cat}' is not defined in top-level 'categories'")
 

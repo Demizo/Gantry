@@ -244,6 +244,10 @@ def _preprocess_items(items: list, enums: dict, structs: dict) -> list:
         name = item["name"]
         snake = _to_snake(name)
         upper = snake.upper()
+
+        item_categories = item.get("categories", [])
+        item_categories_snake = [_to_snake(c) for c in item_categories]
+
         item_type = item["type"]
         default = item["default"]
 
@@ -302,13 +306,12 @@ def _preprocess_items(items: list, enums: dict, structs: dict) -> list:
         else:
             c_interface = INTERFACE_MAP[item_type]
 
-        item_cats = item.get("categories", [])
-        item_cats_snake = [_to_snake(c) for c in item_cats]
-
         item.update(
             {
                 "snake_name": snake,
                 "upper_name": upper,
+                "item_categories": item_categories,
+                "item_categories_snake": item_categories_snake,
                 "id_enum": f"DATASTORE_ID_{upper}",
                 "c_type_enum": f"DATASTORE_ITEM_TYPE_{item_type}",
                 "c_storage_enum": f"DATASTORE_STORAGE_{item['storage']}",
@@ -326,8 +329,6 @@ def _preprocess_items(items: list, enums: dict, structs: dict) -> list:
                 "struct_def": struct_def,
                 "struct_default_fields": struct_default_fields,
                 "struct_pre_decls": struct_pre_decls,
-                "item_categories": item_cats,
-                "item_categories_snake": item_cats_snake,
             }
         )
         result.append(item)
