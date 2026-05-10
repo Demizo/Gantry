@@ -92,7 +92,6 @@ def _preprocess_struct_fields(struct_name: str, fields: list, enums: dict, struc
             c_decl = f"int {fsnake}"
             interface_sym = INTERFACE_MAP["ENUM"]
         elif ftype == "BYTE_ARRAY":
-            c_decl = f"uint8_t {fsnake}[sizeof(buffer_t) + {fdefine_prefix}_MAX_LEN] __attribute__((aligned(sizeof(void*))))"
             c_decl = f"""union {{
     uint8_t {fsnake}[sizeof(buffer_t) + {fdefine_prefix}_MAX_LEN] __attribute__((aligned(sizeof(void*))));
     struct {{
@@ -272,7 +271,13 @@ def _preprocess_items(items: list, enums: dict, structs: dict) -> list:
             c_field_decl = f"int {snake}"
         elif item_type == "BYTE_ARRAY":
             c_default = f".buffer_value = &default_{snake}"
-            c_field_decl = f"uint8_t {snake}[sizeof(buffer_t) + {upper}_MAX_LEN] __attribute__((aligned(sizeof(void*))))"
+            c_field_decl = f"""union {{
+    uint8_t {snake}[sizeof(buffer_t) + {upper}_MAX_LEN] __attribute__((aligned(sizeof(void*))));
+    struct {{
+        uint16_t len;
+        uint8_t buf[{upper}_MAX_LEN] __attribute__((aligned(sizeof(void*))));
+    }} inline_{snake};
+}}"""
         elif item_type == "STRUCT":
             c_default = f".raw_value = &default_{snake}"
             c_field_decl = f"{struct_name}_t* {snake}"
