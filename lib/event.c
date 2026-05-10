@@ -1,11 +1,9 @@
 /**
- * @file event.c
+ * @file
  * @author Demizo (demizodemazo@gmail.com)
  * @brief Event implementation
- * @version 0.1
  * @date 2026-03-01
  *
- * @copyright Copyright (c) 2026
  *
  */
 

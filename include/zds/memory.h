@@ -1,6 +1,5 @@
 /**
- * @file memory.h
- *
+ * @file
  * @brief Provides the ability to allocate, reference, and dereference blocks of memory.
  *
  * @details Memory blocks are allocated from pools of fixed-size memory blocks (e.g. small, medium, large). The caller
@@ -15,10 +14,8 @@
  * header.
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @version 0.1
  * @date 2026-02-28
  *
- * @copyright Copyright (c) 2026
  *
  */
 

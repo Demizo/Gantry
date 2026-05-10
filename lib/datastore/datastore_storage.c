@@ -1,11 +1,9 @@
 /**
- * @file datastore_storage.c
+ * @file
  * @author Demizo (demizodemazo@gmail.com)
  * @brief Non-volatile storage backend for the datastore
- * @version 0.1
  * @date 2026-03-01
  *
- * @copyright Copyright (c) 2026
  *
  */
 

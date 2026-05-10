@@ -1,13 +1,10 @@
 /**
- * @file datastore.h
- *
+ * @file
  * @brief Core internal interface for the datastore
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @version 0.1
  * @date 2026-03-01
  *
- * @copyright Copyright (c) 2026
  *
  */
 

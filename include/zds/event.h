@@ -1,6 +1,5 @@
 /**
- * @file event.h
- *
+ * @file
  * @brief Events for interprocess communication
  *
  * @details Communication between threads is accomplished by passing events. There is a single event structure with a
@@ -15,10 +14,8 @@
  * reference counts updated.
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @version 0.1
  * @date 2026-03-01
  *
- * @copyright Copyright (c) 2026
  *
  */
 

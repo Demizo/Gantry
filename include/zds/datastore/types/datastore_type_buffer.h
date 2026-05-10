@@ -1,13 +1,10 @@
 /**
- * @file datastore_type_buffer.h
- *
+ * @file
  * @brief Implements the datastore buffer type
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @version 0.1
  * @date 2026-03-01
  *
- * @copyright Copyright (c) 2026
  *
  */
 

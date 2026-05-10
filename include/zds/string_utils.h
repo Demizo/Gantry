@@ -1,13 +1,10 @@
 /**
- * @file string_utils.h
- *
+ * @file
  * @brief Provides safe alternatives to common string functions
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @version 0.1
  * @date 2026-03-01
  *
- * @copyright Copyright (c) 2026
  *
  */
 

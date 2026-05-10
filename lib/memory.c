@@ -1,11 +1,9 @@
 /**
- * @file memory.c
+ * @file
  * @author Demizo (demizodemazo@gmail.com)
  * @brief Memory module implementation
- * @version 0.1
  * @date 2026-02-28
  *
- * @copyright Copyright (c) 2026
  *
  */
 

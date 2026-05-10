@@ -1,11 +1,9 @@
 /**
- * @file datastore_event.c
+ * @file
  * @author Demizo (demizodemazo@gmail.com)
  * @brief Datastore update event definition
- * @version 0.1
  * @date 2026-03-01
  *
- * @copyright Copyright (c) 2026
  *
  */
 

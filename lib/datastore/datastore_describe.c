@@ -1,13 +1,11 @@
 /**
- * @file datastore_describe.c
+ * @file
  *
  * @brief Chunked CBOR encoding of datastore item metadata
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @version 0.1
  * @date 2026-04-17
  *
- * @copyright Copyright (c) 2026
  *
  */
 

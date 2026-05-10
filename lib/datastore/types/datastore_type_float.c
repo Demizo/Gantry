@@ -1,11 +1,9 @@
 /**
- * @file datastore_type_float.c
+ * @file
  * @author Demizo (demizodemazo@gmail.com)
  * @brief Float type for datastore items
- * @version 0.1
  * @date 2026-03-01
  *
- * @copyright Copyright (c) 2026
  *
  */
 

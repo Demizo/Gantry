@@ -1,13 +1,10 @@
 /**
- * @file static_unit.h
- *
+ * @file
  * @brief Provides a static definition that is compiled out for unit tests to expose select static functions to testing.
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @version 0.1
  * @date 2026-03-01
  *
- * @copyright Copyright (c) 2026
  *
  */
 

@@ -1,13 +1,10 @@
 /**
- * @file datastore_types.h
- *
+ * @file
  * @brief Defines the supported datastore item types and the interface that they must implement
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @version 0.1
  * @date 2026-03-01
  *
- * @copyright Copyright (c) 2026
  *
  */
 
