@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Demizo
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /**
  * @file
  * @brief Provides the ability to allocate, reference, and dereference blocks of memory.
@@ -14,7 +20,6 @@
  * header.
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @date 2026-02-28
  *
  *
  */

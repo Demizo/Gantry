@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Demizo
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /**
  * @file
  * @brief Buffer data type
@@ -6,7 +12,6 @@
  * dynamically sized variables are needed.
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @date 2026-03-05
  *
  *
  */

@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Demizo
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include <autoconf.h>
 #include <zcbor_decode.h>
 #include <zds/buffer.h>

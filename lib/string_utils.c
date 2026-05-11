@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Demizo
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include <stddef.h>
 #include <sys/errno.h>
 

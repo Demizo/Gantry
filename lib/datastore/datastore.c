@@ -1,8 +1,13 @@
+/*
+ * Copyright (c) 2026 Demizo
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /**
  * @file
  * @author Demizo (demizodemazo@gmail.com)
  * @brief Core internal datastore interface
- * @date 2026-03-01
  *
  *
  */

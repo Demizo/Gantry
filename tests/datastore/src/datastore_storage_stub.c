@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Demizo
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include <zds/datastore/datastore_storage.h>
 
 int datastore_storage_load(void) { return 0; }

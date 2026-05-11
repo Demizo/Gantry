@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Demizo
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /**
  * @file
  * @brief Events for interprocess communication
@@ -14,7 +20,6 @@
  * reference counts updated.
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @date 2026-03-01
  *
  *
  */

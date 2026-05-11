@@ -1,10 +1,15 @@
+/*
+ * Copyright (c) 2026 Demizo
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /**
  * @file
  *
  * @brief Chunked CBOR encoding of datastore item metadata
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @date 2026-04-17
  *
  *
  */

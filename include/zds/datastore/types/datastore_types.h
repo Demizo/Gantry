@@ -1,9 +1,14 @@
+/*
+ * Copyright (c) 2026 Demizo
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /**
  * @file
  * @brief Defines the supported datastore item types and the interface that they must implement
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @date 2026-03-01
  *
  *
  */

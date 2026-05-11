@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Demizo
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include <generated_datastore_enums.h>
 #include <generated_datastore_items.h>
 #include <stdint.h>

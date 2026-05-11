@@ -1,9 +1,14 @@
+/*
+ * Copyright (c) 2026 Demizo
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /**
  * @file
  * @brief Provides a static definition that is compiled out for unit tests to expose select static functions to testing.
  *
  * @author Demizo (demizodemazo@gmail.com)
- * @date 2026-03-01
  *
  *
  */
