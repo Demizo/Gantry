@@ -32,7 +32,17 @@ file(GLOB GENERATED_STRUCT_SOURCES
     ${GENERATED_DIR}/src/stow/generated_struct_*.c)
 
 target_sources(app PRIVATE
-    src/main.c
+    src/test_stow_int.c
+    src/test_stow_float.c
+    src/test_stow_enum.c
+    src/test_stow_string.c
+    src/test_stow_byte_array.c
+    src/test_stow_buffer.c
+    src/test_stow_access.c
+    src/test_stow_subscribe.c
+    src/test_stow_describe.c
+    src/test_stow_struct.c
+    src/test_stow_nested_struct.c
     src/stow_storage_stub.c
     ${GENERATED_DIR}/src/stow/generated_stow_items.c
     ${GENERATED_DIR}/src/stow/generated_stow_enums.c
