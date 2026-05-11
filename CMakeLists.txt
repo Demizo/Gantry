@@ -1,9 +1,9 @@
-if(CONFIG_ZDS)
+if(CONFIG_GANTRY)
   zephyr_include_directories(include)
 endif()
 
-if(CONFIG_ZDS_BUILD_LIBRARY)
-  zephyr_library_named(zds)
+if(CONFIG_GANTRY_BUILD_LIBRARY)
+  zephyr_library_named(gantry)
 
   zephyr_library_sources(lib/string_utils.c)
 
@@ -15,7 +15,7 @@ if(CONFIG_ZDS_BUILD_LIBRARY)
     zephyr_library_sources(lib/event.c)
   endif()
 
-  include(${CMAKE_CURRENT_LIST_DIR}/cmake/zds.cmake)
+  include(${CMAKE_CURRENT_LIST_DIR}/cmake/gantry.cmake)
 
   if(CONFIG_GANTRY_STOW)
     zephyr_library_sources(
@@ -35,10 +35,10 @@ if(CONFIG_ZDS_BUILD_LIBRARY)
     if(NOT EXISTS "${_app_yaml}")
       message(FATAL_ERROR "Expected stow.yaml at ${APPLICATION_SOURCE_DIR}")
     endif()
-    zds_stow_generate(YAML ${_app_yaml})
+    gantry_stow_generate(YAML ${_app_yaml})
   endif()
 
   zephyr_library_compile_options(-Wall -Wextra -Wfatal-errors)
 
-  zds_register_analysis()
+  gantry_register_analysis()
 endif()

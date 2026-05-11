@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <zcbor_decode.h>
 #include <zcbor_encode.h>
-#include <zds/buffer.h>
+#include <gantry/buffer.h>
 #include <zephyr/kernel.h>
 
 /**

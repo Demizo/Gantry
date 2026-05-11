@@ -15,9 +15,9 @@
 #include <autoconf.h>
 #include <stdint.h>
 #include <sys/errno.h>
-#include <zds/error.h>
-#include <zds/memory.h>
-#include <zds/static_unit.h>
+#include <gantry/error.h>
+#include <gantry/memory.h>
+#include <gantry/static_unit.h>
 #include <zephyr/logging/log.h>
 
 /**

@@ -1,4 +1,4 @@
-name: zds
+name: gantry
 build:
   cmake: .
   kconfig: Kconfig

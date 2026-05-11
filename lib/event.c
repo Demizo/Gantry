@@ -13,9 +13,9 @@
  */
 
 #include <string.h>
-#include <zds/error.h>
-#include <zds/event.h>
-#include <zds/memory.h>
+#include <gantry/error.h>
+#include <gantry/event.h>
+#include <gantry/memory.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 

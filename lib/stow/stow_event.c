@@ -14,9 +14,9 @@
 
 #include <autoconf.h>
 #include <sys/errno.h>
-#include <zds/error.h>
-#include <zds/event.h>
-#include <zds/stow/stow_event.h>
+#include <gantry/error.h>
+#include <gantry/event.h>
+#include <gantry/stow/stow_event.h>
 
 /**
  * @brief Logger for module

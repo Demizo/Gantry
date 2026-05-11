@@ -19,17 +19,17 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-#include <zds/buffer.h>
-#include <zds/stow/types/stow_type_buffer.h>
-#include <zds/stow/types/stow_type_byte_array.h>
-#include <zds/stow/types/stow_type_enum.h>
-#include <zds/stow/types/stow_type_float.h>
-#include <zds/stow/types/stow_type_int.h>
-#include <zds/stow/types/stow_type_string.h>
-#include <zds/stow/types/stow_types.h>
-#include <zds/error.h>
+#include <gantry/buffer.h>
+#include <gantry/stow/types/stow_type_buffer.h>
+#include <gantry/stow/types/stow_type_byte_array.h>
+#include <gantry/stow/types/stow_type_enum.h>
+#include <gantry/stow/types/stow_type_float.h>
+#include <gantry/stow/types/stow_type_int.h>
+#include <gantry/stow/types/stow_type_string.h>
+#include <gantry/stow/types/stow_types.h>
+#include <gantry/error.h>
 #include "generated_stow_enums.h"
-#include <zds/memory.h>
+#include <gantry/memory.h>
 {% for field in struct.fields %}
 {% if field.type == 'STRUCT' %}
 #include "generated_struct_{{ field.nested_struct_name }}.h"

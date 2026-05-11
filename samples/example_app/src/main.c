@@ -6,14 +6,14 @@
 
 #include <autoconf.h>
 #include <zcbor_decode.h>
-#include <zds/buffer.h>
-#include <zds/error.h>
-#include <zds/event.h>
-#include <zds/memory.h>
-#include <zds/stow/stow.h>
-#include <zds/stow/stow_event.h>
-#include <zds/stow/types/stow_type_enum.h>
-#include <zds/stow/types/stow_types.h>
+#include <gantry/buffer.h>
+#include <gantry/error.h>
+#include <gantry/event.h>
+#include <gantry/memory.h>
+#include <gantry/stow/stow.h>
+#include <gantry/stow/stow_event.h>
+#include <gantry/stow/types/stow_type_enum.h>
+#include <gantry/stow/types/stow_types.h>
 #include <zephyr/app_version.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -61,7 +61,7 @@ void counter_cb(event_t* event)
 
 int main(void)
 {
-    LOG_INF("Starting ZDS version %s", APP_VERSION_STRING);
+    LOG_INF("Starting Gantry example version %s", APP_VERSION_STRING);
 
     // Initialize modules
     stow_init();
@@ -117,7 +117,7 @@ int main(void)
 
     data_value_t new_device_name = {
         .type = STOW_ITEM_TYPE_STRING,
-        .data.string_value = "New ZDS awesome name!!!!!",
+        .data.string_value = "New big awesome name!!!!!",
     };
     (void)STOW_SET(AUTH_INTERNAL, STOW_ID_DEVICE_NAME, new_device_name);
     STOW_GET(AUTH_INTERNAL, STOW_ID_DEVICE_NAME, &device_name);

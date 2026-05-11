@@ -28,8 +28,8 @@
 #define EVENT_H
 
 #include <stddef.h>
-#include <zds/buffer.h>
-#include <zds/memory.h>
+#include <gantry/buffer.h>
+#include <gantry/memory.h>
 #include <zephyr/kernel.h>
 
 /**

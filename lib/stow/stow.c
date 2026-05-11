@@ -14,12 +14,12 @@
 
 #include <generated_stow_items.h>
 #include <sys/errno.h>
-#include <zds/error.h>
-#include <zds/memory.h>
-#include <zds/stow/stow.h>
-#include <zds/stow/stow_event.h>
-#include <zds/stow/stow_storage.h>
-#include <zds/stow/types/stow_types.h>
+#include <gantry/error.h>
+#include <gantry/memory.h>
+#include <gantry/stow/stow.h>
+#include <gantry/stow/stow_event.h>
+#include <gantry/stow/stow_storage.h>
+#include <gantry/stow/types/stow_types.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/slist.h>
 

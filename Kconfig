@@ -1,16 +1,15 @@
-menuconfig ZDS
-    bool "Zephyr Stow (ZDS) module"
+menuconfig GANTRY
+    bool "Gantry module"
     default n
     help
-      Enable the ZDS module providing a reactive stow plus the
-      supporting memory pool, event, and flag subsystems.
+      Enable the Gantry module.
 
-if ZDS
+if GANTRY
 
 rsource "kconfig/Kconfig.analysis"
 
-config ZDS_BUILD_LIBRARY
-    bool "Build ZDS sources as a Zephyr library"
+config GANTRY_BUILD_LIBRARY
+    bool "Build Gantry sources as a Zephyr library"
     default y
     help
       When enabled, the module compiles its sources into a Zephyr library
@@ -64,4 +63,4 @@ if GANTRY_STOW
     rsource "kconfig/Kconfig.stow"
 endif
 
-endif # ZDS
+endif # GANTRY

@@ -15,11 +15,11 @@
 #include <stdint.h>
 #include <string.h>
 #include <sys/errno.h>
-#include <zds/error.h>
-#include <zds/memory.h>
-#include <zds/stow/types/stow_type_string.h>
-#include <zds/stow/types/stow_types.h>
-#include <zds/string_utils.h>
+#include <gantry/error.h>
+#include <gantry/memory.h>
+#include <gantry/stow/types/stow_type_string.h>
+#include <gantry/stow/types/stow_types.h>
+#include <gantry/string_utils.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 

@@ -18,10 +18,10 @@
 
 #include <generated_stow_items.h>
 #include <stddef.h>
-#include <zds/event.h>
-#include <zds/memory.h>
-#include <zds/stow/stow_event.h>
-#include <zds/stow/types/stow_types.h>
+#include <gantry/event.h>
+#include <gantry/memory.h>
+#include <gantry/stow/stow_event.h>
+#include <gantry/stow/types/stow_types.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/slist.h>
 

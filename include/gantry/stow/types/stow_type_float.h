@@ -6,18 +6,18 @@
 
 /**
  * @file
- * @brief Implements the stow buffer type
+ * @brief Implements the stow float type
  *
  * @author Demizo (demizodemazo@gmail.com)
  *
  *
  */
 
-#ifndef STOW_TYPE_BUFFER_H
-#define STOW_TYPE_BUFFER_H
+#ifndef STOW_TYPE_FLOAT_H
+#define STOW_TYPE_FLOAT_H
 
 #include <stddef.h>
-#include <zds/stow/types/stow_types.h>
+#include <gantry/stow/types/stow_types.h>
 
 /**
  * @addtogroup stow
@@ -33,11 +33,11 @@
 //**********************************************************
 
 /**
- * @brief Stow interface for buffer items
+ * @brief Stow interface for float items
  *
- * @details Operations expect to receive the address of a @ref buffer_t pointer
+ * @details Operations expect to receive the address of a float
  */
-extern const struct stow_item_interface stow_buffer_interface;
+extern const struct stow_item_interface stow_float_interface;
 
 //**********************************************************
 //* Functions
@@ -47,4 +47,4 @@ extern const struct stow_item_interface stow_buffer_interface;
  * @}
  */
 
-#endif  // STOW_TYPE_BUFFER_H
+#endif  // STOW_TYPE_FLOAT_H

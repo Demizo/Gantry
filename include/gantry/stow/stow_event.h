@@ -17,8 +17,8 @@
 #define STOW_EVENT_H
 
 #include <stddef.h>
-#include <zds/event.h>
-#include <zds/stow/types/stow_types.h>
+#include <gantry/event.h>
+#include <gantry/stow/types/stow_types.h>
 #include <zephyr/kernel.h>
 
 /**

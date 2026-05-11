@@ -13,9 +13,9 @@
  */
 
 #include <sys/errno.h>
-#include <zds/error.h>
-#include <zds/stow/types/stow_type_float.h>
-#include <zds/stow/types/stow_types.h>
+#include <gantry/error.h>
+#include <gantry/stow/types/stow_type_float.h>
+#include <gantry/stow/types/stow_types.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 

@@ -6,18 +6,18 @@
 
 /**
  * @file
- * @brief Implements the stow string type
+ * @brief Implements the stow buffer type
  *
  * @author Demizo (demizodemazo@gmail.com)
  *
  *
  */
 
-#ifndef STOW_TYPE_STRING_H
-#define STOW_TYPE_STRING_H
+#ifndef STOW_TYPE_BUFFER_H
+#define STOW_TYPE_BUFFER_H
 
 #include <stddef.h>
-#include <zds/stow/types/stow_types.h>
+#include <gantry/stow/types/stow_types.h>
 
 /**
  * @addtogroup stow
@@ -33,11 +33,11 @@
 //**********************************************************
 
 /**
- * @brief Stow interface for string items
+ * @brief Stow interface for buffer items
  *
- * @details Operations expect to receive the address of a char pointer
+ * @details Operations expect to receive the address of a @ref buffer_t pointer
  */
-extern const struct stow_item_interface stow_string_interface;
+extern const struct stow_item_interface stow_buffer_interface;
 
 //**********************************************************
 //* Functions
@@ -47,4 +47,4 @@ extern const struct stow_item_interface stow_string_interface;
  * @}
  */
 
-#endif  // STOW_TYPE_STRING_H
+#endif  // STOW_TYPE_BUFFER_H

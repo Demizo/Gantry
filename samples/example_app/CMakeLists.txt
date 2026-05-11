@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20.0)
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(zds_example_app)
+project(gantry_example_app)
 
 zephyr_cc_option(-Wfatal-errors)
 

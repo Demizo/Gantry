@@ -18,9 +18,9 @@
 #include <string.h>
 #include <sys/errno.h>
 #include <zcbor_encode.h>
-#include <zds/error.h>
-#include <zds/stow/stow_describe.h>
-#include <zds/stow/types/stow_types.h>
+#include <gantry/error.h>
+#include <gantry/stow/stow_describe.h>
+#include <gantry/stow/types/stow_types.h>
 #include <zephyr/logging/log.h>
 
 /**

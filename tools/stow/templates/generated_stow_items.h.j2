@@ -18,8 +18,8 @@
 #include <stdint.h>
 #include <zephyr/kernel.h>
 
-#include <zds/buffer.h>
-#include <zds/stow/types/stow_types.h>
+#include <gantry/buffer.h>
+#include <gantry/stow/types/stow_types.h>
 {% for struct_name in structs %}
 #include "generated_struct_{{ struct_name }}.h"
 {% endfor %}

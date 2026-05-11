@@ -1,5 +1,5 @@
 {
-  description = "ZDS Development Environment";
+  description = "Gantry Development Environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zds/stow/stow_storage.h>
+#include <gantry/stow/stow_storage.h>
 
 int stow_storage_load(void) { return 0; }
 

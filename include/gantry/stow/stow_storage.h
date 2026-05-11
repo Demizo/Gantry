@@ -17,7 +17,7 @@
 #define STOW_STORAGE_H
 
 #include <stddef.h>
-#include <zds/stow/types/stow_types.h>
+#include <gantry/stow/types/stow_types.h>
 #include <zephyr/kernel.h>
 
 /**

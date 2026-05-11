@@ -16,8 +16,8 @@
 
 #include <stdint.h>
 
-#include <zds/buffer.h>
-#include <zds/stow/types/stow_types.h>
+#include <gantry/buffer.h>
+#include <gantry/stow/types/stow_types.h>
 {% for field in struct.fields %}
 {% if field.type == 'STRUCT' %}
 #include "generated_struct_{{ field.nested_struct_name }}.h"

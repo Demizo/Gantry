@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zds/error.h>
-#include <zds/static_unit.h>
+#include <gantry/error.h>
+#include <gantry/static_unit.h>
 #include <zephyr/ztest.h>
 
 #include "memory.c"

@@ -10,10 +10,10 @@
 #include <string.h>
 #include <zcbor_decode.h>
 #include <zcbor_encode.h>
-#include <zds/memory.h>
-#include <zds/stow/stow.h>
-#include <zds/stow/stow_describe.h>
-#include <zds/stow/types/stow_type_enum.h>
+#include <gantry/memory.h>
+#include <gantry/stow/stow.h>
+#include <gantry/stow/stow_describe.h>
+#include <gantry/stow/types/stow_type_enum.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/logging/log_core.h>
 #include <zephyr/ztest.h>
