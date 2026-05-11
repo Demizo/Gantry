@@ -1,20 +1,20 @@
-# zds_datastore_generate(YAML <path> [OUTPUT_DIR <dir>])
+# zds_stow_generate(YAML <path> [OUTPUT_DIR <dir>])
 #
-# Runs the datastore generator over the given YAML and attaches the generated
+# Runs the stow generator over the given YAML and attaches the generated
 # C sources / headers to the calling CMakeLists' `app` target.
 #
 # OUTPUT_DIR defaults to ${CMAKE_CURRENT_BINARY_DIR}/zds_generated.
-function(zds_datastore_generate)
+function(zds_stow_generate)
   cmake_parse_arguments(ARG "" "YAML;OUTPUT_DIR" "" ${ARGN})
 
   if(NOT ARG_YAML)
-    message(FATAL_ERROR "zds_datastore_generate: YAML <path> is required")
+    message(FATAL_ERROR "zds_stow_generate: YAML <path> is required")
   endif()
   if(NOT IS_ABSOLUTE "${ARG_YAML}")
     set(ARG_YAML "${CMAKE_CURRENT_SOURCE_DIR}/${ARG_YAML}")
   endif()
   if(NOT EXISTS "${ARG_YAML}")
-    message(FATAL_ERROR "zds_datastore_generate: YAML not found: ${ARG_YAML}")
+    message(FATAL_ERROR "zds_stow_generate: YAML not found: ${ARG_YAML}")
   endif()
 
   if(NOT ARG_OUTPUT_DIR)
@@ -22,34 +22,34 @@ function(zds_datastore_generate)
   endif()
 
   find_program(ZDS_UV_CMD NAMES uv REQUIRED)
-  set(_gen_dir ${ZEPHYR_ZDS_MODULE_DIR}/tools/datastore)
+  set(_gen_dir ${ZEPHYR_ZDS_MODULE_DIR}/tools/stow)
 
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ARG_YAML})
 
-  file(MAKE_DIRECTORY ${ARG_OUTPUT_DIR}/inc/datastore)
-  file(MAKE_DIRECTORY ${ARG_OUTPUT_DIR}/src/datastore)
+  file(MAKE_DIRECTORY ${ARG_OUTPUT_DIR}/inc/stow)
+  file(MAKE_DIRECTORY ${ARG_OUTPUT_DIR}/src/stow)
 
-  message(STATUS "ZDS: generating datastore from ${ARG_YAML}")
+  message(STATUS "ZDS: generating stow from ${ARG_YAML}")
   execute_process(
-    COMMAND ${ZDS_UV_CMD} run ${_gen_dir}/generate_datastore.py
+    COMMAND ${ZDS_UV_CMD} run ${_gen_dir}/generate_stow.py
             --yaml       ${ARG_YAML}
             --output-dir ${ARG_OUTPUT_DIR}
     WORKING_DIRECTORY ${ZEPHYR_ZDS_MODULE_DIR}
     RESULT_VARIABLE _gen_result
   )
   if(NOT _gen_result EQUAL 0)
-    message(FATAL_ERROR "ZDS datastore generation failed (exit ${_gen_result})")
+    message(FATAL_ERROR "ZDS stow generation failed (exit ${_gen_result})")
   endif()
 
   file(GLOB _generated_struct_sources
-    ${ARG_OUTPUT_DIR}/src/datastore/generated_struct_*.c)
+    ${ARG_OUTPUT_DIR}/src/stow/generated_struct_*.c)
 
   target_sources(app PRIVATE
-    ${ARG_OUTPUT_DIR}/src/datastore/generated_datastore_items.c
-    ${ARG_OUTPUT_DIR}/src/datastore/generated_datastore_enums.c
+    ${ARG_OUTPUT_DIR}/src/stow/generated_stow_items.c
+    ${ARG_OUTPUT_DIR}/src/stow/generated_stow_enums.c
     ${_generated_struct_sources}
   )
-  zephyr_include_directories(${ARG_OUTPUT_DIR}/inc/datastore)
+  zephyr_include_directories(${ARG_OUTPUT_DIR}/inc/stow)
 endfunction()
 
 # zds_register_analysis()

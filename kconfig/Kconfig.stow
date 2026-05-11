@@ -1,0 +1,15 @@
+config STOW_LOG_LEVEL
+    int "Stow log level"
+    default 3
+
+config STOW_TYPES_LOG_LEVEL
+    int "Stow type parsing log level"
+    default 3
+    
+config STOW_STORAGE_LOG_LEVEL
+    int "Stow storage backend log level"
+    default 3
+
+config STOW_ITEM_STORAGE_SIZE_MAX
+    int "The maximum encoded size in bytes for stow items stored in persistent storage"
+    default 1024

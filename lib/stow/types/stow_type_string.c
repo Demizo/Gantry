@@ -1,0 +1,179 @@
+/*
+ * Copyright (c) 2026 Demizo
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
+ * @file
+ * @author Demizo (demizodemazo@gmail.com)
+ * @brief String type for stow items
+ *
+ *
+ */
+
+#include <stdint.h>
+#include <string.h>
+#include <sys/errno.h>
+#include <zds/error.h>
+#include <zds/memory.h>
+#include <zds/stow/types/stow_type_string.h>
+#include <zds/stow/types/stow_types.h>
+#include <zds/string_utils.h>
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+
+/**
+ * @brief Logger for module
+ */
+LOG_MODULE_REGISTER(stow_type_string, CONFIG_STOW_TYPES_LOG_LEVEL);
+
+//**********************************************************
+//* Local Definitions
+//**********************************************************
+
+//**********************************************************
+//* Static Function Declarations
+//**********************************************************
+
+static bool validate(const union stow_constraints* constraints, data_value_t value);
+static bool is_equal(data_value_t a, data_value_t b);
+static void set(void* dest, data_value_t value);
+static int get(void* src, data_value_t* out_value);
+static void release(data_value_t* value);
+static int encode(zcbor_state_t* encoder, data_value_t value);
+static int decode(zcbor_state_t* decoder, data_value_t* out_value);
+static int encode_constraints(zcbor_state_t* encoder, const union stow_constraints* constraints);
+
+//**********************************************************
+//* Static Variable Definitions
+//**********************************************************
+
+//**********************************************************
+//* Static Function Definitions
+//**********************************************************
+
+static bool validate(const union stow_constraints* constraints, data_value_t value)
+{
+    ASSERT(value.type == STOW_ITEM_TYPE_STRING, "Unexpected value type");
+    uint16_t len = strnlen(value.data.string_value, constraints->buffer_constraints.max_len + 1);
+    // The string buffer is one byte larger than max length so that there is room for the null terminator
+    return ((len >= constraints->buffer_constraints.min_len) && (len <= constraints->buffer_constraints.max_len));
+}
+
+static bool is_equal(data_value_t a, data_value_t b)
+{
+    ASSERT((a.type == STOW_ITEM_TYPE_STRING) && (b.type == STOW_ITEM_TYPE_STRING), "Unexpected value type");
+
+    // SAFETY: This API is used to check if an incoming value matches a valid value (e.g. the default value or current
+    // value). One side of the comparison is guaranteed to be terminated.
+    return (strcmp(a.data.string_value, b.data.string_value) == 0);
+}
+
+static void set(void* dest, data_value_t value)
+{
+    ASSERT(value.type == STOW_ITEM_TYPE_STRING, "Unexpected value type");
+    // SAFETY: This API assumes that the provided value has already been validated. This means the incoming value is
+    // known to fit in the destination buffer and will terminate.
+    strcpy((char*)dest, value.data.string_value);
+}
+
+static int get(void* src, data_value_t* out_value)
+{
+    int ret = SUCCESS;
+    // SAFETY: The source will only ever contain a validated string which ensures it is terminated.
+    uint16_t len = strlen((const char*)src) + 1;
+
+    void* string_block = NULL;
+    ret = mem_alloc(len, &string_block);
+    if (ret == SUCCESS)
+    {
+        strscpy((char*)string_block, (const char*)src, len);
+
+        out_value->type = STOW_ITEM_TYPE_STRING;
+        out_value->data.string_value = string_block;
+    }
+
+    PASS_OWNERSHIP(string_block);
+    return ret;
+}
+
+static void release(data_value_t* value)
+{
+    ASSERT(value->type == STOW_ITEM_TYPE_STRING, "Unexpected value type");
+    if (value->data.string_value == NULL) return;
+
+    void* string_block = value->data.string_value;
+    mem_unref(&string_block);
+}
+
+static int encode(zcbor_state_t* encoder, data_value_t value)
+{
+    ASSERT(value.type == STOW_ITEM_TYPE_STRING, "Unexpected value type");
+
+    const char* string_value = value.data.string_value;
+    uint16_t len = strnlen(string_value, UINT16_MAX);
+    struct zcbor_string str = { .value = string_value, .len = len };
+
+    if (!zcbor_tstr_encode(encoder, &str))
+    {
+        return -ENOMEM;
+    }
+
+    return SUCCESS;
+}
+
+static int decode(zcbor_state_t* decoder, data_value_t* out_value)
+{
+    struct zcbor_string str;
+
+    if (!zcbor_tstr_decode(decoder, &str))
+    {
+        return -EBADMSG;
+    }
+
+    void* string_block = NULL;
+    int ret = mem_alloc(str.len + 1, &string_block);
+    if (ret != SUCCESS)
+    {
+        NOT_REFERENCED(string_block);
+        return ret;
+    }
+
+    memcpy((char*)string_block, str.value, str.len);
+    ((char*)string_block)[str.len] = 0;
+
+    out_value->type = STOW_ITEM_TYPE_STRING;
+    out_value->data.string_value = string_block;
+
+    PASS_OWNERSHIP(string_block);
+    return SUCCESS;
+}
+
+static int encode_constraints(zcbor_state_t* encoder, const union stow_constraints* constraints)
+{
+    if (!zcbor_map_start_encode(encoder, 2) || !zcbor_tstr_put_lit(encoder, "min_len") ||
+        !zcbor_uint32_put(encoder, constraints->buffer_constraints.min_len) ||
+        !zcbor_tstr_put_lit(encoder, "max_len") ||
+        !zcbor_uint32_put(encoder, constraints->buffer_constraints.max_len) || !zcbor_map_end_encode(encoder, 2))
+    {
+        return -ENOMEM;
+    }
+
+    return SUCCESS;
+}
+
+//**********************************************************
+//* Public Function Definitions
+//**********************************************************
+
+const struct stow_item_interface stow_string_interface = {
+    .validate = validate,
+    .is_equal = is_equal,
+    .set = set,
+    .get = get,
+    .release = release,
+    .decode = decode,
+    .encode = encode,
+    .encode_constraints = encode_constraints,
+};

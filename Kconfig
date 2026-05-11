@@ -1,8 +1,8 @@
 menuconfig ZDS
-    bool "Zephyr Datastore (ZDS) module"
+    bool "Zephyr Stow (ZDS) module"
     default n
     help
-      Enable the ZDS module providing a reactive datastore plus the
+      Enable the ZDS module providing a reactive stow plus the
       supporting memory pool, event, and flag subsystems.
 
 if ZDS
@@ -55,13 +55,13 @@ if GANTRY_EVENTS
 endif
 
 menuconfig GANTRY_STOW
-    bool "Datastore"
+    bool "Stow"
     default y
     help
-      Enable the reactive datastore.
+      Enable the reactive stow.
 
 if GANTRY_STOW
-    rsource "kconfig/Kconfig.datastore"
+    rsource "kconfig/Kconfig.stow"
 endif
 
 endif # ZDS

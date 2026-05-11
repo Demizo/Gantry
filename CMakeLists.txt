@@ -19,23 +19,23 @@ if(CONFIG_ZDS_BUILD_LIBRARY)
 
   if(CONFIG_GANTRY_STOW)
     zephyr_library_sources(
-      lib/datastore/datastore.c
-      lib/datastore/datastore_describe.c
-      lib/datastore/datastore_event.c
-      lib/datastore/datastore_storage.c
-      lib/datastore/types/datastore_type_enum.c
-      lib/datastore/types/datastore_type_int.c
-      lib/datastore/types/datastore_type_float.c
-      lib/datastore/types/datastore_type_string.c
-      lib/datastore/types/datastore_type_byte_array.c
-      lib/datastore/types/datastore_type_buffer.c
+      lib/stow/stow.c
+      lib/stow/stow_describe.c
+      lib/stow/stow_event.c
+      lib/stow/stow_storage.c
+      lib/stow/types/stow_type_enum.c
+      lib/stow/types/stow_type_int.c
+      lib/stow/types/stow_type_float.c
+      lib/stow/types/stow_type_string.c
+      lib/stow/types/stow_type_byte_array.c
+      lib/stow/types/stow_type_buffer.c
     )
 
-    set(_app_yaml ${APPLICATION_SOURCE_DIR}/datastore.yaml)
+    set(_app_yaml ${APPLICATION_SOURCE_DIR}/stow.yaml)
     if(NOT EXISTS "${_app_yaml}")
-      message(FATAL_ERROR "Expected datastore.yaml at ${APPLICATION_SOURCE_DIR}")
+      message(FATAL_ERROR "Expected stow.yaml at ${APPLICATION_SOURCE_DIR}")
     endif()
-    zds_datastore_generate(YAML ${_app_yaml})
+    zds_stow_generate(YAML ${_app_yaml})
   endif()
 
   zephyr_library_compile_options(-Wall -Wextra -Wfatal-errors)

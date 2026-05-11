@@ -15,13 +15,13 @@ alloc_functions:
     single_param: true
   - name: event_ref
     single_param: true
-  - name: DATASTORE_GET
+  - name: STOW_GET
     single_param: false
-  - name: datastore_get
+  - name: stow_get
     single_param: false
-  - name: DATASTORE_DECODE
+  - name: STOW_DECODE
     single_param: false
-  - name: datastore_decode
+  - name: stow_decode
     single_param: false
 
 dealloc_functions:
@@ -33,9 +33,9 @@ dealloc_functions:
     single_param: true
   - name: event_unref
     single_param: true
-  - name: DATASTORE_RELEASE
+  - name: STOW_RELEASE
     single_param: false
-  - name: datastore_release
+  - name: stow_release
     single_param: false
   - name: PASS_OWNERSHIP
     single_param: true

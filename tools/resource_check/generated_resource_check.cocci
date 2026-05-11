@@ -30,13 +30,13 @@ position p;
 |
     event_ref(E)@p
 |
-    DATASTORE_GET(..., E)@p
+    STOW_GET(..., E)@p
 |
-    datastore_get(..., E)@p
+    stow_get(..., E)@p
 |
-    DATASTORE_DECODE(..., E)@p
+    STOW_DECODE(..., E)@p
 |
-    datastore_decode(..., E)@p
+    stow_decode(..., E)@p
 |
     MEM_UNREF(E)@p
 |
@@ -46,9 +46,9 @@ position p;
 |
     event_unref(E)@p
 |
-    DATASTORE_RELEASE(..., E)@p
+    STOW_RELEASE(..., E)@p
 |
-    datastore_release(..., E)@p
+    stow_release(..., E)@p
 |
     PASS_OWNERSHIP(E)@p
 |
@@ -123,29 +123,29 @@ position p1, p2;
 |
     event_ref(ptr)@p1
 |
-    DATASTORE_GET(..., (T)&ptr)@p1
+    STOW_GET(..., (T)&ptr)@p1
 |
-    DATASTORE_GET(..., &ptr)@p1
+    STOW_GET(..., &ptr)@p1
 |
-    DATASTORE_GET(..., ptr)@p1
+    STOW_GET(..., ptr)@p1
 |
-    datastore_get(..., (T)&ptr)@p1
+    stow_get(..., (T)&ptr)@p1
 |
-    datastore_get(..., &ptr)@p1
+    stow_get(..., &ptr)@p1
 |
-    datastore_get(..., ptr)@p1
+    stow_get(..., ptr)@p1
 |
-    DATASTORE_DECODE(..., (T)&ptr)@p1
+    STOW_DECODE(..., (T)&ptr)@p1
 |
-    DATASTORE_DECODE(..., &ptr)@p1
+    STOW_DECODE(..., &ptr)@p1
 |
-    DATASTORE_DECODE(..., ptr)@p1
+    STOW_DECODE(..., ptr)@p1
 |
-    datastore_decode(..., (T)&ptr)@p1
+    stow_decode(..., (T)&ptr)@p1
 |
-    datastore_decode(..., &ptr)@p1
+    stow_decode(..., &ptr)@p1
 |
-    datastore_decode(..., ptr)@p1
+    stow_decode(..., ptr)@p1
 )
 ...
 when != MEM_UNREF((T)&ptr)
@@ -160,12 +160,12 @@ when != EVENT_UNREF(ptr)
 when != event_unref((T)&ptr)
 when != event_unref(&ptr)
 when != event_unref(ptr)
-when != DATASTORE_RELEASE(..., (T)&ptr)
-when != DATASTORE_RELEASE(..., &ptr)
-when != DATASTORE_RELEASE(..., ptr)
-when != datastore_release(..., (T)&ptr)
-when != datastore_release(..., &ptr)
-when != datastore_release(..., ptr)
+when != STOW_RELEASE(..., (T)&ptr)
+when != STOW_RELEASE(..., &ptr)
+when != STOW_RELEASE(..., ptr)
+when != stow_release(..., (T)&ptr)
+when != stow_release(..., &ptr)
+when != stow_release(..., ptr)
 when != PASS_OWNERSHIP((T)&ptr)
 when != PASS_OWNERSHIP(&ptr)
 when != PASS_OWNERSHIP(ptr)
