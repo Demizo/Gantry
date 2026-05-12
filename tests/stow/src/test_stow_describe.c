@@ -130,19 +130,19 @@ ZTEST(stow_describe, test_describe_encoding)
 
     // storage
     EXPECT_KEY(dec, "storage");
-    zassert_true(zcbor_uint32_decode(dec, &val_u32), "Failed to decode storage");
+    zassert_true(zcbor_tstr_decode(dec, &val_tstr), "Failed to decode storage");
 
     // read_perm
     EXPECT_KEY(dec, "read_perm");
-    zassert_true(zcbor_uint32_decode(dec, &val_u32), "Failed to decode read_perm");
+    zassert_true(zcbor_tstr_decode(dec, &val_tstr), "Failed to decode read_perm");
 
     // write_perm
     EXPECT_KEY(dec, "write_perm");
-    zassert_true(zcbor_uint32_decode(dec, &val_u32), "Failed to decode write_perm");
+    zassert_true(zcbor_tstr_decode(dec, &val_tstr), "Failed to decode write_perm");
 
     // type
     EXPECT_KEY(dec, "type");
-    zassert_true(zcbor_uint32_decode(dec, &val_u32), "Failed to decode type");
+    zassert_true(zcbor_tstr_decode(dec, &val_tstr), "Failed to decode type");
 
     // default (Skip the value)
     EXPECT_KEY(dec, "default");

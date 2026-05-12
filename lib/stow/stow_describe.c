@@ -14,13 +14,13 @@
  *
  */
 
+#include <gantry/error.h>
+#include <gantry/stow/stow_describe.h>
+#include <gantry/stow/types/stow_types.h>
 #include <generated_stow_items.h>
 #include <string.h>
 #include <sys/errno.h>
 #include <zcbor_encode.h>
-#include <gantry/error.h>
-#include <gantry/stow/stow_describe.h>
-#include <gantry/stow/types/stow_types.h>
 #include <zephyr/logging/log.h>
 
 /**
@@ -28,15 +28,52 @@
  */
 LOG_MODULE_REGISTER(stow_describe, CONFIG_STOW_LOG_LEVEL);
 
+/**
+ * @brief String representation of each storage type
+ */
+static const char* const storage_type_strs[] = {
+    [STOW_STORAGE_EPHEMERAL] = "Ephemeral",
+    [STOW_STORAGE_PERSISTENT] = "Persistent",
+    [STOW_STORAGE_TOFU] = "TOFU",
+};
+
+/**
+ * @brief String representation of each authentication level
+ */
+static const char* const auth_level_strs[] = {
+    [AUTH_ANY] = "Any",           [AUTH_SESSION] = "Session", [AUTH_DEV] = "Dev",
+    [AUTH_INTERNAL] = "Internal", [AUTH_NONE] = "No access",
+};
+
+/**
+ * @brief String representation of each item type
+ */
+static const char* const item_type_strs[] = {
+    [STOW_ITEM_TYPE_ENUM] = "Enum",
+    [STOW_ITEM_TYPE_INT] = "Int",
+    [STOW_ITEM_TYPE_FLOAT] = "Float",
+    [STOW_ITEM_TYPE_STRING] = "String",
+    [STOW_ITEM_TYPE_BYTE_ARRAY] = "Byte Array",
+    [STOW_ITEM_TYPE_BUFFER] = "Buffer",
+    [STOW_ITEM_TYPE_STRUCT] = "Struct",
+};
+
 //**********************************************************
 //* Static Function Declarations
 //**********************************************************
 
 static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_metadata* item);
+static bool tstr_put(zcbor_state_t* encoder, const char* str);
 
 //**********************************************************
 //* Static Function Definitions
 //**********************************************************
+
+static bool tstr_put(zcbor_state_t* encoder, const char* str)
+{
+    struct zcbor_string s = { .value = str, .len = strlen(str) };
+    return zcbor_tstr_encode(encoder, &s);
+}
 
 /**
  * @brief Encode the provided item's metadata
@@ -86,12 +123,12 @@ static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_meta
         return -ENOMEM;
     }
 
-    if (!zcbor_tstr_put_lit(encoder, "storage") || !zcbor_uint32_put(encoder, (uint32_t)item->storage_type) ||
+    if (!zcbor_tstr_put_lit(encoder, "storage") || !tstr_put(encoder, storage_type_strs[item->storage_type]) ||
         !zcbor_tstr_put_lit(encoder, "read_perm") ||
-        !zcbor_uint32_put(encoder, (uint32_t)item->permissions.read_permissions) ||
+        !tstr_put(encoder, auth_level_strs[item->permissions.read_permissions]) ||
         !zcbor_tstr_put_lit(encoder, "write_perm") ||
-        !zcbor_uint32_put(encoder, (uint32_t)item->permissions.write_permissions) ||
-        !zcbor_tstr_put_lit(encoder, "type") || !zcbor_uint32_put(encoder, (uint32_t)item->type))
+        !tstr_put(encoder, auth_level_strs[item->permissions.write_permissions]) ||
+        !zcbor_tstr_put_lit(encoder, "type") || !tstr_put(encoder, item_type_strs[item->type]))
     {
         return -ENOMEM;
     }
