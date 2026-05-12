@@ -92,19 +92,6 @@ items:
       - min_len: 16
       - max_len: 16
 
-  - name: FirmwareVersion
-    description: "The current firmware version"
-    categories: [System]
-    type: STRING
-    storage: PERSISTENT
-    permissions:
-      - read: ANY
-      - write: NONE
-    default: "1.0.0"
-    constraints:
-      - min_len: 6
-      - max_len: 32
-
   - name: BleConnectionState
     description: "The current BLE connection state"
     categories: [System, BLE]

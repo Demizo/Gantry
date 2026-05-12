@@ -1,3 +1,4 @@
+import hashlib
 import re
 import sys
 from datetime import datetime
@@ -340,6 +341,88 @@ def _preprocess_items(items: list, enums: dict, structs: dict) -> list:
     return result
 
 
+def _make_builtin_string_item(name: str, description: str, default: str, min_len: int, max_len: int) -> dict:
+    snake = _to_snake(name)
+    upper = snake.upper()
+    return {
+        "name": name,
+        "snake_name": snake,
+        "upper_name": upper,
+        "description": description,
+        "categories": [],
+        "item_categories": [],
+        "item_categories_snake": [],
+        "type": "STRING",
+        "storage": "EPHEMERAL",
+        "id_enum": f"STOW_ID_{upper}",
+        "c_type_enum": "STOW_ITEM_TYPE_STRING",
+        "c_storage_enum": "STOW_STORAGE_EPHEMERAL",
+        "c_interface": INTERFACE_MAP["STRING"],
+        "c_read_perm": "AUTH_ANY",
+        "c_write_perm": "AUTH_NONE",
+        "constraints_dict": {"min_len": min_len, "max_len": max_len},
+        "needs_static_default": False,
+        "c_default": f'.string_value = "{default}"',
+        "c_field_decl": f"char {snake}[{upper}_MAX_LEN + 1]",
+        "referenced_enum": {},
+        "default_bytes_hex": [],
+        "default_bytes_len": 0,
+        "struct_name": "",
+        "struct_def": {},
+        "struct_default_fields": [],
+        "struct_pre_decls": [],
+    }
+
+
+def _parse_version_file(text: str) -> str:
+    """Parse a VERSION file into a semver string."""
+    kv: dict[str, str] = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if "=" in line and not line.startswith("#"):
+            key, _, val = line.partition("=")
+            kv[key.strip()] = val.strip()
+
+    major = kv.get("VERSION_MAJOR", "0")
+    minor = kv.get("VERSION_MINOR", "0")
+    patch = kv.get("PATCHLEVEL", "0")
+    extra = kv.get("EXTRAVERSION", "")
+    version = f"{major}.{minor}.{patch}"
+    if extra:
+        version += f"-{extra}"
+    return version
+
+
+def _build_builtin_items(yaml_path: Path) -> list:
+    items = []
+    version_path = yaml_path.parent / "VERSION"
+
+    stow_bytes = yaml_path.read_bytes()
+    if version_path.exists():
+        stow_bytes += version_path.read_bytes()
+    yaml_hash = hashlib.sha256(stow_bytes).hexdigest()
+    items.append(_make_builtin_string_item(
+        "StowHash",
+        "SHA256 hash of the Stow",
+        yaml_hash,
+        64,
+        64,
+    ))
+
+    version_path = yaml_path.parent / "VERSION"
+    if version_path.exists():
+        version = _parse_version_file(version_path.read_text())
+        items.append(_make_builtin_string_item(
+            "FirmwareVersion",
+            "Firmware version",
+            version,
+            1,
+            32,
+        ))
+
+    return items
+
+
 def generate(yaml_path: Path, output_dir: Path) -> None:
     with open(yaml_path) as f:
         data = yaml.safe_load(f)
@@ -351,7 +434,8 @@ def generate(yaml_path: Path, output_dir: Path) -> None:
     structs = _preprocess_structs(structs_list, enums)
     categories_list = data.get("categories") or []
     categories_meta = {name: _to_snake(name) for name in categories_list}
-    items = _preprocess_items(data["items"], enums, structs)
+    builtin_items = _build_builtin_items(yaml_path)
+    items = builtin_items + _preprocess_items(data["items"], enums, structs)
 
     referenced_enum_names = []
     seen: set = set()
