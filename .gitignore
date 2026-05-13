@@ -30,3 +30,4 @@ env/
 htmlcov/
 *.cover
 .hypothesis/
+.stow_cache/
