@@ -10,3 +10,6 @@ The system state, configuration, and device information is all managed by a cent
    :caption: Contents:
 
    Memory Management <memory_management/index>
+   Events <events/index>
+   Flags <flags/index>
+   Stow <stow/index>

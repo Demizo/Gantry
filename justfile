@@ -4,7 +4,7 @@ sample := "samples/example_app"
 default:
   @just --list
 
-# Initialize the west workspace (manifest is the repo root)
+# Initialize the west workspace
 init:
   west init -l .
   west update
