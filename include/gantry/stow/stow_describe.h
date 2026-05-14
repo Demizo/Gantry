@@ -33,42 +33,27 @@
 //* Typedefs, Enums, and Structs
 //**********************************************************
 
-/**
- * @brief State context for chunked stow reading
- */
-struct stow_describe_state
-{
-    uint32_t current_id; /**< The ID of the next item to encode */
-};
-
 //**********************************************************
 //* Functions
 //**********************************************************
 
 /**
- * @brief Initialize a stow describe
+ * @brief Encode a chunk of the stow description starting at a given item ID
  *
- * @details Call before starting describe transactions. After starting a describe, obtain the stow description by
- * repeatedly calling @ref stow_describe until there is no more data.
+ * @details The encoder's buffer will be filled with item descriptions starting
+ * from @p start_id. Encoding stops when all items are encoded or the buffer is
+ * full. On return, @p next_id_out holds the ID to pass as @p start_id on the
+ * next call. When @p next_id_out equals the total item count, all items have
+ * been encoded.
  *
- * @param[out] describe_state Describe state to initialize
+ * @param start_id    ID of the first item to encode (pass 0 to start from the beginning)
+ * @param encoder     CBOR encoder to populate
+ * @param next_id_out Populated with the ID of the next item to encode
+ *
+ * @return SUCCESS when all items starting from @p start_id were encoded
+ * @return -ENOMEM when there is no more room in the encoder before all items were encoded
  */
-void stow_describe_start(struct stow_describe_state* describe_state);
-
-/**
- * @brief Encode the next chunk of the stow description
- *
- * @details The encoder's buffer will be filled with the stow description until the description ends or there is no
- * more room in the buffer. describe_state tracks the position across subsequent calls. Call @ref
- * stow_describe_start to reset the describe_state.
- *
- * @param describe_state State variable to track which items have already been described
- * @param encoder CBOR encoder to populate with a chunk of the description
- *
- * @return SUCCESS when the description is complete
- * @return -ENOMEM when there is no more room in the encoder
- */
-int stow_describe(struct stow_describe_state* describe_state, zcbor_state_t* encoder);
+int stow_describe(uint32_t start_id, zcbor_state_t* encoder, uint32_t* next_id_out);
 
 /**
  * @}

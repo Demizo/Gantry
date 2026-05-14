@@ -14,12 +14,10 @@ ZTEST(stow_describe, test_full_describe_succeeds)
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), STOW_ID_COUNT);
 
-    struct stow_describe_state state;
-    stow_describe_start(&state);
-
-    int ret = stow_describe(&state, enc);
+    uint32_t next_id = 0;
+    int ret = stow_describe(0, enc, &next_id);
     zassert_equal(ret, 0);
-    zassert_equal(state.current_id, STOW_ID_COUNT);
+    zassert_equal(next_id, STOW_ID_COUNT);
 }
 
 ZTEST(stow_describe, test_tiny_buffer_returns_enomem)
@@ -28,12 +26,10 @@ ZTEST(stow_describe, test_tiny_buffer_returns_enomem)
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), STOW_ID_COUNT);
 
-    struct stow_describe_state state;
-    stow_describe_start(&state);
-
-    int ret = stow_describe(&state, enc);
+    uint32_t next_id = STOW_ID_COUNT;
+    int ret = stow_describe(0, enc, &next_id);
     zassert_equal(ret, -ENOMEM);
-    zassert_equal(state.current_id, 0);
+    zassert_equal(next_id, 0);
 }
 
 ZTEST(stow_describe, test_rollback_leaves_no_partial_data)
@@ -44,28 +40,25 @@ ZTEST(stow_describe, test_rollback_leaves_no_partial_data)
 
     const uint8_t* payload_before = enc[0].payload;
 
-    struct stow_describe_state state;
-    stow_describe_start(&state);
-    stow_describe(&state, enc);
+    uint32_t next_id = 0;
+    stow_describe(0, enc, &next_id);
 
     zassert_equal_ptr(enc[0].payload, payload_before);
 }
 
 ZTEST(stow_describe, test_chunked_describe_covers_all_items)
 {
-    struct stow_describe_state state;
-    stow_describe_start(&state);
-
+    uint32_t next_id = 0;
     uint32_t items_encoded = 0;
 
-    while (state.current_id < STOW_ID_COUNT)
+    while (next_id < STOW_ID_COUNT)
     {
         uint8_t buf[1024];
         zcbor_state_t enc[4];
         zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), STOW_ID_COUNT);
 
-        uint32_t id_before = state.current_id;
-        int ret = stow_describe(&state, enc);
+        uint32_t id_before = next_id;
+        int ret = stow_describe(next_id, enc, &next_id);
 
         if (ret == 0)
         {
@@ -74,7 +67,7 @@ ZTEST(stow_describe, test_chunked_describe_covers_all_items)
         }
         else if (ret == -ENOMEM)
         {
-            uint32_t newly_encoded_count = state.current_id - id_before;
+            uint32_t newly_encoded_count = next_id - id_before;
             zassert_true(newly_encoded_count > 0);
             items_encoded += newly_encoded_count;
         }
@@ -102,12 +95,10 @@ ZTEST(stow_describe, test_describe_encoding)
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), STOW_ID_COUNT);
 
-    struct stow_describe_state state;
-    stow_describe_start(&state);
-
-    int ret = stow_describe(&state, enc);
+    uint32_t next_id = 0;
+    int ret = stow_describe(0, enc, &next_id);
     zassert_equal(ret, -ENOMEM);
-    zassert_true(state.current_id > 0);
+    zassert_true(next_id > 0);
 
     ZCBOR_STATE_D(dec, 1, buf, enc->payload - buf, 1, 0);
     uint32_t val_u32;
@@ -134,11 +125,11 @@ ZTEST(stow_describe, test_describe_encoding)
 
     // read_perm
     EXPECT_KEY(dec, "read_perm");
-    zassert_true(zcbor_tstr_decode(dec, &val_tstr), "Failed to decode read_perm");
+    zassert_true(zcbor_any_skip(dec, NULL), "Failed to skip 'read_perm' value");
 
     // write_perm
     EXPECT_KEY(dec, "write_perm");
-    zassert_true(zcbor_tstr_decode(dec, &val_tstr), "Failed to decode write_perm");
+    zassert_true(zcbor_any_skip(dec, NULL), "Failed to skip 'write_perm' value");
 
     // type
     EXPECT_KEY(dec, "type");

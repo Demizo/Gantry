@@ -16,12 +16,12 @@
 #ifndef STOW_H
 #define STOW_H
 
-#include <generated_stow_items.h>
-#include <stddef.h>
 #include <gantry/event.h>
 #include <gantry/memory.h>
 #include <gantry/stow/stow_event.h>
 #include <gantry/stow/types/stow_types.h>
+#include <generated_stow_items.h>
+#include <stddef.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/slist.h>
 
@@ -87,16 +87,16 @@ bool stow_is_id_valid(uint32_t id);
 /**
  * @brief Set the value of a data item
  *
- * @param current_auth The current authentication level
+ * @param current_auth The caller's role bitmask
  * @param id Item ID to modify
  * @param value The desired value
  *
  * @return SUCCESS when the value is set
- * @return -EACCES when the current authentication level is not sufficient
+ * @return -EACCES when the caller's role has no overlap with the item's write permission mask
  * @return -EINVAL when the provided value is invalid
  * @return -ENOMEM when the value cannot be stored
  */
-int stow_set(enum stow_auth_level current_auth, enum stow_item_id id, data_value_t value);
+int stow_set(stow_role_t current_auth, enum stow_item_id id, data_value_t value);
 
 /**
  * @brief Convenience macro for @ref stow_set with memory tracing
@@ -106,16 +106,16 @@ int stow_set(enum stow_auth_level current_auth, enum stow_item_id id, data_value
 /**
  * @brief Get the current value of a data item
  *
- * @param[in] current_auth The current authentication level
+ * @param[in] current_auth The caller's role bitmask
  * @param[in] id Item ID to retrieve
  * @param[out] out_value Pointer to be populated with the item's current value
  *
  * @return SUCCESS when the value was retrieved
- * @return -EACCES when the current authentication level is not sufficient
+ * @return -EACCES when the caller's role has no overlap with the item's read permission mask
  * @return -EINVAL when the output pointer is NULL
  * @return -ENOMEM when the value cannot be retrieved
  */
-int stow_get(enum stow_auth_level current_auth, enum stow_item_id id, data_value_t* out_value);
+int stow_get(stow_role_t current_auth, enum stow_item_id id, data_value_t* out_value);
 
 /**
  * @brief Convenience macro for @ref stow_get with memory tracing
@@ -171,16 +171,16 @@ int stow_decode(zcbor_state_t* decoder, enum stow_item_id id, data_value_t* out_
 /**
  * @brief Subscribe to a data item
  *
- * @param current_auth The current authentication level
+ * @param current_auth The caller's role bitmask
  * @param id Item ID to subscribe to
  * @param subscription The stow subscription
  *
  * @return SUCCESS when the subscription is added
- * @return -EACCES when the current authentication level is not sufficient
+ * @return -EACCES when the caller's role has no overlap with the item's read permission mask
  * @return -EALREADY when the requested subscription already exists
  * @return -ENOMEM when there is no memory to create a subscription
  */
-int stow_subscribe(enum stow_auth_level current_auth, enum stow_item_id id, struct stow_subscription* subscription);
+int stow_subscribe(stow_role_t current_auth, enum stow_item_id id, struct stow_subscription* subscription);
 
 /**
  * @brief Unsubscribe from a data item

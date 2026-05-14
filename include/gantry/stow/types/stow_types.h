@@ -16,11 +16,11 @@
 #ifndef STOW_TYPES_H
 #define STOW_TYPES_H
 
+#include <gantry/buffer.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <zcbor_decode.h>
 #include <zcbor_encode.h>
-#include <gantry/buffer.h>
 #include <zephyr/kernel.h>
 
 /**
@@ -84,24 +84,26 @@ enum stow_storage_type
 };
 
 /**
- * @brief Authentication levels
+ * @brief Role bitmask type for access control.
+ *
+ * Each bit position represents one role from the app's Stow specification.
+ *
+ * @note @ref STOW_ROLE_INTERNAL bypasses permission checks. This allows firmware to always access Stow items. Consumers
+ * of the Stow protocol should take care to ensure that session always have AT LEAST ONE role, otherwise they will have
+ * full access.
  */
-enum stow_auth_level
-{
-    AUTH_ANY,      /**< Access does not require authentication */
-    AUTH_SESSION,  /**< Access requires a authenticated session */
-    AUTH_DEV,      /**< Only dev sessions have access */
-    AUTH_INTERNAL, /**< Only internal modules have access */
-    AUTH_NONE      /**< No access permitted */
-};
+typedef uint16_t stow_role_t;
+
+#define STOW_ROLE_INTERNAL ((stow_role_t)0x0000U) /**< Firmware-only; no external client access */
+#define STOW_ROLE_ANY ((stow_role_t)0xFFFFU)      /**< Any external client role has access */
 
 /**
- * @brief Permission levels required to read or write an associated data item
+ * @brief Permission bitmasks required to read or write an associated data item
  */
 struct stow_permissions
 {
-    enum stow_auth_level read_permissions;  /**< Permission level required to read the item value */
-    enum stow_auth_level write_permissions; /**< Permission level required to write the item value */
+    stow_role_t read_permissions;  /**< Role bitmask required to read the item value */
+    stow_role_t write_permissions; /**< Role bitmask required to write the item value */
 };
 
 /**

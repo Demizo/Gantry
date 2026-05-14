@@ -63,6 +63,13 @@ structs:
           - max: 1
 
 # ==============================================================================
+# Roles
+# ==============================================================================
+roles:
+  - Guest
+  - Session
+
+# ==============================================================================
 # Categories
 # ==============================================================================
 categories:
@@ -79,7 +86,7 @@ items:
     storage: PERSISTENT
     permissions:
       - read: ANY
-      - write: SESSION
+      - write: [Session]
     default: "hello"
     constraints:
       - min_len: 1
@@ -156,7 +163,7 @@ items:
     storage: TOFU
     permissions:
       - read: ANY
-      - write: SESSION
+      - write: [Session]
     default: "default"
     constraints:
       - min_len: 1

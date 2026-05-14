@@ -1,8 +1,19 @@
 VALID_TYPES = {"STRING", "INT", "FLOAT", "ENUM", "BYTE_ARRAY", "BUFFER", "STRUCT"}
 VALID_STRUCT_FIELD_TYPES = {"STRING", "INT", "FLOAT", "ENUM", "BYTE_ARRAY", "BUFFER", "STRUCT"}
 VALID_STORAGE_TYPES = {"EPHEMERAL", "PERSISTENT", "TOFU"}
-VALID_PERMS = {"ANY", "SESSION", "DEV", "INTERNAL", "NONE"}
 ITEM_REQUIRED_FIELDS = {"name", "description", "categories", "type", "storage", "permissions", "default", "constraints"}
+
+
+def _validate_perm(value, valid_roles: set, ctx: str) -> None:
+    """Validate a single read or write permission value."""
+    if value in ("ANY", "INTERNAL"):
+        return
+    if isinstance(value, list):
+        for r in value:
+            if r not in valid_roles:
+                raise ValueError(f"{ctx}: role '{r}' not defined in top-level 'roles'")
+        return
+    raise ValueError(f"{ctx}: permission must be 'ANY', 'INTERNAL', or a list of role names")
 
 
 def _flatten(lst: list, ctx: str) -> dict:
@@ -94,6 +105,16 @@ def validate(data: dict) -> None:
             if not isinstance(val["value"], int):
                 raise ValueError(f"{ctx} value[{i}]: 'value' must be an integer")
 
+    roles_raw = data.get("roles") or []
+    if not isinstance(roles_raw, list):
+        raise ValueError("'roles' must be a list")
+    if len(roles_raw) > 16:
+        raise ValueError("'roles' may define at most 16 roles")
+    for i, role in enumerate(roles_raw):
+        if not isinstance(role, str) or not role:
+            raise ValueError(f"roles[{i}]: must be a non-empty string")
+    valid_roles = set(roles_raw)
+
     categories_raw = data.get("categories") or []
     if not isinstance(categories_raw, list) or not categories_raw:
         raise ValueError("'categories' must be a non-empty list")
@@ -145,11 +166,7 @@ def validate(data: dict) -> None:
         for k in ("read", "write"):
             if k not in perm_dict:
                 raise ValueError(f"{ctx}: 'permissions' missing '{k}'")
-            if perm_dict[k] not in VALID_PERMS:
-                raise ValueError(
-                    f"{ctx}: invalid permission value '{perm_dict[k]}' for '{k}', "
-                    f"must be one of {sorted(VALID_PERMS)}"
-                )
+            _validate_perm(perm_dict[k], valid_roles, f"{ctx} permissions.{k}")
 
         constraints = item["constraints"]
         if not isinstance(constraints, list):

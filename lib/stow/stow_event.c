@@ -13,10 +13,10 @@
  */
 
 #include <autoconf.h>
-#include <sys/errno.h>
 #include <gantry/error.h>
 #include <gantry/event.h>
 #include <gantry/stow/stow_event.h>
+#include <sys/errno.h>
 
 /**
  * @brief Logger for module

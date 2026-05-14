@@ -4,15 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "test_common.h"
 #include "generated_struct_TestStruct.h"
+#include "test_common.h"
 
 ZTEST_SUITE(stow_struct, NULL, NULL, reset_stow, NULL, NULL);
 
 ZTEST(stow_struct, test_get_default)
 {
     data_value_t value;
-    int ret = stow_get(AUTH_ANY, STOW_ID_TEST_STRUCT_ITEM, &value);
+    int ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_STRUCT_ITEM, &value);
     zassert_equal(ret, 0);
     zassert_equal(value.type, STOW_ITEM_TYPE_STRUCT);
 
@@ -42,11 +42,11 @@ ZTEST(stow_struct, test_set_and_get_scalar_field)
         .type = STOW_ITEM_TYPE_STRUCT,
         .data.raw_value = &src,
     };
-    int ret = stow_set(AUTH_ANY, STOW_ID_TEST_STRUCT_ITEM, val);
+    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_STRUCT_ITEM, val);
     zassert_equal(ret, 0);
 
     data_value_t got;
-    ret = stow_get(AUTH_ANY, STOW_ID_TEST_STRUCT_ITEM, &got);
+    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_STRUCT_ITEM, &got);
     zassert_equal(ret, 0);
     TestStruct_t* result = (TestStruct_t*)got.data.raw_value;
     zassert_equal(result->int_field, 42);
@@ -76,11 +76,11 @@ ZTEST(stow_struct, test_set_and_get_buffer_field)
         .type = STOW_ITEM_TYPE_STRUCT,
         .data.raw_value = &src,
     };
-    int ret = stow_set(AUTH_ANY, STOW_ID_TEST_STRUCT_ITEM, val);
+    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_STRUCT_ITEM, val);
     zassert_equal(ret, 0);
 
     data_value_t got;
-    ret = stow_get(AUTH_ANY, STOW_ID_TEST_STRUCT_ITEM, &got);
+    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_STRUCT_ITEM, &got);
     zassert_equal(ret, 0);
     TestStruct_t* result = (TestStruct_t*)got.data.raw_value;
     zassert_equal(result->buf_field->len, 4);
@@ -108,7 +108,7 @@ ZTEST(stow_struct, test_validate_buffer_field_too_large)
         .type = STOW_ITEM_TYPE_STRUCT,
         .data.raw_value = &src,
     };
-    int ret = stow_set(AUTH_ANY, STOW_ID_TEST_STRUCT_ITEM, val);
+    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_STRUCT_ITEM, val);
     zassert_equal(ret, -EINVAL);
 }
 
@@ -131,7 +131,7 @@ ZTEST(stow_struct, test_validate_int_field_out_of_range)
         .type = STOW_ITEM_TYPE_STRUCT,
         .data.raw_value = &src,
     };
-    int ret = stow_set(AUTH_ANY, STOW_ID_TEST_STRUCT_ITEM, val);
+    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_STRUCT_ITEM, val);
     zassert_equal(ret, -EINVAL);
 }
 

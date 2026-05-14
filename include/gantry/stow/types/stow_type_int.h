@@ -16,8 +16,8 @@
 #ifndef STOW_TYPE_INT_H
 #define STOW_TYPE_INT_H
 
-#include <stddef.h>
 #include <gantry/stow/types/stow_types.h>
+#include <stddef.h>
 
 /**
  * @addtogroup stow

@@ -12,10 +12,10 @@
  *
  */
 
-#include <sys/errno.h>
 #include <gantry/error.h>
 #include <gantry/stow/types/stow_type_int.h>
 #include <gantry/stow/types/stow_types.h>
+#include <sys/errno.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 

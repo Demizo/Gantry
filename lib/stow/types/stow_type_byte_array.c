@@ -12,13 +12,13 @@
  *
  */
 
-#include <stdint.h>
-#include <sys/errno.h>
 #include <gantry/buffer.h>
 #include <gantry/error.h>
 #include <gantry/memory.h>
 #include <gantry/stow/types/stow_type_byte_array.h>
 #include <gantry/stow/types/stow_types.h>
+#include <stdint.h>
+#include <sys/errno.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
@@ -63,9 +63,7 @@ static bool validate(const union stow_constraints* constraints, data_value_t val
 
 static bool is_equal(data_value_t a, data_value_t b)
 {
-    ASSERT(
-        (a.type == STOW_ITEM_TYPE_BYTE_ARRAY) && (b.type == STOW_ITEM_TYPE_BYTE_ARRAY),
-        "Unexpected value type");
+    ASSERT((a.type == STOW_ITEM_TYPE_BYTE_ARRAY) && (b.type == STOW_ITEM_TYPE_BYTE_ARRAY), "Unexpected value type");
 
     if (a.data.buffer_value->len != b.data.buffer_value->len) return false;
     return (memcmp(a.data.buffer_value->buf, b.data.buffer_value->buf, b.data.buffer_value->len) == 0);

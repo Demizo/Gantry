@@ -12,13 +12,13 @@
  *
  */
 
-#include <string.h>
-#include <sys/errno.h>
 #include <gantry/buffer.h>
 #include <gantry/error.h>
 #include <gantry/memory.h>
 #include <gantry/stow/types/stow_type_buffer.h>
 #include <gantry/stow/types/stow_types.h>
+#include <string.h>
+#include <sys/errno.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 

@@ -38,14 +38,6 @@ static const char* const storage_type_strs[] = {
 };
 
 /**
- * @brief String representation of each authentication level
- */
-static const char* const auth_level_strs[] = {
-    [AUTH_ANY] = "Any",           [AUTH_SESSION] = "Session", [AUTH_DEV] = "Dev",
-    [AUTH_INTERNAL] = "Internal", [AUTH_NONE] = "No access",
-};
-
-/**
  * @brief String representation of each item type
  */
 static const char* const item_type_strs[] = {
@@ -64,6 +56,7 @@ static const char* const item_type_strs[] = {
 
 static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_metadata* item);
 static bool tstr_put(zcbor_state_t* encoder, const char* str);
+static int encode_role_list(zcbor_state_t* encoder, stow_role_t perm);
 
 //**********************************************************
 //* Static Function Definitions
@@ -73,6 +66,33 @@ static bool tstr_put(zcbor_state_t* encoder, const char* str)
 {
     struct zcbor_string s = { .value = str, .len = strlen(str) };
     return zcbor_tstr_encode(encoder, &s);
+}
+
+static int encode_role_list(zcbor_state_t* encoder, stow_role_t perm)
+{
+    uint8_t count = 0;
+    for (uint8_t bit = 0; bit < STOW_ROLE_COUNT; bit++)
+    {
+        if (perm & (stow_role_t)(1U << bit))
+        {
+            count++;
+        }
+    }
+    if (!zcbor_list_start_encode(encoder, count))
+    {
+        return -ENOMEM;
+    }
+    for (uint8_t bit = 0; bit < STOW_ROLE_COUNT; bit++)
+    {
+        if (perm & (stow_role_t)(1U << bit))
+        {
+            if (!tstr_put(encoder, g_stow_role_names[bit]))
+            {
+                return -ENOMEM;
+            }
+        }
+    }
+    return zcbor_list_end_encode(encoder, count) ? SUCCESS : -ENOMEM;
 }
 
 /**
@@ -125,9 +145,9 @@ static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_meta
 
     if (!zcbor_tstr_put_lit(encoder, "storage") || !tstr_put(encoder, storage_type_strs[item->storage_type]) ||
         !zcbor_tstr_put_lit(encoder, "read_perm") ||
-        !tstr_put(encoder, auth_level_strs[item->permissions.read_permissions]) ||
+        encode_role_list(encoder, item->permissions.read_permissions) != SUCCESS ||
         !zcbor_tstr_put_lit(encoder, "write_perm") ||
-        !tstr_put(encoder, auth_level_strs[item->permissions.write_permissions]) ||
+        encode_role_list(encoder, item->permissions.write_permissions) != SUCCESS ||
         !zcbor_tstr_put_lit(encoder, "type") || !tstr_put(encoder, item_type_strs[item->type]))
     {
         return -ENOMEM;
@@ -167,13 +187,13 @@ static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_meta
 //* Public Function Definitions
 //**********************************************************
 
-void stow_describe_start(struct stow_describe_state* describe_state) { describe_state->current_id = 0; }
-
-int stow_describe(struct stow_describe_state* describe_state, zcbor_state_t* encoder)
+int stow_describe(uint32_t start_id, zcbor_state_t* encoder, uint32_t* next_id_out)
 {
-    while (describe_state->current_id < STOW_ID_COUNT)
+    uint32_t id = start_id;
+
+    while (id < STOW_ID_COUNT)
     {
-        const struct stow_item_const_metadata* item = &g_stow_const_metadata[describe_state->current_id];
+        const struct stow_item_const_metadata* item = &g_stow_const_metadata[id];
 
         zcbor_state_t saved = *encoder;
 
@@ -181,11 +201,13 @@ int stow_describe(struct stow_describe_state* describe_state, zcbor_state_t* enc
         if (ret != SUCCESS)
         {
             *encoder = saved;
+            *next_id_out = id;
             return ret;
         }
 
-        describe_state->current_id++;
+        id++;
     }
 
+    *next_id_out = STOW_ID_COUNT;
     return SUCCESS;
 }

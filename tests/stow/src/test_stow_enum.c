@@ -11,7 +11,7 @@ ZTEST_SUITE(stow_enum, NULL, NULL, reset_stow, NULL, NULL);
 ZTEST(stow_enum, test_get_default)
 {
     data_value_t value;
-    int ret = stow_get(AUTH_ANY, STOW_ID_TEST_ENUM, &value);
+    int ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_ENUM, &value);
     zassert_equal(ret, 0);
     zassert_equal(value.type, STOW_ITEM_TYPE_ENUM);
     zassert_equal(value.data.int_value, Color_RED);
@@ -21,11 +21,11 @@ ZTEST(stow_enum, test_get_default)
 ZTEST(stow_enum, test_set_valid)
 {
     data_value_t val = { .type = STOW_ITEM_TYPE_ENUM, .data.int_value = Color_BLUE };
-    int ret = stow_set(AUTH_ANY, STOW_ID_TEST_ENUM, val);
+    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_ENUM, val);
     zassert_equal(ret, 0);
 
     data_value_t got;
-    ret = stow_get(AUTH_ANY, STOW_ID_TEST_ENUM, &got);
+    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_ENUM, &got);
     zassert_equal(ret, 0);
     zassert_equal(got.data.int_value, Color_BLUE);
     stow_release(STOW_ID_TEST_ENUM, &got);
@@ -34,7 +34,7 @@ ZTEST(stow_enum, test_set_valid)
 ZTEST(stow_enum, test_set_invalid)
 {
     data_value_t val = { .type = STOW_ITEM_TYPE_ENUM, .data.int_value = 99 };
-    int ret = stow_set(AUTH_ANY, STOW_ID_TEST_ENUM, val);
+    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_ENUM, val);
     zassert_equal(ret, -EINVAL);
 }
 

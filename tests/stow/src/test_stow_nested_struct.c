@@ -4,16 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "test_common.h"
 #include "generated_struct_NestedStruct.h"
 #include "generated_struct_TestStruct.h"
+#include "test_common.h"
 
 ZTEST_SUITE(stow_nested_struct, NULL, NULL, reset_stow, NULL, NULL);
 
 ZTEST(stow_nested_struct, test_get_default)
 {
     data_value_t value;
-    int ret = stow_get(AUTH_ANY, STOW_ID_TEST_NESTED_STRUCT_ITEM, &value);
+    int ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_NESTED_STRUCT_ITEM, &value);
     zassert_equal(ret, 0);
     zassert_equal(value.type, STOW_ITEM_TYPE_STRUCT);
 
@@ -51,11 +51,11 @@ ZTEST(stow_nested_struct, test_set_get_roundtrip)
         .type = STOW_ITEM_TYPE_STRUCT,
         .data.raw_value = &outer_src,
     };
-    int ret = stow_set(AUTH_ANY, STOW_ID_TEST_NESTED_STRUCT_ITEM, val);
+    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_NESTED_STRUCT_ITEM, val);
     zassert_equal(ret, 0);
 
     data_value_t got;
-    ret = stow_get(AUTH_ANY, STOW_ID_TEST_NESTED_STRUCT_ITEM, &got);
+    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_NESTED_STRUCT_ITEM, &got);
     zassert_equal(ret, 0);
     NestedStruct_t* result = (NestedStruct_t*)got.data.raw_value;
     zassert_equal(result->flag, 1);
@@ -84,7 +84,7 @@ ZTEST(stow_nested_struct, test_release_frees_recursively)
     NestedStruct_t outer_src = { .inner = &inner_src, .flag = 0 };
 
     data_value_t val = { .type = STOW_ITEM_TYPE_STRUCT, .data.raw_value = &outer_src };
-    int ret = stow_set(AUTH_ANY, STOW_ID_TEST_NESTED_STRUCT_ITEM, val);
+    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_NESTED_STRUCT_ITEM, val);
     zassert_equal(ret, 0);
 
     uint32_t used_after = 0;
@@ -92,7 +92,7 @@ ZTEST(stow_nested_struct, test_release_frees_recursively)
     zassert_equal(used_after, used_before);
 
     data_value_t got;
-    ret = stow_get(AUTH_ANY, STOW_ID_TEST_NESTED_STRUCT_ITEM, &got);
+    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_NESTED_STRUCT_ITEM, &got);
     zassert_equal(ret, 0);
 
     used_after = 0;

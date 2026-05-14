@@ -16,9 +16,9 @@
 #ifndef STOW_EVENT_H
 #define STOW_EVENT_H
 
-#include <stddef.h>
 #include <gantry/event.h>
 #include <gantry/stow/types/stow_types.h>
+#include <stddef.h>
 #include <zephyr/kernel.h>
 
 /**

@@ -12,13 +12,13 @@
  *
  */
 
-#include <generated_stow_items.h>
-#include <string.h>
-#include <sys/errno.h>
 #include <gantry/error.h>
 #include <gantry/memory.h>
 #include <gantry/stow/stow_storage.h>
 #include <gantry/stow/types/stow_types.h>
+#include <generated_stow_items.h>
+#include <string.h>
+#include <sys/errno.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
 

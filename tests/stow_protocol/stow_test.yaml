@@ -1,0 +1,69 @@
+# ==============================================================================
+# Roles
+# ==============================================================================
+roles:
+  - Guest
+  - Session
+  - Dev
+
+# ==============================================================================
+# Categories
+# ==============================================================================
+categories:
+  - General
+
+# ==============================================================================
+# Items
+# ==============================================================================
+items:
+  - name: TestInt
+    description: "Always-accessible int item"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 0
+    constraints:
+      - min: -100
+      - max: 100
+
+  - name: TestString
+    description: "Always-readable but session-writable string"
+    categories: [General]
+    type: STRING
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: [Session]
+    default: "hello"
+    constraints:
+      - min_len: 0
+      - max_len: 32
+
+  - name: TestSessionInt
+    description: "Session-required int item"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: [Session]
+      - write: [Session]
+    default: 7
+    constraints:
+      - min: 0
+      - max: 1000
+
+  - name: TestDevInt
+    description: "Dev-required int item"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: [Dev]
+      - write: [Dev]
+    default: 99
+    constraints:
+      - min: 0
+      - max: 9999

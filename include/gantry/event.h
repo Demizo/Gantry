@@ -27,9 +27,9 @@
 #ifndef EVENT_H
 #define EVENT_H
 
-#include <stddef.h>
 #include <gantry/buffer.h>
 #include <gantry/memory.h>
+#include <stddef.h>
 #include <zephyr/kernel.h>
 
 /**

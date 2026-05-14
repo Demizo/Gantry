@@ -13,11 +13,11 @@
  */
 
 #include <autoconf.h>
-#include <stdint.h>
-#include <sys/errno.h>
 #include <gantry/error.h>
 #include <gantry/memory.h>
 #include <gantry/static_unit.h>
+#include <stdint.h>
+#include <sys/errno.h>
 #include <zephyr/logging/log.h>
 
 /**

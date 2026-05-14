@@ -46,6 +46,14 @@
 {% endif %}
 {% endfor %}
 
+/* Number of application-defined roles */
+#define STOW_ROLE_COUNT {{ roles | length }}
+{% for role_name, role_bit in roles.items() %}
+#define STOW_ROLE_{{ role_name.upper() }} ((stow_role_t)(1U << {{ role_bit }}U)) /**< Role bitmask for {{ role_name }} */
+{% endfor %}
+
+extern const char* const g_stow_role_names[STOW_ROLE_COUNT];
+
 //**********************************************************
 //* Typedefs, Enums, and Structs
 //**********************************************************

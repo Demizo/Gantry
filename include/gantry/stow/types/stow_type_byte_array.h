@@ -16,8 +16,8 @@
 #ifndef STOW_TYPE_BYTE_ARRAY_H
 #define STOW_TYPE_BYTE_ARRAY_H
 
-#include <stddef.h>
 #include <gantry/stow/types/stow_types.h>
+#include <stddef.h>
 
 /**
  * @addtogroup stow

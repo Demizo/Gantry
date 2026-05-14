@@ -13,3 +13,50 @@ config STOW_STORAGE_LOG_LEVEL
 config STOW_ITEM_STORAGE_SIZE_MAX
     int "The maximum encoded size in bytes for stow items stored in persistent storage"
     default 1024
+
+menuconfig STOW_PROTOCOL
+    bool "Enable the Stow protocol module"
+    default n
+    select NET_BUF
+    help
+      Enables the Stow protocol thread and serde layer. The protocol
+      orchestrates external sessions, mapping CBOR-encoded protocol
+      messages to internal Stow API calls. Outgoing messages are
+      produced as net_bufs so the consuming application can prepend
+      headers and append footers without copying.
+
+if STOW_PROTOCOL
+
+config STOW_PROTOCOL_LOG_LEVEL
+    int "Stow protocol log level"
+    default 3
+
+config STOW_SERDE_LOG_LEVEL
+    int "Stow serde log level"
+    default 3
+
+config STOW_PROTOCOL_THREAD_STACK_SIZE
+    int "Stow protocol thread stack size"
+    default 4096
+
+config STOW_PROTOCOL_THREAD_PRIORITY
+    int "Stow protocol thread priority"
+    default 7
+
+config STOW_PROTOCOL_QUEUE_SIZE
+    int "Stow protocol queue size"
+    default 16
+
+config STOW_PROTOCOL_MAX_SESSIONS
+    int "Maximum concurrent Stow protocol sessions"
+    default 4
+
+config STOW_PROTOCOL_DESCRIBE_CHUNK_SIZE
+    int "Maximum describe chunk size in bytes"
+    default 512
+
+config STOW_PROTOCOL_MULTI_MAX_ITEMS
+    int "Maximum number of items per Multi-Get or Multi-Set request"
+    default 10
+
+endif # STOW_PROTOCOL

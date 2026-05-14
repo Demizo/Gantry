@@ -12,14 +12,14 @@
  *
  */
 
-#include <generated_stow_items.h>
-#include <sys/errno.h>
 #include <gantry/error.h>
 #include <gantry/memory.h>
 #include <gantry/stow/stow.h>
 #include <gantry/stow/stow_event.h>
 #include <gantry/stow/stow_storage.h>
 #include <gantry/stow/types/stow_types.h>
+#include <generated_stow_items.h>
+#include <sys/errno.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/slist.h>
 
@@ -193,13 +193,13 @@ void stow_init(void)
 
 bool stow_is_id_valid(uint32_t id) { return id < STOW_ID_COUNT; }
 
-int stow_set(enum stow_auth_level current_auth, enum stow_item_id id, data_value_t value)
+int stow_set(stow_role_t current_auth, enum stow_item_id id, data_value_t value)
 {
     int ret = SUCCESS;
     const struct stow_item_const_metadata* item = &g_stow_const_metadata[id];
 
     // Check permissions
-    if (item->permissions.write_permissions > current_auth)
+    if (current_auth != STOW_ROLE_INTERNAL && (item->permissions.write_permissions & current_auth) == 0)
     {
         LOG_ERR("Insufficient permissions to write item id: %d", id);
         return -EACCES;
@@ -253,13 +253,13 @@ int stow_set(enum stow_auth_level current_auth, enum stow_item_id id, data_value
     return ret;
 }
 
-int stow_get(enum stow_auth_level current_auth, enum stow_item_id id, data_value_t* out_value)
+int stow_get(stow_role_t current_auth, enum stow_item_id id, data_value_t* out_value)
 {
     int ret = SUCCESS;
     const struct stow_item_const_metadata* item = &g_stow_const_metadata[id];
 
     // Check permissions
-    if (item->permissions.read_permissions > current_auth)
+    if (current_auth != STOW_ROLE_INTERNAL && (item->permissions.read_permissions & current_auth) == 0)
     {
         LOG_ERR("Insufficient permissions to read item id: %d", id);
         return -EACCES;
@@ -291,13 +291,13 @@ int stow_decode(zcbor_state_t* decoder, enum stow_item_id id, data_value_t* out_
     return item->interface->decode(decoder, out_value);
 }
 
-int stow_subscribe(enum stow_auth_level current_auth, enum stow_item_id id, struct stow_subscription* subscription)
+int stow_subscribe(stow_role_t current_auth, enum stow_item_id id, struct stow_subscription* subscription)
 {
     int ret = SUCCESS;
     const struct stow_item_const_metadata* item = &g_stow_const_metadata[id];
 
     // Check permissions
-    if (item->permissions.read_permissions > current_auth)
+    if (current_auth != STOW_ROLE_INTERNAL && (item->permissions.read_permissions & current_auth) == 0)
     {
         LOG_ERR("Insufficient permissions to subscribe to item id: %d", id);
         return -EACCES;

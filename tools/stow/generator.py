@@ -237,7 +237,24 @@ def _build_struct_default(prefix: str, struct_def: dict, default_list, structs: 
     return field_entries, pre_decls
 
 
-def _preprocess_items(items: list, enums: dict, structs: dict) -> list:
+def _perm_to_c(perm_spec, roles: dict) -> str:
+    """Convert a YAML permission spec to a C bitmask expression."""
+    if isinstance(perm_spec, str):
+        if perm_spec == "ANY":
+            return "STOW_ROLE_ANY"
+        if perm_spec == "INTERNAL":
+            return "STOW_ROLE_INTERNAL"
+        return f"STOW_ROLE_{perm_spec.upper()}"
+    if isinstance(perm_spec, list):
+        if not perm_spec:
+            return "STOW_ROLE_INTERNAL"
+        return " | ".join(f"STOW_ROLE_{r.upper()}" for r in perm_spec)
+    raise ValueError(f"Invalid permission spec: {perm_spec!r}")
+
+
+def _preprocess_items(items: list, enums: dict, structs: dict, roles: dict | None = None) -> list:
+    if roles is None:
+        roles = {}
     result = []
     for item in items:
         item = dict(item)
@@ -322,8 +339,8 @@ def _preprocess_items(items: list, enums: dict, structs: dict) -> list:
                 "c_type_enum": f"STOW_ITEM_TYPE_{item_type}",
                 "c_storage_enum": f"STOW_STORAGE_{item['storage']}",
                 "c_interface": c_interface,
-                "c_read_perm": f"AUTH_{perm_dict['read']}",
-                "c_write_perm": f"AUTH_{perm_dict['write']}",
+                "c_read_perm": _perm_to_c(perm_dict['read'], roles),
+                "c_write_perm": _perm_to_c(perm_dict['write'], roles),
                 "constraints_dict": cdict,
                 "needs_static_default": needs_static_default,
                 "c_default": c_default,
@@ -358,8 +375,8 @@ def _make_builtin_string_item(name: str, description: str, default: str, min_len
         "c_type_enum": "STOW_ITEM_TYPE_STRING",
         "c_storage_enum": "STOW_STORAGE_EPHEMERAL",
         "c_interface": INTERFACE_MAP["STRING"],
-        "c_read_perm": "AUTH_ANY",
-        "c_write_perm": "AUTH_NONE",
+        "c_read_perm": "STOW_ROLE_ANY",
+        "c_write_perm": "STOW_ROLE_INTERNAL",
         "constraints_dict": {"min_len": min_len, "max_len": max_len},
         "needs_static_default": False,
         "c_default": f'.string_value = "{default}"',
@@ -434,8 +451,10 @@ def generate(yaml_path: Path, output_dir: Path) -> None:
     structs = _preprocess_structs(structs_list, enums)
     categories_list = data.get("categories") or []
     categories_meta = {name: _to_snake(name) for name in categories_list}
+    roles_list = data.get("roles") or []
+    roles = {name: idx for idx, name in enumerate(roles_list)}
     builtin_items = _build_builtin_items(yaml_path)
-    items = builtin_items + _preprocess_items(data["items"], enums, structs)
+    items = builtin_items + _preprocess_items(data["items"], enums, structs, roles)
 
     referenced_enum_names = []
     seen: set = set()
@@ -461,6 +480,7 @@ def generate(yaml_path: Path, output_dir: Path) -> None:
         "items": items,
         "referenced_enum_names": referenced_enum_names,
         "categories_meta": categories_meta,
+        "roles": roles,
     }
 
     output_dir.mkdir(parents=True, exist_ok=True)

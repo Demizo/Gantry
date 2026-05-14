@@ -11,7 +11,7 @@ ZTEST_SUITE(stow_int, NULL, NULL, reset_stow, NULL, NULL);
 ZTEST(stow_int, test_get_default)
 {
     data_value_t value;
-    int ret = stow_get(AUTH_ANY, STOW_ID_TEST_INT, &value);
+    int ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_INT, &value);
     zassert_equal(ret, 0);
     zassert_equal(value.type, STOW_ITEM_TYPE_INT);
     zassert_equal(value.data.int_value, 0);
@@ -21,11 +21,11 @@ ZTEST(stow_int, test_get_default)
 ZTEST(stow_int, test_set_and_get)
 {
     data_value_t set_value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 25 };
-    int ret = stow_set(AUTH_ANY, STOW_ID_TEST_INT, set_value);
+    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_INT, set_value);
     zassert_equal(ret, 0);
 
     data_value_t got;
-    ret = stow_get(AUTH_ANY, STOW_ID_TEST_INT, &got);
+    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_INT, &got);
     zassert_equal(ret, 0);
     zassert_equal(got.data.int_value, 25);
     stow_release(STOW_ID_TEST_INT, &got);
@@ -34,14 +34,14 @@ ZTEST(stow_int, test_set_and_get)
 ZTEST(stow_int, test_set_out_of_range_max)
 {
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 51 };
-    int ret = stow_set(AUTH_ANY, STOW_ID_TEST_INT, value);
+    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_INT, value);
     zassert_equal(ret, -EINVAL);
 }
 
 ZTEST(stow_int, test_set_out_of_range_min)
 {
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = -51 };
-    int ret = stow_set(AUTH_ANY, STOW_ID_TEST_INT, value);
+    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_INT, value);
     zassert_equal(ret, -EINVAL);
 }
 

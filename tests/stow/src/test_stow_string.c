@@ -11,7 +11,7 @@ ZTEST_SUITE(stow_string, NULL, NULL, reset_stow, NULL, NULL);
 ZTEST(stow_string, test_get_default)
 {
     data_value_t value;
-    int ret = stow_get(AUTH_ANY, STOW_ID_TEST_STRING, &value);
+    int ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_STRING, &value);
     zassert_equal(ret, 0);
     zassert_str_equal(value.data.string_value, "hello");
     stow_release(STOW_ID_TEST_STRING, &value);
@@ -20,11 +20,11 @@ ZTEST(stow_string, test_get_default)
 ZTEST(stow_string, test_set_and_get)
 {
     data_value_t val = { .type = STOW_ITEM_TYPE_STRING, .data.string_value = "world" };
-    int ret = stow_set(AUTH_SESSION, STOW_ID_TEST_STRING, val);
+    int ret = stow_set(STOW_ROLE_SESSION, STOW_ID_TEST_STRING, val);
     zassert_equal(ret, 0);
 
     data_value_t got;
-    ret = stow_get(AUTH_ANY, STOW_ID_TEST_STRING, &got);
+    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_STRING, &got);
     zassert_equal(ret, 0);
     zassert_str_equal(got.data.string_value, "world");
     stow_release(STOW_ID_TEST_STRING, &got);
@@ -33,7 +33,7 @@ ZTEST(stow_string, test_set_and_get)
 ZTEST(stow_string, test_set_too_short)
 {
     data_value_t val = { .type = STOW_ITEM_TYPE_STRING, .data.string_value = "" };
-    int ret = stow_set(AUTH_SESSION, STOW_ID_TEST_STRING, val);
+    int ret = stow_set(STOW_ROLE_SESSION, STOW_ID_TEST_STRING, val);
     zassert_equal(ret, -EINVAL);
 }
 
@@ -43,7 +43,7 @@ ZTEST(stow_string, test_set_too_long)
         .type = STOW_ITEM_TYPE_STRING,
         .data.string_value = "this_string_is_way_too_long_for_the_constraint_maximum",
     };
-    int ret = stow_set(AUTH_SESSION, STOW_ID_TEST_STRING, val);
+    int ret = stow_set(STOW_ROLE_SESSION, STOW_ID_TEST_STRING, val);
     zassert_equal(ret, -EINVAL);
 }
 

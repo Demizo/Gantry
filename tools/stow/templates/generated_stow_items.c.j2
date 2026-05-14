@@ -29,6 +29,16 @@
 //* Static Variable Definitions
 //**********************************************************
 
+/* Role name strings, indexed by bit position */
+{% for role_name in roles %}
+static const char g_stow_role_{{ role_name | lower }}[] = "{{ role_name }}";
+{% endfor %}
+const char* const g_stow_role_names[STOW_ROLE_COUNT] = {
+{% for role_name in roles %}
+    g_stow_role_{{ role_name | lower }},
+{% endfor %}
+};
+
 /* Category names */
 {% for category_name, category_snake in categories_meta.items() %}
 static const char g_stow_category_{{ category_snake }}[] = "{{ category_name }}";

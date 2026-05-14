@@ -54,6 +54,12 @@ structs:
           - max_len: 512
 
 # ==============================================================================
+# Roles
+# ==============================================================================
+roles:
+  - Session
+
+# ==============================================================================
 # Categories
 # ==============================================================================
 categories:
@@ -73,7 +79,7 @@ items:
     storage: PERSISTENT
     permissions:
       - read: ANY
-      - write: SESSION
+      - write: [Session]
     default: "Gantry"
     constraints:
       - min_len: 3
@@ -86,7 +92,7 @@ items:
     storage: TOFU
     permissions:
       - read: ANY
-      - write: SESSION
+      - write: [Session]
     default: "0000000000000000"
     constraints:
       - min_len: 16

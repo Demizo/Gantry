@@ -31,6 +31,13 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
       lib/stow/types/stow_type_buffer.c
     )
 
+    if(CONFIG_STOW_PROTOCOL)
+      zephyr_library_sources(
+        lib/stow/stow_serde.c
+        lib/stow/stow_protocol.c
+      )
+    endif()
+
     set(_app_yaml ${APPLICATION_SOURCE_DIR}/stow.yaml)
     if(NOT EXISTS "${_app_yaml}")
       message(FATAL_ERROR "Expected stow.yaml at ${APPLICATION_SOURCE_DIR}")

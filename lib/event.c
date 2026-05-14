@@ -12,10 +12,10 @@
  *
  */
 
-#include <string.h>
 #include <gantry/error.h>
 #include <gantry/event.h>
 #include <gantry/memory.h>
+#include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 

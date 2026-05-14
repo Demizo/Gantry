@@ -24,26 +24,18 @@ The current Stow protocol version (always `1`).
 
 ### Describe
 
-Start a request for a description of the Stow's items. The Stow client should send this request to start a Stow description and receive the first chunk.
+Request a chunk of the Stow's description starting at a given item ID. Pass `0` to start from the beginning. Use the `next_item_id` from each `Describe Response` as the start item ID for the following request. The description is complete when `has_more` is `false` in the response.
 
 ```json
-[2]
-```
-
-### Describe Next
-
-Request the next chunk of the Stow's description. The Stow client should keep sending this request until the Stow has been fully described. The client will know that the Stow has been fully described when the associated `Describe Response` returns an empty byte string.
-
-```json
-[3]
+[2, <start_item_id>]
 ```
 
 ### Describe Response
 
-A chunk of the Stow description. The Stow description is itself encoded using CBOR. When transmitted as a describe chunk this is placed in a byte string. This is because the CBOR encoding may be partially incomplete since the description is chunked.
+A chunk of the Stow description along with continuation information. `next_item_id` is the start item ID to supply in the next `Describe` request. `has_more` indicates whether additional items remain after this chunk. The chunk payload is itself encoded using CBOR. When all chunks are combined, it can be decoded as a CBOR list of item descriptions.
 
 ```json
-[4, <byte string containing a chunk of the CBOR description>]
+[3, <next_item_id>, <has_more>, <byte string containing a chunk of the CBOR description>]
 ```
 
 ### Get
@@ -51,7 +43,7 @@ A chunk of the Stow description. The Stow description is itself encoded using CB
 Get the value of an item in the Stow.
 
 ```json
-[5, <item ID>]
+[4, <item ID>]
 ```
 
 ### Get Response
@@ -59,7 +51,7 @@ Get the value of an item in the Stow.
 A response containing the requested item's value.
 
 ```json
-[6, <item ID>, <value>]
+[5, <item ID>, <value>]
 ```
 
 ### Set
@@ -67,7 +59,31 @@ A response containing the requested item's value.
 Set the value of an item in the Stow. The client will receive an `OK` response if the operation was successful. Otherwise, an `Error` response will be sent.
 
 ```json
-[7, <item ID>, <value>]
+[6, <item ID>, <value>]
+```
+
+### Multi-Get
+
+Get the values of multiple items in a single request. Returns a `Multi-Get Response` on success, or an `Error` response if any item could not be retrieved.
+
+```json
+[7, <item ID>, ...]
+```
+
+### Multi-Get Response
+
+A response containing the requested items' values as a flat sequence of ID/value pairs.
+
+```json
+[8, <item ID>, <value>, ...]
+```
+
+### Multi-Set
+
+Set the values of multiple items. Returns a single `OK` if all items were set successfully. Returns an `Error` at the first failure; subsequent items are not set. On error, the client will not know which items were set. The client can read the Stow to find out.
+
+```json
+[9, <item ID>, <value>, ...]
 ```
 
 ### Subscribe
@@ -75,7 +91,7 @@ Set the value of an item in the Stow. The client will receive an `OK` response i
 Subscribe to an item in the Stow. The client will be notified via an `Update` message when the value changes. The client will receive an `OK` response if the operation was successful. Otherwise, an `Error` response will be sent.
 
 ```json
-[8, <item ID>]
+[10, <item ID>]
 ```
 
 ### Unsubscribe
@@ -83,7 +99,7 @@ Subscribe to an item in the Stow. The client will be notified via an `Update` me
 Unsubscribe from an item in the Stow. The client will receive an `OK` response if the operation was successful. Otherwise, an `Error` response will be sent.
 
 ```json
-[9, <item ID>]
+[11, <item ID>]
 ```
 
 ### Update
@@ -91,7 +107,7 @@ Unsubscribe from an item in the Stow. The client will receive an `OK` response i
 A message containing the updated value of an item. These messages are sent to the client when they are subscribed to the associated item.
 
 ```json
-[10, <item ID>, <value>]
+[12, <item ID>, <value>]
 ```
 
 ### OK
@@ -99,16 +115,27 @@ A message containing the updated value of an item. These messages are sent to th
 A response sent when an operation succeeds that does not otherwise have a dedicated response.
 
 ```json
-[11]
+[13]
 ```
 
 ### Error
 
-A response sent when an operation fails. The message contains a text description of the error.
+A response sent when an operation fails. The error code is a numeric value describing the failure.
 
 ```json
-[12, <error message>]
+[14, <error code>]
 ```
+
+#### Error Codes
+
+| Code | Name | Description |
+| ------ | ------ | ------------- |
+| 1 | `MALFORMED_MSG` | The message was malformed |
+| 2 | `UNKNOWN_MSG` | The message code was not recognized |
+| 3 | `INVALID_ITEM` | The item ID was invalid |
+| 4 | `OUT_OF_MEMORY` | Not enough memory to handle the message |
+| 5 | `PERMISSION_DENIED` | Client's role(s) were insufficient |
+| 6 | `UNKNOWN` | An unknown error occurred |
 
 ## Stow Description
 
@@ -122,8 +149,8 @@ Each item description has the following format:
     "name": <item name>,
     "categories": [<category>, ...],
     "storage": <storage type>,
-    "read_perm": <read permissions>,
-    "write_perm": <write permissions>,
+    "read_perm": [<role name>, ...],
+    "write_perm": [<role name>, ...],
     "type": <item type>,
     "default": <default value>,
     "constraints": <item value constraints>,
@@ -144,7 +171,9 @@ The `storage` type is a string indicating whether the items value is "Ephemeral"
 
 ### Permissions
 
-`read_perm` and `write_perm` are strings indicated the access level required to interact with the item. The access levels are "Any" (any client), "Session" (only authenticated clients), "Dev" (a developer session is required), and "No access" (the item can only be accessed internally by the device firmware or is a constant value).
+`read_perm` and `write_perm` are arrays of role name strings listing the roles that may perform the corresponding access. An empty array means the item is firmware-only (no external client can access it). Roles are application-defined and match the role names declared in the device's stow configuration.
+
+For example, an item with `"read_perm": ["User", "Admin"]` can be read by any client whose session includes the `User` or `Admin` role.
 
 ### Type
 
