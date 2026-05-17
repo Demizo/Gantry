@@ -31,7 +31,7 @@ flash:
 alias e := erase
 # Mass-erase the board
 erase:
-  openocd -f {{sample}}/openocd.cfg -c "init; halt; nrf5 mass_erase; exit"
+  openocd -f {{sample}}/openocd.cfg -c "init; halt; nrf5 mass_erase; mww 0x4001e504 1; mww 0x10001208 0x5a; mww 0x4001e504 0; exit"
 
 # Recover the board
 recover:
