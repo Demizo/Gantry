@@ -41,6 +41,19 @@
  */
 LOG_MODULE_REGISTER(stow_struct_{{ struct.snake_name }}, CONFIG_STOW_TYPES_LOG_LEVEL);
 
+/**
+ * @brief String representation of each item type
+ */
+static const char* const item_type_strs[] = {
+    [STOW_ITEM_TYPE_ENUM] = "Enum",
+    [STOW_ITEM_TYPE_INT] = "Int",
+    [STOW_ITEM_TYPE_FLOAT] = "Float",
+    [STOW_ITEM_TYPE_STRING] = "String",
+    [STOW_ITEM_TYPE_BYTE_ARRAY] = "Byte Array",
+    [STOW_ITEM_TYPE_BUFFER] = "Buffer",
+    [STOW_ITEM_TYPE_STRUCT] = "Struct",
+};
+
 //**********************************************************
 //* Static Function Declarations
 //**********************************************************
@@ -316,9 +329,10 @@ static int encode_constraints(zcbor_state_t* encoder, const union stow_constrain
     // Encode {{ field.name }} constraints
     {
         struct zcbor_string name_str = { .value = "{{ field.name }}", .len = {{ field.name | length }} };
+        struct zcbor_string type_str = { .value = item_type_strs[{{ field.c_type_enum }}], .len = strlen(item_type_strs[{{ field.c_type_enum }}]) };
         if (!zcbor_map_start_encode(encoder, 3) ||
             !zcbor_tstr_put_lit(encoder, "name") || !zcbor_tstr_encode(encoder, &name_str) ||
-            !zcbor_tstr_put_lit(encoder, "type") || !zcbor_uint32_put(encoder, (uint32_t){{ field.c_type_enum }}))
+            !zcbor_tstr_put_lit(encoder, "type") || !zcbor_tstr_encode(encoder, &type_str))
         {
             return -ENOMEM;
         }
