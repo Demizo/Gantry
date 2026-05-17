@@ -38,8 +38,9 @@ ZTEST_SUITE(stow_protocol_describe, NULL, NULL, before_each, after_each, NULL);
  *
  * @return Chunk length on success, -1 on failure or unexpected response code
  */
-static int request_describe_chunk(uint32_t session_id, uint32_t start_id, uint8_t* out_chunk, size_t out_chunk_size,
-                                   uint32_t* out_next_id, bool* out_has_more)
+static int request_describe_chunk(
+    uint32_t session_id, uint32_t start_id, uint8_t* out_chunk, size_t out_chunk_size, uint32_t* out_next_id,
+    bool* out_has_more)
 {
     uint8_t req[16];
     int len = test_build_with_id(req, sizeof(req), STOW_MSG_DESCRIBE, start_id);
@@ -107,6 +108,8 @@ ZTEST(stow_protocol_describe, test_describe_runs_to_completion)
     zcbor_state_t dec[4];
     zcbor_new_decode_state(dec, ARRAY_SIZE(dec), reassembled, total, STOW_ID_COUNT, NULL, 0);
 
+    zassert_true(zcbor_list_start_decode(dec));
+
     size_t items_seen = 0;
     while (items_seen < STOW_ID_COUNT)
     {
@@ -121,6 +124,9 @@ ZTEST(stow_protocol_describe, test_describe_runs_to_completion)
         zassert_true(zcbor_map_end_decode(dec));
         items_seen++;
     }
+
+    zassert_true(zcbor_list_end_decode(dec));
+
     zassert_equal(items_seen, STOW_ID_COUNT, "describe missed items: saw %zu, expected %u", items_seen, STOW_ID_COUNT);
 }
 

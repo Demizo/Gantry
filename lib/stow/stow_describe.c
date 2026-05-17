@@ -106,6 +106,12 @@ static int encode_role_list(zcbor_state_t* encoder, stow_role_t perm)
  */
 static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_metadata* item)
 {
+    // Encode start of list at the beginning of describe
+    if (item->id == 0 && !zcbor_list_start_encode(encoder, STOW_ID_COUNT))
+    {
+        return -ENOMEM;
+    }
+
     data_value_t default_value = {
         .type = item->type,
         .data = item->default_value,
@@ -176,6 +182,12 @@ static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_meta
     }
 
     if (!zcbor_map_end_encode(encoder, 9))
+    {
+        return -ENOMEM;
+    }
+
+    // Encode end of list at the end of describe
+    if (item->id == (STOW_ID_COUNT - 1) && !zcbor_list_end_encode(encoder, STOW_ID_COUNT))
     {
         return -ENOMEM;
     }

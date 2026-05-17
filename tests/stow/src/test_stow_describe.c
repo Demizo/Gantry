@@ -100,9 +100,12 @@ ZTEST(stow_describe, test_describe_encoding)
     zassert_equal(ret, -ENOMEM);
     zassert_true(next_id > 0);
 
-    ZCBOR_STATE_D(dec, 1, buf, enc->payload - buf, 1, 0);
+    ZCBOR_STATE_D(dec, 2, buf, enc->payload - buf, 1, 0);
     uint32_t val_u32;
     struct zcbor_string val_tstr;
+
+    // First element starts the list
+    zassert_true(zcbor_list_start_decode(dec), "Failed to start list decode");
 
     // Start map decode
     zassert_true(zcbor_map_start_decode(dec), "Failed to start map decode");
