@@ -12,10 +12,10 @@
  *
  */
 
-#include <sys/errno.h>
 #include <gantry/error.h>
 #include <gantry/stow/types/stow_type_float.h>
 #include <gantry/stow/types/stow_types.h>
+#include <sys/errno.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
@@ -96,15 +96,15 @@ static int encode(zcbor_state_t* encoder, data_value_t value)
 
 static int decode(zcbor_state_t* decoder, data_value_t* out_value)
 {
-    float decoded_value;
+    double decoded_value;
 
-    if (!zcbor_float32_decode(decoder, &decoded_value))
+    if (!zcbor_float_decode(decoder, &decoded_value))
     {
         return -EBADMSG;
     }
 
     out_value->type = STOW_ITEM_TYPE_FLOAT;
-    out_value->data.float_value = decoded_value;
+    out_value->data.float_value = (float)decoded_value;
 
     return SUCCESS;
 }
