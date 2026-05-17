@@ -37,6 +37,10 @@ erase:
 recover:
   openocd -f {{sample}}/openocd.cfg -c "init; nrf52_recover; exit"
 
+# View RTT logs
+rtt:
+  uv run tools/rtt_logger.py --device {{board}} --config {{sample}}/openocd.cfg
+
 # Static + resource analysis on library and sample sources
 analyze:
   uv run tools/check_headers.py
