@@ -42,9 +42,47 @@
         };
 
         zephyr = zephyr-nix.packages.${system};
+
+        commonPackages = with pkgs; [
+          (zephyr.sdk.override {
+            targets = [
+              "arm-zephyr-eabi"
+              "x86_64-zephyr-elf"
+            ];
+          })
+          zephyr.pythonEnv
+          zephyr.hosttools-nix
+          cmake
+          ninja
+          nrfutil
+          just
+          mcuboot-imgtool
+          uv
+          cppcheck
+          coccinelle
+          clang-tools
+          gdb
+          just-lsp
+          doxygen
+        ];
       in
       {
-        devShells.default = import ./shell.nix { inherit pkgs zephyr; };
+        devShells.default = import ./shell.nix { inherit pkgs commonPackages; };
+
+        packages.docker = pkgs.dockerTools.buildLayeredImage {
+          name = "gantry-devenv";
+          tag = "latest";
+          contents =
+            with pkgs;
+            [
+              bashInteractive
+              coreutils
+            ]
+            ++ commonPackages;
+          config = {
+            WorkingDir = "/workspace";
+          };
+        };
       }
     ));
 }

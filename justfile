@@ -13,6 +13,20 @@ init:
 update-workspace:
   west update
 
+# Build the dev container image
+docker-build:
+  nix build .#docker
+  docker load < result
+  rm result
+
+# Enter or run a command inside the dev container
+docker-run *args='bash':
+  docker run --rm -it \
+      --user "$(id -u):$(id -g)" \
+      -v "$(pwd):/workspace" \
+      -w /workspace \
+      gantry-devenv:latest {{args}}
+
 alias b := build
 # Build the sample application
 build:
