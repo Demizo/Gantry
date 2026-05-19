@@ -30,11 +30,9 @@
 #include <zephyr/kernel.h>
 
 /**
- * @defgroup data_management Data Management
+ * @defgroup memory Memory Management
  *
- * @brief Data is shared by passing around reference counted events.
- *
- * @details For how memory is allocated, see @ref memory.h. For how events are used, see @ref event.h.
+ * @brief Memory is allocated from pools of reference counted memory blocks.
  *
  * @{
  */

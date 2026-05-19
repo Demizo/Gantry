@@ -8,17 +8,6 @@
  * @file
  * @brief Events for interprocess communication
  *
- * @details Communication between threads is accomplished by passing events. There is a single event structure with a
- * type field to indicate event type. This ensures that all modules can communicate without needing to agree on
- * arbitrary event structures. Applications can define event types using @ref DEFINE_EVENT_TYPE.
- *
- * Events are pointers to reference counted memory blocks. Modules are responsible for
- * dereferencing events when finished. Modules may pass events to other modules via function calls, but it is the
- * receiving module's responsibility to reference count the event if it wishes to retain it.
- *
- * Events may be linked to other events. When an event is referenced or dereferenced all events in the chain have their
- * reference counts updated.
- *
  * @author Demizo (demizodemazo@gmail.com)
  *
  *
@@ -32,7 +21,21 @@
 #include <zephyr/kernel.h>
 
 /**
- * @addtogroup data_management
+ * @defgroup events Events
+ *
+ * @brief Events for interprocess communication
+ *
+ * @details Communication between threads is accomplished by passing events. There is a single event structure with a
+ * type field to indicate event type. This ensures that all modules can communicate without needing to agree on
+ * arbitrary event structures. Applications can define event types using @ref DEFINE_EVENT_TYPE.
+ *
+ * Events are pointers to reference counted memory blocks. Modules are responsible for
+ * dereferencing events when finished. Modules may pass events to other modules via function calls, but it is the
+ * receiving module's responsibility to reference count the event if it wishes to retain it.
+ *
+ * Events may be linked to other events. When an event is referenced or dereferenced all events in the chain have their
+ * reference counts updated.
+ *
  * @{
  */
 
