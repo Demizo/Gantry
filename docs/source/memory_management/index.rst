@@ -8,7 +8,7 @@ Overview
 Gantry's memory model is based around referenced counted blocks of memory. Memory blocks are allocated from a set of fixed-size pools. Each allocation comes from the smallest pool that can satisfy the requested size. Blocks are reference-counted and freed automatically when the count reaches zero.
 
 Usage
------
+=====
 
 Memory can be allocated using :any:`MEM_ALLOC`. A pointer must be provided that will be populated with a block pointer assuming one is available. The provided pointer must be ``NULL`` to prevent the caller from accidentally overwriting data.
 
@@ -25,6 +25,8 @@ When successful, the caller is provided a block with a reference count of one. T
    MEM_UNREF(&buf);      // release; ref count = 0, buf freed and set to NULL
 
 While the direct functions like :any:`mem_alloc` can be used, the macros are recommended as they allow for tracing the source of memory operations when memory tracing is enabled. If you are writing a wrapper around the memory manager, you may want to use the direct function calls instead. See :ref:`mem-tracing` for more information.
+
+.. _mem-leak-detection:
 
 Memory Leak Detection
 ---------------------
