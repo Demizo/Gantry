@@ -18,40 +18,23 @@ enums:
       - name: ENABLED
         value: 1
 
-  SpiChipSelect:
-    description: "A SPI chip select index"
-    values:
-      - name: SPI_CS0
-        value: 0
-      - name: SPI_CS1
-        value: 1
-
 # ==============================================================================
 # Structures
 # ==============================================================================
 structs:
-  - name: SpiBuffer
-    description: "A SPI buffer containing a chip select and transeive data"
+  - name: CustomType
+    description: "A custom type containing text and a number"
     fields:
-      - name: CS
-        type: ENUM
-        constraints:
-          - enum: SpiChipSelect
-      - name: Bytes
-        type: BYTE_ARRAY
-        constraints:
-          - min_len: 0
-          - max_len: 6
       - name: Text
         type: STRING
         constraints:
-          - min_len: 3
-          - max_len: 12
-      - name: Buffer
-        type: BUFFER
+          - min_len: 1
+          - max_len: 24
+      - name: Number
+        type: INT
         constraints:
-          - min_len: 0
-          - max_len: 512
+          - min: 0
+          - max: 256
 
 # ==============================================================================
 # Roles
@@ -63,9 +46,8 @@ roles:
 # Categories
 # ==============================================================================
 categories:
-  - System
+  - General
   - BLE
-  - SPI
   - Test
 
 # ==============================================================================
@@ -74,7 +56,7 @@ categories:
 items:
   - name: DeviceName
     description: "The name of the device"
-    categories: [System]
+    categories: [General]
     type: STRING
     storage: PERSISTENT
     permissions:
@@ -87,12 +69,12 @@ items:
 
   - name: SerialNumber
     description: "The device serial number"
-    categories: [System]
+    categories: [General]
     type: STRING
     storage: TOFU
     permissions:
       - read: ANY
-      - write: [Session]
+      - write: INTERNAL
     default: "0000000000000000"
     constraints:
       - min_len: 16
@@ -100,12 +82,12 @@ items:
 
   - name: BleConnectionState
     description: "The current BLE connection state"
-    categories: [System, BLE]
+    categories: [General, BLE]
     type: ENUM
     storage: EPHEMERAL
     permissions:
       - read: ANY
-      - write: INTERNAL
+      - write: [Session]
     default: DISCONNECTED
     constraints:
       - enum: BleConnectionState
@@ -173,24 +155,20 @@ items:
     default: []
     constraints:
       - min_len: 0
-      - max_len: 20
+      - max_len: 512
 
-  - name: SpiTxBuffer
-    description: "SPI TX buffer"
-    categories: [SPI]
+  - name: TestStruct
+    description: "Test struct"
+    categories: [Test]
     type: STRUCT
     storage: EPHEMERAL
     permissions:
       - read: ANY
       - write: ANY
     default:
-      - field: CS
-        value: SPI_CS0
-      - field: Bytes
-        value: [0x01, 0x02, 0x03]
       - field: Text
         value: "Test"
-      - field: Buffer
-        value: []
+      - field: Number
+        value: 0
     constraints:
-      - struct: SpiBuffer
+      - struct: CustomType

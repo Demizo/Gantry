@@ -1,0 +1,12 @@
+menu "Session"
+
+config SESSION_MANAGER_LOG_LEVEL
+    int "Session manager log level"
+    default 3
+
+config SESSION_MANAGER_MAX_RESPONSE_SIZE
+    int "Maximum size for responses (bytes)"
+    default 1024
+
+
+endmenu

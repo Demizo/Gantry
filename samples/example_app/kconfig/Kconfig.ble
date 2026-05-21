@@ -1,0 +1,53 @@
+menu "BLE"
+
+
+menu "BLE Manager"
+
+config BLE_MANAGER_LOG_LEVEL
+    int "BLE manager log level"
+    default 3
+
+config BLE_MANAGER_STACK_SIZE
+    int "BLE manager thread stack size"
+    default 2048
+
+config BLE_MANAGER_THREAD_PRIORITY
+    int "BLE manager thread priority"
+    default 7
+
+config BLE_MANAGER_QUEUE_DEPTH
+    int "BLE manager thread queue depth"
+    default 4
+
+endmenu
+
+
+menu "BLE Interface"
+
+config BLE_INTERFACE_LOG_LEVEL
+    int "BLE interface log level"
+    default 3
+
+config BLE_INTERFACE_STACK_SIZE
+    int "BLE interface thread stack size"
+    default 2048
+
+config BLE_INTERFACE_THREAD_PRIORITY
+    int "BLE interface thread priority"
+    default 6
+
+config BLE_INTERFACE_QUEUE_DEPTH
+    int "BLE interface message queue queue depth"
+    default 8
+
+config BLE_INTERFACE_RX_POOL_COUNT
+    int "BLE interface RX net_buf pool count"
+    default 8
+
+config BLE_INTERFACE_RX_POOL_BUF_SIZE
+    int "BLE interface RX net_buf size (bytes)"
+    default 1024
+
+endmenu
+
+endmenu

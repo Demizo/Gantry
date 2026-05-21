@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +10,6 @@ from ._receiver import Receiver, ResponseCallback
 from .cache import DescriptionCache
 from .descriptions import (
     ItemDescription,
-    ItemType,
     decode_value,
     encode_value,
     parse_description,
@@ -104,7 +102,7 @@ class StowClient:
         self._items_by_name = {it.name: it for it in self._items}
         self._items_by_id = {it.id: it for it in self._items}
         self._loaded = True
-    
+
     async def close(self) -> None:
         await self._receiver.stop()
         try:
@@ -209,7 +207,9 @@ class StowClient:
             )
         return self._expect_ok(response)
 
-    async def multi_get_sync(self, item_names: list[str], timeout: float) -> MultiGetResponse:
+    async def multi_get_sync(
+        self, item_names: list[str], timeout: float
+    ) -> MultiGetResponse:
         self._require_loaded()
         descs = [self.get_item_description(n) for n in item_names]
         ids = tuple(d.id for d in descs)
@@ -225,7 +225,12 @@ class StowClient:
             )
         desc_by_id = {d.id: d for d in descs}
         decoded_items = tuple(
-            (item_id, decode_value(desc_by_id[item_id].type, desc_by_id[item_id].constraints, val))
+            (
+                item_id,
+                decode_value(
+                    desc_by_id[item_id].type, desc_by_id[item_id].constraints, val
+                ),
+            )
             for item_id, val in response.items
             if item_id in desc_by_id
         )
@@ -279,9 +284,7 @@ class StowClient:
         if isinstance(response, Error):
             raise StowError(f"Error code {response.code}")
         if not isinstance(response, Ok):
-            raise UnexpectedResponseError(
-                f"Expected Ok, got {type(response).__name__}"
-            )
+            raise UnexpectedResponseError(f"Expected Ok, got {type(response).__name__}")
         return response
 
     async def _handshake_version(self) -> None:
@@ -306,7 +309,10 @@ class StowClient:
             )
         if isinstance(response, Error):
             raise StowError(f"Error code {response.code}")
-        if not isinstance(response, GetResponse) or response.item_id != STOW_HASH_ITEM_ID:
+        if (
+            not isinstance(response, GetResponse)
+            or response.item_id != STOW_HASH_ITEM_ID
+        ):
             raise UnexpectedResponseError(
                 f"Expected GetResponse for item 0, got {type(response).__name__}"
             )

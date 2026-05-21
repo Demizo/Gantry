@@ -1,0 +1,24 @@
+menu "UART"
+
+config UART_INTERFACE_LOG_LEVEL
+    int "UART interface log level"
+    default 3
+
+config UART_INTERFACE_STACK_SIZE
+    int "UART interface thread stack size"
+    default 2048
+
+config UART_INTERFACE_THREAD_PRIORITY
+    int "UART interface thread priority"
+    default 6
+
+config UART_INTERFACE_QUEUE_DEPTH
+    int "UART interface thread queue depth"
+    default 4
+
+config UART_INTERFACE_RX_RING_BUF_SIZE
+    int "UART interface RX ring buffer size (bytes)"
+    default 1024
+
+
+endmenu

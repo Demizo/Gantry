@@ -1,5 +1,13 @@
 source "Kconfig.zephyr"
 
-config MAIN_LOG_LEVEL
-    int "Main log level"
-    default 3
+menu "Example App"
+
+rsource "kconfig/Kconfig.main"
+
+rsource "kconfig/Kconfig.session"
+
+rsource "kconfig/Kconfig.uart"
+
+rsource "kconfig/Kconfig.ble"
+
+endmenu
