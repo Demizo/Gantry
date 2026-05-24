@@ -16,6 +16,7 @@
         "trond-snekvik.simple-rst",
         "nefrob.vscode-just-syntax",
         "redhat.vscode-xml",
-        "kylinideteam.cppdebug"
+        "kylinideteam.cppdebug",
+        "charliermarsh.ruff"
     ]
 }
