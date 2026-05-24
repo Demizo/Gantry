@@ -70,3 +70,6 @@ API Reference
 
 .. doxygengroup:: events
    :content-only:
+
+.. doxygengroup:: buffer
+   :content-only:

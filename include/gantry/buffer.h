@@ -21,6 +21,14 @@
 #include <stdint.h>
 
 /**
+ * @defgroup buffer Buffer
+ *
+ * @brief Sized buffers for holding bytes
+ *
+ * @{
+ */
+
+/**
  * @brief Buffer with length
  *
  * @details Used to store data of a variable length. The buffer data is aligned so that it can be interpreted as custom
@@ -44,3 +52,7 @@ typedef struct
     } name##_storage = { 0 };                           \
     buffer_t*(name) = &name##_storage.buffer;           \
     (name)->len = (uint16_t)(size);
+
+/**
+ * @}
+ */

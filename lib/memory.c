@@ -66,9 +66,9 @@ typedef struct
  */
 typedef struct
 {
-    mem_watermark_cb_t callback;
-    uint8_t percent;
-    bool triggered;
+    mem_watermark_cb_t callback; /**< Callback to fire when the watermark is first reached */
+    uint8_t percent;             /**< Percent at which the watermark is set */
+    bool triggered;              /**< Whether the watermark has been triggered */
 } mem_watermark_t;
 #endif
 

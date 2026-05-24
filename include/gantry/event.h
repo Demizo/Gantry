@@ -63,10 +63,9 @@
 //* Typedefs, Enums, and Structs
 //**********************************************************
 
-/**
- * @brief Forward declaration of universal event structure
- */
+/** @cond DOXYGEN_SHOULD_SKIP_THIS */
 typedef struct event_t event_t;
+/** @endcond  */
 
 /**
  * @brief Function called before an event is freed
