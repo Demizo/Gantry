@@ -6,10 +6,11 @@ Gantry is a framework made to bootstrap embedded applications. The architecture 
 The system state, configuration, and device information is all managed by a central data storage module, the Stow. Modules, as well as connected devices, can subscribe to, set, and get items in the Stow. This data-centric approach makes it trivial for modules or devices to react to events and communicate with each other. It avoids common pitfalls where many modules define similar events or pass state via arbitrary event payloads.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
    Memory Management <memory_management/index>
+   Resource Checker <resource_checker/index>
    Events <events/index>
    Flags <flags/index>
    Stow <stow/index>
