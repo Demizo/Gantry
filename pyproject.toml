@@ -18,6 +18,14 @@ dependencies = [
 [tool.uv]
 package = false
 
+[tool.esbonio.sphinx]
+buildCommand = ["sphinx-build", "-b", "html", "docs/source", "docs/build"]
+
+[tool.esbonio.sphinx.pythonCommand]
+command = ["uv", "run", "python"]
+env = { PYTHONPATH = ""}
+cwd = "${scopeFsPath}/docs"
+
 [build-system]
 requires = ["uv_build>=0.10.6,<0.11.0"]
 build-backend = "uv_build"
