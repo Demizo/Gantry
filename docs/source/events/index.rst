@@ -7,7 +7,7 @@ Overview
 
 Events are the primary way modules communicate. Each event has a universal structure with a type field, so any module can inspect any event without knowing its origin.
 
-The payload of an event is a :any:`buffer_t` of arbitrary size. The structure of the buffer data is defined by the event type. Gantry comes with built in events, but applications and other modules are free to defined additional event types, see :ref:`define-event`.
+The payload of an event is a :any:`buffer_t` of arbitrary size. The structure of the buffer data is defined by the event type. Gantry comes with built-in events, but applications and other modules are free to defined additional event types, see :ref:`define-event`.
 
 Usage
 =====

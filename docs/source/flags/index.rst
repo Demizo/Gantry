@@ -1,7 +1,9 @@
 Flags
 =====
 
-Flags are atomic bitfields for tracking module state. They support optional compile-time-defined rules that are validated at runtime whenever a flag changes.
+While the :doc:`Stow </stow/index>` can be used to share state across modules. Individual modules often need to keep track of local state. In many cases, local state can be boiled down to a series of state flags. Gantry provides tooling to easily create and validate module state flags. 
+
+Flags are represented as atomic bitfields used for tracking module state. They support optional compile-time-defined rules that are validated at runtime whenever a flag changes.
 
 Defining Flags
 --------------
@@ -17,10 +19,7 @@ Use ``FLAGS_DEFINE`` to declare a named bitfield along with any validation rules
        FLAG_EXCLUSIVE(CONN_OPEN, CONN_ERROR)
    );
 
-This generates:
-- an enum ``conn_flags_flags`` with the listed values
-- an ``ATOMIC_DEFINE``'d bitfield named ``conn_flags``
-- a validation function called on every set/clear (when ``CONFIG_FLAGS_VALIDATION=y``)
+In this example, ``CONN_AUTHENTICATED`` is only valid if ``CONN_OPEN`` is set. ``CONN_OPEN`` and ``CONN_ERROR`` cannot both be set at the same time.
 
 Setting and Checking Flags
 --------------------------
@@ -40,7 +39,7 @@ All operations are atomic and thread-safe.
 Validation Rules
 ----------------
 
-Rules are checked after every ``SET_FLAG`` or ``CLEAR_FLAG`` when ``CONFIG_FLAGS_VALIDATION=y`` (default in ``DEBUG`` builds).
+Rules are checked after every ``SET_FLAG`` or ``CLEAR_FLAG`` when runtime validation is enabled.
 
 ``FLAG_REQUIRES(A, B)``
    Asserts that if flag ``A`` is set, flag ``B`` must also be set.
@@ -48,7 +47,7 @@ Rules are checked after every ``SET_FLAG`` or ``CLEAR_FLAG`` when ``CONFIG_FLAGS
 ``FLAG_EXCLUSIVE(A, B)``
    Asserts that flags ``A`` and ``B`` are never both set at the same time.
 
-Rules run inline in the call that changed the flag. An assertion failure halts execution, making invalid flag states immediately visible during development.
+When ``CONFIG_FLAGS_VALIDATION=y``, validation rules run inline in the call that changed the flag. An assertion failure halts execution, making invalid flag states immediately visible during development.
 
 Configuration
 -------------
@@ -56,7 +55,7 @@ Configuration
 .. code-block:: kconfig
 
    CONFIG_GANTRY_FLAGS=y
-   CONFIG_FLAGS_VALIDATION=y   # default on in DEBUG builds
+   CONFIG_FLAGS_VALIDATION=y # defaults to on in DEBUG builds
 
 API Reference
 -------------
