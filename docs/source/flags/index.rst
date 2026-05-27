@@ -1,3 +1,4 @@
+=====
 Flags
 =====
 
@@ -6,7 +7,7 @@ While the :doc:`Stow </stow/index>` can be used to share state across modules. I
 Flags are represented as atomic bitfields used for tracking module state. They support optional compile-time-defined rules that are validated at runtime whenever a flag changes.
 
 Defining Flags
---------------
+==============
 
 Use ``FLAGS_DEFINE`` to declare a named bitfield along with any validation rules. Pass ``NO_FLAG_RULES`` if you don't need rules.
 
@@ -22,7 +23,7 @@ Use ``FLAGS_DEFINE`` to declare a named bitfield along with any validation rules
 In this example, ``CONN_AUTHENTICATED`` is only valid if ``CONN_OPEN`` is set. ``CONN_OPEN`` and ``CONN_ERROR`` cannot both be set at the same time.
 
 Setting and Checking Flags
---------------------------
+==========================
 
 .. code-block:: c
 
@@ -37,7 +38,7 @@ Setting and Checking Flags
 All operations are atomic and thread-safe.
 
 Validation Rules
-----------------
+================
 
 Rules are checked after every ``SET_FLAG`` or ``CLEAR_FLAG`` when runtime validation is enabled.
 
@@ -50,7 +51,7 @@ Rules are checked after every ``SET_FLAG`` or ``CLEAR_FLAG`` when runtime valida
 When ``CONFIG_FLAGS_VALIDATION=y``, validation rules run inline in the call that changed the flag. An assertion failure halts execution, making invalid flag states immediately visible during development.
 
 Configuration
--------------
+=============
 
 .. code-block:: kconfig
 
@@ -58,7 +59,7 @@ Configuration
    CONFIG_FLAGS_VALIDATION=y # defaults to on in DEBUG builds
 
 API Reference
--------------
+=============
 
 .. doxygendefine:: FLAGS_DEFINE
 

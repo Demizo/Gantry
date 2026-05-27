@@ -1,153 +1,59 @@
+====
 Stow
 ====
 
-The Stow is the central data store for a Gantry application. All system state, configuration, and device information lives here. Any firmware module or connected external device can read, write, or subscribe to Stow items.
 
-Items are defined at compile time via a ``stow.yaml`` schema file. The code generator produces typed C stubs so access is consistent and type-safe.
+The Stow is the central data store for a Gantry application. It contains system state, configuration values, and device information in the form of individual Stow items. Items can be various types (e.g. a string for device name, an integer for battery level, or an enumeration for connection state). Firmware modules and external devices can set, get, or subscribe to items in the Stow. In this way, the Stow acts as a universal interface for device interactions. It provides both a direct API for firmware modules as well as the Stow Protocol for external device communications.
+
+By taking a data-driven approach to application architecture, most device functionality, information, and configuration can be clearly represented as a simple collection of data items. The Stow supports a handful of core primitive item types and allows the users to define custom struct types to fit their application's needs. Stow items are defined by the application's ``stow.yaml`` :doc:`schema </stow/schema>` file. The underlying C code is automatically generated at compile time.
 
 .. toctree::
    :maxdepth: 1
 
    Types <types>
    Schema <schema>
+   API <api>
    Protocol <protocol>
 
-Initialization
+Use Cases
+=========
+
+Internal State
 --------------
 
-Call ``stow_init()`` once at startup before accessing any items. This loads persistent values from flash.
+The Stow makes it trivial for firmware modules to share device state. For example, the Stow may contain an item for BLE Connection State. A BLE manager sets the connection state item. Other modules can subscribe to the item to be notified when it changes (e.g. an LED manager which changes an indicator light). 
 
-.. code-block:: c
+Want to add logging when important values change? Simply create a logging module that subscribes to those items. Logging logic can remain independent from individual modules.
 
-   stow_init();
+.. mermaid::
 
-Reading Items
--------------
+    %%{init: {"theme": "neutral"}}%%
+    graph LR
+        %% Internal Modules
+        BLE["BLE Manager"] -->|set| Stow
+        LED["LED Manager"] -->|subscribe| Stow
+        Logger["Logger"] -->|subscribe| Stow
 
-Use ``STOW_GET`` to read an item's current value. Always call ``STOW_RELEASE`` when finished — types that return pointers (strings, buffers, structs) are reference-counted and must be released.
+        %% The Central Core with Items Inside
+        Stow[("Stow Database<br>━━━━━━━<br>▪ String Item<br>▪ Integer Item<br>▪ Enum Item")]
 
-.. code-block:: c
+External Communication
+----------------------
 
-   data_value_t val = {0};
-   STOW_GET(AUTH_INTERNAL, STOW_ID_DEVICE_NAME, &val);
-   LOG_INF("Device name: %s", val.data.string_value);
-   STOW_RELEASE(STOW_ID_DEVICE_NAME, &val);
+The Stow can contain arbitrary items. By implementing the Stow Protocol, external clients can simply discover device information and state similar to BLE GATT discovery. Unlike BLE GATT, the Stow is not tied to any particular communication medium.
 
-Writing Items
--------------
+As an example, external clients can read information from Stow items (e.g. device name and serial number). Values can be modified to change the device's configuration. The external client can subscribe to values to be notified when they change (e.g. battery level or a sensor data stream).
 
-Use ``STOW_SET`` with a ``data_value_t`` that includes the type tag.
+.. mermaid::
 
-.. code-block:: c
+    %%{init: {"theme": "neutral"}}%%
+    graph LR
+        %% The Central Core with Items Inside
+        Stow[("Stow Database<br>━━━━━━━<br>▪ Device Name<br>▪ Serial Number<br>▪ Battery Level")]
 
-   data_value_t val = {
-       .type = STOW_ITEM_TYPE_INT,
-       .data.int_value = 42,
-   };
-   STOW_SET(AUTH_INTERNAL, STOW_ID_TEST_INT, val);
+        %% External Interface
+        Ext["External Client"] <-->|Set, get, & subscribe via the Stow Protocol| Stow
 
-For buffer types, use ``STACK_BUFFER`` to create a stack-allocated ``buffer_t``:
 
-.. code-block:: c
+The handful of Stow Protocol commands allow for most device interactions (e.g. setting and getting values). This avoids ballooning protocols with numerous getter and setter commands.
 
-   STACK_BUFFER(bytes, 6);
-   bytes->buf[0] = 0xAB;
-   data_value_t val = {
-       .type = STOW_ITEM_TYPE_BUFFER,
-       .data.buffer_value = bytes,
-   };
-   STOW_SET(AUTH_INTERNAL, STOW_ID_TEST_BUFFER, val);
-
-Subscriptions
--------------
-
-Subscribe to receive a callback whenever an item changes. Two modes are available:
-
-``STOW_SUBSCRIPTION_HANDLE``
-   The callback receives only the item ID. The subscriber reads the current value itself via ``STOW_GET``. Use this when you only care about the latest value.
-
-``STOW_SUBSCRIPTION_COPY``
-   The callback receives a copy of the value at the moment the update occurred. Use this for guaranteed delivery of every value.
-
-.. code-block:: c
-
-   void on_update(event_t* event)
-   {
-       struct stow_update_event_payload* payload =
-           (struct stow_update_event_payload*)event->data.buf;
-       LOG_INF("New value: %d", payload->value_copy.data.int_value);
-   }
-
-   static struct stow_subscription sub = {
-       .mode = STOW_SUBSCRIPTION_COPY,
-       .cb   = on_update,
-   };
-
-   stow_subscribe(AUTH_INTERNAL, STOW_ID_TEST_INT, &sub);
-
-   // later:
-   stow_unsubscribe(STOW_ID_TEST_INT, &sub);
-
-CBOR Encode/Decode
-------------------
-
-Items can be serialized to and from CBOR for transmission over the Stow Protocol.
-
-.. code-block:: c
-
-   uint8_t buf[256];
-   ZCBOR_STATE_E(encoder, 1, buf, sizeof(buf), 1);
-
-   data_value_t val = {0};
-   STOW_GET(AUTH_INTERNAL, STOW_ID_TEST_INT, &val);
-   stow_encode(encoder, STOW_ID_TEST_INT, val);
-   STOW_RELEASE(STOW_ID_TEST_INT, &val);
-
-   ZCBOR_STATE_D(decoder, 1, buf, sizeof(buf), 1, 0);
-   data_value_t decoded = {0};
-   STOW_DECODE(decoder, STOW_ID_TEST_INT, &decoded);
-   STOW_RELEASE(STOW_ID_TEST_INT, &decoded);
-
-Authentication
---------------
-
-Every ``stow_get`` and ``stow_set`` call requires an auth level. The item schema defines the minimum level needed to read or write each item.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 25 75
-
-   * - Level
-     - Description
-   * - ``AUTH_ANY``
-     - No authentication required
-   * - ``AUTH_SESSION``
-     - Authenticated session required
-   * - ``AUTH_DEV``
-     - Developer session required
-   * - ``AUTH_INTERNAL``
-     - Firmware internal use only
-   * - ``AUTH_NONE``
-     - No access permitted
-
-Configuration
--------------
-
-.. code-block:: kconfig
-
-   CONFIG_GANTRY_STOW=y
-   CONFIG_ZCBOR=y
-   CONFIG_SETTINGS=y
-   CONFIG_NVS=y
-   CONFIG_SETTINGS_NVS=y
-   CONFIG_FLASH=y
-   CONFIG_FLASH_MAP=y
-
-   # Maximum encoded size for items in persistent storage (bytes)
-   CONFIG_STOW_ITEM_STORAGE_SIZE_MAX=1024
-
-API Reference
--------------
-
-.. doxygengroup:: stow
-   :content-only:

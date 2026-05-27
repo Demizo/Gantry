@@ -1,102 +1,58 @@
+==========
 Stow Types
 ==========
 
-Each Stow item has a type that determines how its value is stored, validated, and serialized. The type is specified in the ``stow.yaml`` schema and encoded in the generated ``data_value_t`` union.
+Overview
+========
 
-Type Overview
--------------
+Each Stow item has a type that determines how its value is stored, validated, and serialized. The Stow supports a handful of primitive data types, but custom struct types can also be defined.
+
+Each item type has constraints defining the possible values. Constraints are defined in the :doc:`schema </stow/schema>`.
+
+Within the firmware, data values are accessed via the :any:`data_value_t` tagged-union.
+
+Data Types
+==========
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 20 60
+   :widths: 20 20 30 60
 
    * - Type
      - ``data_value_t`` field
+     - Constraints
      - Description
-   * - ``ENUM``
+   * - Enumeration
      - ``data.int_value``
-     - Named integer values. Constraints list valid values and their names.
-   * - ``INT``
+     - List of possible values and their names
+     - Named integer values
+   * - Integer
      - ``data.int_value``
-     - 32-bit signed integer with min/max constraints.
-   * - ``FLOAT``
+     - Minimum & maximum values
+     - 32-bit signed integer
+   * - Float
      - ``data.float_value``
-     - 32-bit float with min/max constraints.
-   * - ``STRING``
+     - Minimum & maximum values
+     - 32-bit float
+   * - String
      - ``data.string_value``
-     - Null-terminated string with min/max length constraints.
-   * - ``BYTE_ARRAY``
+     - Minimum & maximum length
+     - Variable length string (statically allocated)
+   * - Byte Array
      - ``data.buffer_value``
-     - Fixed-length byte array. Length is fixed and must match ``min_len == max_len``.
-   * - ``BUFFER``
+     - Minimum & maximum length
+     - Variable length byte buffer (statically allocated)
+   * - Buffer
      - ``data.buffer_value``
-     - Variable-length byte buffer with min/max length constraints.
-   * - ``STRUCT``
-     - ``data.buffer_value``
-     - Composite type with named fields. Fields can be any type, including nested structs.
-
-Scalar Types (ENUM, INT, FLOAT)
---------------------------------
-
-Scalar values are stored directly in the ``data_value_t`` union. No release is needed after ``STOW_GET``, though ``STOW_RELEASE`` is still safe to call.
-
-.. code-block:: c
-
-   data_value_t val = {0};
-   STOW_GET(AUTH_INTERNAL, STOW_ID_TEST_INT, &val);
-   LOG_INF("int: %d", val.data.int_value);
-   STOW_RELEASE(STOW_ID_TEST_INT, &val);  // safe no-op for scalars
-
-For enums, you can look up the name of a value using ``enum_get_name_from_value``:
-
-.. code-block:: c
-
-   data_value_t val = {0};
-   STOW_GET(AUTH_INTERNAL, STOW_ID_TEST_ENUM, &val);
-   char* name = NULL;
-   enum_get_name_from_value(
-       &g_stow_const_metadata[STOW_ID_TEST_ENUM].constraints,
-       val.data.int_value,
-       &name);
-   LOG_INF("enum: %d (%s)", val.data.int_value, name);
-   STOW_RELEASE(STOW_ID_TEST_ENUM, &val);
-
-Buffer Types (STRING, BYTE_ARRAY, BUFFER)
-------------------------------------------
-
-These types return a pointer to a ``buffer_t`` in ``data.buffer_value``. Always call ``STOW_RELEASE`` to release the reference.
-
-.. code-block:: c
-
-   data_value_t val = {0};
-   STOW_GET(AUTH_INTERNAL, STOW_ID_TEST_BYTES, &val);
-   LOG_HEXDUMP_INF(val.data.buffer_value->buf,
-                   val.data.buffer_value->len,
-                   "bytes");
-   STOW_RELEASE(STOW_ID_TEST_BYTES, &val);
-
-To write a buffer type, create a ``buffer_t`` with the data. Use ``STACK_BUFFER`` for stack-allocated buffers:
-
-.. code-block:: c
-
-   STACK_BUFFER(data, 6);
-   data->buf[0] = 0xDE;
-   data->buf[1] = 0xAD;
-   data_value_t val = {
-       .type = STOW_ITEM_TYPE_BUFFER,
-       .data.buffer_value = data,
-   };
-   STOW_SET(AUTH_INTERNAL, STOW_ID_TEST_BUFFER, val);
-
-Struct Types
-------------
-
-Struct values are stored as a ``buffer_t`` where the buffer contains the packed fields in declaration order. The field layout and types are defined in ``stow.yaml`` and reflected in the generated code.
-
-Reading a struct returns a ``buffer_t*`` in ``data.buffer_value``. Cast the ``buf`` pointer to access individual fields.
+     - Minimum & maximum length
+     - Variable length byte buffer (dynamically allocated)
+   * - Struct
+     - ``data.raw_value``
+     - A struct type containing fields and constraints
+     - Composite type with named fields. Fields can be any type, including nested structs
 
 Storage Types
--------------
+=============
 
 Each item has a storage type that controls persistence:
 
@@ -106,9 +62,52 @@ Each item has a storage type that controls persistence:
 
    * - Storage
      - Behavior
-   * - ``EPHEMERAL``
-     - Resets to default on reboot. Stored in RAM only.
-   * - ``PERSISTENT``
-     - Saved to flash on every write. Restored on boot via ``stow_init()``.
-   * - ``TOFU``
-     - Write-once. Can be written once while at the default value. Permanent after that.
+   * - Ephemeral
+     - Resets to default on reboot.
+   * - Persistent
+     - Value persists across reboots.
+   * - Trust on first use (TOFU)
+     - Can be changed from the default value after which it cannot be changed.
+
+Enumerations
+============
+
+Enumerations are stored as integers. To convert between the integer value and its name, use :any:`enum_get_name_from_value` and :any:`enum_get_value_from_name`.
+
+Byte Buffers
+============
+
+The Byte Array and Buffer types are both variable length lists of bytes. The core difference is that Byte Arrays are statically allocated while Buffers are dynamically allocated. It is recommended to use Byte Arrays for small or fixed size values. If the maximum value is large, consider using the Buffer type.
+
+Strings are also statically allocated so consider using the Buffer type for large text payloads.
+
+Struct Types
+============
+
+The user can defined arbitrary custom Struct types within the :doc:`schema </stow/schema>`. Structs are composite types containing fields. Fields can be any datatype, including other structs. Each field has constraints based on its datatype.
+
+Structs are dynamically allocated. Structs are accessed via the ``raw_value`` pointer within :any:`data_value_t`. When getting and item's value, the caller should cast this pointer to the correct struct based on the item's struct type. The C struct types are generated by the schema.
+
+Example
+-------
+
+Assume a schema contains a custom struct type with an integer and a buffer. The struct type is called ``KeyedBuffer``. If the Stow contains and item of the ``KeyedBuffer`` type, it can be accessed like so:
+
+.. code-block:: c
+
+  // Get the struct value
+  data_value_t value = {0};
+  STOW_GET(STOW_ROLE_INTERNAL, STOW_ID_KEYED_BUFFER_ITEM, &value);
+
+  // Cast the raw value to the C struct type
+  KeyedBuffer_t* struct_value = (KeyedBuffer_t*)value.data.raw_value;
+  LOG_INF("Key field: %d", struct_value->key_field);
+  LOG_INF("Buffer field length: %d", struct_value->buffer->len);
+
+  // Release the struct value
+  STOW_RELEASE(STOW_ID_DEVICE_NAME, &value);
+
+.. note::
+
+  Structs may contain nested items that are dynamically allocated. These values are automatically freed alongside the struct.
+  
