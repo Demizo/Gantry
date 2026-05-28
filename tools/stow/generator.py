@@ -352,6 +352,12 @@ def _preprocess_items(items: list, enums: dict, structs: dict, roles: dict | Non
                 "struct_def": struct_def,
                 "struct_default_fields": struct_default_fields,
                 "struct_pre_decls": struct_pre_decls,
+                "custom_get": item.get("custom_get", ""),
+                "custom_set": item.get("custom_set", ""),
+                "custom_validate": item.get("custom_validate", ""),
+                "has_custom": bool(
+                    item.get("custom_get") or item.get("custom_set") or item.get("custom_validate")
+                ),
             }
         )
         result.append(item)
@@ -388,6 +394,10 @@ def _make_builtin_string_item(name: str, description: str, default: str, min_len
         "struct_def": {},
         "struct_default_fields": [],
         "struct_pre_decls": [],
+        "custom_get": "",
+        "custom_set": "",
+        "custom_validate": "",
+        "has_custom": False,
     }
 
 
@@ -465,6 +475,26 @@ def generate(yaml_path: Path, output_dir: Path) -> None:
                 referenced_enum_names.append(enum_ref)
                 seen.add(enum_ref)
 
+    custom_get_externs: list = []
+    custom_set_externs: list = []
+    custom_validate_externs: list = []
+    get_seen: set = set()
+    set_seen: set = set()
+    validate_seen: set = set()
+    for item in items:
+        sym = item.get("custom_get", "")
+        if sym and sym not in get_seen:
+            custom_get_externs.append(sym)
+            get_seen.add(sym)
+        sym = item.get("custom_set", "")
+        if sym and sym not in set_seen:
+            custom_set_externs.append(sym)
+            set_seen.add(sym)
+        sym = item.get("custom_validate", "")
+        if sym and sym not in validate_seen:
+            custom_validate_externs.append(sym)
+            validate_seen.add(sym)
+
     template_dir = Path(__file__).parent / "templates"
     env = Environment(
         loader=FileSystemLoader(str(template_dir)),
@@ -481,6 +511,9 @@ def generate(yaml_path: Path, output_dir: Path) -> None:
         "referenced_enum_names": referenced_enum_names,
         "categories_meta": categories_meta,
         "roles": roles,
+        "custom_get_externs": custom_get_externs,
+        "custom_set_externs": custom_set_externs,
+        "custom_validate_externs": custom_validate_externs,
     }
 
     output_dir.mkdir(parents=True, exist_ok=True)

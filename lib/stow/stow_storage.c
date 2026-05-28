@@ -179,6 +179,18 @@ static int stow_set_handler(const char* name, size_t len, settings_read_cb read_
         return -EINVAL;
     }
 
+    // Run application's custom validator if defined
+    if (item->custom_interface != NULL && item->custom_interface->validate != NULL)
+    {
+        if (!item->custom_interface->validate(item, decoded_value))
+        {
+            LOG_ERR("Stored value for %s failed custom validation", name);
+            item->interface->release(&decoded_value);
+            (void)delete_stored_value(name);
+            return -EINVAL;
+        }
+    }
+
     data_value_t default_value = { .type = item->type, .data = item->default_value };
     if (item->interface->is_equal(decoded_value, default_value))
     {

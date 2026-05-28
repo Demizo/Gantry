@@ -206,6 +206,78 @@ items:
     constraints:
       - struct: TestStruct
 
+  - name: TestCustomInt
+    description: "An int item using custom get/set callbacks"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 0
+    constraints:
+      - min: 0
+      - max: 100
+    custom_get: test_custom_getter
+    custom_set: test_custom_setter
+
+  - name: TestCustomReadOnly
+    description: "A read-only int item with custom callbacks"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: INTERNAL
+    default: 0
+    constraints:
+      - min: 0
+      - max: 100
+    custom_get: test_custom_getter
+    custom_set: test_custom_setter
+
+  - name: TestCustomGetterOnly
+    description: "An int item with only a custom getter (set still uses interface)"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 0
+    constraints:
+      - min: 0
+      - max: 100
+    custom_get: test_getter_only
+
+  - name: TestCustomSetterOnly
+    description: "An int item with only a custom setter (get still uses interface)"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 0
+    constraints:
+      - min: 0
+      - max: 100
+    custom_set: test_setter_only
+
+  - name: TestCustomValidated
+    description: "An int item with a custom validator that rejects odd values"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 0
+    constraints:
+      - min: 0
+      - max: 100
+    custom_validate: test_custom_validator
+
   - name: TestNestedStructItem
     description: "A test nested struct item"
     categories: [General]

@@ -26,6 +26,31 @@
 #include "generated_stow_enums.h"
 
 //**********************************************************
+//* Custom callback externs
+//**********************************************************
+
+{% for sym in custom_get_externs %}
+extern int {{ sym }}(const struct stow_item_const_metadata* item, data_value_t* out_value);
+{% endfor %}
+{% for sym in custom_set_externs %}
+extern int {{ sym }}(const struct stow_item_const_metadata* item, data_value_t value);
+{% endfor %}
+{% for sym in custom_validate_externs %}
+extern bool {{ sym }}(const struct stow_item_const_metadata* item, data_value_t value);
+{% endfor %}
+
+/* Custom item interfaces */
+{% for item in items %}
+{% if item.has_custom %}
+static const struct stow_item_custom_interface custom_{{ item.snake_name }} = {
+    .get      = {% if item.custom_get %}{{ item.custom_get }}{% else %}NULL{% endif %},
+    .set      = {% if item.custom_set %}{{ item.custom_set }}{% else %}NULL{% endif %},
+    .validate = {% if item.custom_validate %}{{ item.custom_validate }}{% else %}NULL{% endif %},
+};
+{% endif %}
+{% endfor %}
+
+//**********************************************************
 //* Static Variable Definitions
 //**********************************************************
 
@@ -124,6 +149,7 @@ const struct stow_item_const_metadata
                 .permissions = { {{ item.c_read_perm }}, {{ item.c_write_perm }} },
                 .type = {{ item.c_type_enum }},
                 .interface = &{{ item.c_interface }},
+                .custom_interface = {% if item.has_custom %}&custom_{{ item.snake_name }}{% else %}NULL{% endif %},
                 .value_ptr = {% if item.type in ('BUFFER', 'STRUCT') %}(void*){% endif %}&stow_values.{{ item.snake_name }},
                 {%- if item.type == 'STRUCT' %} /* {{ item.struct_name }}_t** */{% endif %}
 

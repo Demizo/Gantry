@@ -43,6 +43,7 @@ target_sources(app PRIVATE
     src/test_stow_describe.c
     src/test_stow_struct.c
     src/test_stow_nested_struct.c
+    src/test_stow_custom.c
     src/stow_storage_stub.c
     ${GENERATED_DIR}/src/stow/generated_stow_items.c
     ${GENERATED_DIR}/src/stow/generated_stow_enums.c

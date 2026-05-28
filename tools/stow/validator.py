@@ -1,7 +1,10 @@
+import re
+
 VALID_TYPES = {"STRING", "INT", "FLOAT", "ENUM", "BYTE_ARRAY", "BUFFER", "STRUCT"}
 VALID_STRUCT_FIELD_TYPES = {"STRING", "INT", "FLOAT", "ENUM", "BYTE_ARRAY", "BUFFER", "STRUCT"}
 VALID_STORAGE_TYPES = {"EPHEMERAL", "PERSISTENT", "TOFU"}
 ITEM_REQUIRED_FIELDS = {"name", "description", "categories", "type", "storage", "permissions", "default", "constraints"}
+C_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _validate_perm(value, valid_roles: set, ctx: str) -> None:
@@ -197,3 +200,9 @@ def validate(data: dict) -> None:
                 raise ValueError(
                     f"{ctx}: constraint 'struct' references unknown struct '{struct_ref}'"
                 )
+
+        for key in ("custom_get", "custom_set", "custom_validate"):
+            if key in item:
+                val = item[key]
+                if not isinstance(val, str) or not C_IDENT_RE.match(val):
+                    raise ValueError(f"{ctx}: '{key}' must be a valid C identifier, got {val!r}")

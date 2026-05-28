@@ -167,6 +167,38 @@ union stow_constraints
 struct stow_item_const_metadata;
 
 /**
+ * @brief Optional application-provided interface overrides for an item.
+ *
+ * @details Each field may be NULL indicating that the function has no custom implementation.
+ */
+struct stow_item_custom_interface
+{
+    /**
+     * @brief Custom get function to override @ref stow_item_interface.get
+     *
+     * @details Invoked by @ref stow_get (and by subscriber notifications) after the permission check
+     */
+    int (*get)(const struct stow_item_const_metadata* item, data_value_t* out_value);
+    /**
+     * @brief Custom set function to override @ref stow_item_interface.set
+     *
+     * @details Invoked by @ref stow_set after the permission and validation checks
+     */
+    int (*set)(const struct stow_item_const_metadata* item, data_value_t value);
+    /**
+     * @brief Custom validator called after default validation
+     *
+     * @note This should be avoided whenever possible since clients will not know custom validation rules without prior
+     * knowledge of the system.
+     *
+     * @details Invoked by @ref stow_set after the regular type-level validation succeeds, as an additional gate.
+     * Returns True to accept, False to reject.
+     *
+     */
+    bool (*validate)(const struct stow_item_const_metadata* item, data_value_t value);
+};
+
+/**
  * @brief Common interface for each stow item, implemented for each item type
  */
 struct stow_item_interface
@@ -199,9 +231,11 @@ struct stow_item_const_metadata
     struct stow_permissions permissions;         /**< Read/write permissions for the data item */
     enum stow_item_type type;                    /**< Type of the data item */
     const struct stow_item_interface* interface; /**< Common interface for data items */
-    void* value_ptr;                             /**< Pointer to the item's value */
-    const raw_data_value_t default_value;        /**< The item's default value */
-    union stow_constraints constraints;          /**< The item's value constraints */
+    const struct stow_item_custom_interface*
+        custom_interface;                 /**< Optional custom interface for set, get, and validate */
+    void* value_ptr;                      /**< Pointer to the item's value */
+    const raw_data_value_t default_value; /**< The item's default value */
+    union stow_constraints constraints;   /**< The item's value constraints */
 };
 
 //**********************************************************

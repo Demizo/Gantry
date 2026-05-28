@@ -123,7 +123,17 @@ void notify_subscribers(const struct stow_item_const_metadata* item)
 
         // Set value copy to current value
         data_value_t current_value = { 0 };
-        ret = item->interface->get(item->value_ptr, &current_value);
+        if (item->custom_interface == NULL || item->custom_interface->get == NULL)
+        {
+            // Default getter
+            ret = item->interface->get(item->value_ptr, &current_value);
+        }
+        else
+        {
+            // Custom getter
+            ret = item->custom_interface->get(item, &current_value);
+        }
+
         if (ret != SUCCESS)
         {
             LOG_ERR("Failed to get current item value (%d)", ret);
@@ -131,6 +141,7 @@ void notify_subscribers(const struct stow_item_const_metadata* item)
             EVENT_UNREF(&copy_event);
             return;
         }
+
         update_payload->value_copy = current_value;
     }
 
@@ -210,12 +221,23 @@ int stow_set(stow_role_t current_auth, enum stow_item_id id, data_value_t value)
         // Disallow changing TOFU values after they are first modified
         data_value_t default_value = { .type = item->type, .data = item->default_value };
         data_value_t current_value = { 0 };
-        ret = item->interface->get(item->value_ptr, &current_value);
+        if (item->custom_interface == NULL || item->custom_interface->get == NULL)
+        {
+            // Default getter
+            ret = item->interface->get(item->value_ptr, &current_value);
+        }
+        else
+        {
+            // Custom getter
+            ret = item->custom_interface->get(item, &current_value);
+        }
+
         if (ret != SUCCESS)
         {
             LOG_ERR("Failed to check item %d against current value: %d", id, ret);
             return ret;
         }
+
         bool is_default = item->interface->is_equal(current_value, default_value);
         item->interface->release(&current_value);
 
@@ -233,12 +255,35 @@ int stow_set(stow_role_t current_auth, enum stow_item_id id, data_value_t value)
         return -EINVAL;
     }
 
-    // TODO: Call other validators
+    // Optional additional validation from the application
+    if (item->custom_interface != NULL && item->custom_interface->validate != NULL)
+    {
+        if (!item->custom_interface->validate(item, value))
+        {
+            LOG_ERR("Failed custom validation for item %d", id);
+            return -EINVAL;
+        }
+    }
 
     uint32_t key = irq_lock();
 
-    // Apply new value
-    item->interface->set(item->value_ptr, value);
+    // Set new value
+    if (item->custom_interface == NULL || item->custom_interface->set == NULL)
+    {
+        // Default setter
+        item->interface->set(item->value_ptr, value);
+    }
+    else
+    {
+        // Custom setter
+        ret = item->custom_interface->set(item, value);
+        if (ret != SUCCESS)
+        {
+            irq_unlock(key);
+            LOG_ERR("Custom setter failed for item %d (%d)", id, ret);
+            return ret;
+        }
+    }
 
     // Save to persistent storage, if relevant
     if ((item->storage_type == STOW_STORAGE_PERSISTENT) || item->storage_type == STOW_STORAGE_TOFU)
@@ -267,7 +312,16 @@ int stow_get(stow_role_t current_auth, enum stow_item_id id, data_value_t* out_v
 
     // Get current value
     uint32_t key = irq_lock();
-    ret = item->interface->get(item->value_ptr, out_value);
+    if (item->custom_interface == NULL || item->custom_interface->get == NULL)
+    {
+        // Default getter
+        ret = item->interface->get(item->value_ptr, out_value);
+    }
+    else
+    {
+        // Custom getter
+        ret = item->custom_interface->get(item, out_value);
+    }
     irq_unlock(key);
 
     return ret;
