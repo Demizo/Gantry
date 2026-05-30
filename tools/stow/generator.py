@@ -49,6 +49,7 @@ FIELD_C_TYPE_ENUM = {
     "STRUCT": "STOW_ITEM_TYPE_STRUCT",
 }
 
+
 def _to_snake(name: str) -> str:
     s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
     s = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", s)
@@ -69,7 +70,9 @@ def _fmt_float(v) -> str:
     return s + "f"
 
 
-def _preprocess_struct_fields(struct_name: str, fields: list, enums: dict, structs_by_name: dict | None = None) -> list:
+def _preprocess_struct_fields(
+    struct_name: str, fields: list, enums: dict, structs_by_name: dict | None = None
+) -> list:
     if structs_by_name is None:
         structs_by_name = {}
     result = []
@@ -166,7 +169,9 @@ def _preprocess_structs(structs_list: list, enums: dict) -> dict:
     for name, struct_def in result.items():
         for field in struct_def["fields"]:
             if field["type"] == "STRUCT" and field["nested_struct_name"] in result:
-                field["nested_struct_fields"] = result[field["nested_struct_name"]]["fields"]
+                field["nested_struct_fields"] = result[field["nested_struct_name"]][
+                    "fields"
+                ]
     return result
 
 
@@ -198,23 +203,29 @@ def _build_struct_default(prefix: str, struct_def: dict, default_list, structs: 
         elif ftype == "FLOAT":
             entry["c_default_expr"] = _fmt_float(fval if fval is not None else 0.0)
         elif ftype == "ENUM":
-            entry["c_default_expr"] = f"{fcdict['enum']}_{fval}" if fval is not None else "0"
+            entry["c_default_expr"] = (
+                f"{fcdict['enum']}_{fval}" if fval is not None else "0"
+            )
         elif ftype == "BYTE_ARRAY":
             bytes_list = fval if isinstance(fval, list) else []
             entry["byte_array_len"] = len(bytes_list)
-            entry["c_default_expr"] = "{ " + ", ".join(f"0x{b:02X}" for b in bytes_list) + " }"
+            entry["c_default_expr"] = (
+                "{ " + ", ".join(f"0x{b:02X}" for b in bytes_list) + " }"
+            )
         elif ftype == "BUFFER":
             bytes_list = fval if isinstance(fval, list) else []
             c_name = f"default_{prefix}_{fsnake}"
             entry["c_default_expr"] = f"&{c_name}"
-            pre_decls.append({
-                "kind": "buffer",
-                "c_name": c_name,
-                "len": len(bytes_list),
-                "bytes_hex": [f"0x{b:02X}" for b in bytes_list],
-            })
+            pre_decls.append(
+                {
+                    "kind": "buffer",
+                    "c_name": c_name,
+                    "len": len(bytes_list),
+                    "bytes_hex": [f"0x{b:02X}" for b in bytes_list],
+                }
+            )
         elif ftype == "STRING":
-            entry["c_default_expr"] = f"\"{fval if fval is not None else ""}\""
+            entry["c_default_expr"] = f'"{fval if fval is not None else ""}"'
         elif ftype == "STRUCT":
             nested_struct_name = fcdict.get("struct", "")
             nested_struct_def = structs.get(nested_struct_name, {})
@@ -223,14 +234,18 @@ def _build_struct_default(prefix: str, struct_def: dict, default_list, structs: 
             entry["c_default_expr"] = f"&{c_name}"
             if nested_struct_def:
                 nested_default_list = fval if isinstance(fval, list) else []
-                sub_fields, sub_pre_decls = _build_struct_default(sub_prefix, nested_struct_def, nested_default_list, structs)
+                sub_fields, sub_pre_decls = _build_struct_default(
+                    sub_prefix, nested_struct_def, nested_default_list, structs
+                )
                 pre_decls.extend(sub_pre_decls)
-                pre_decls.append({
-                    "kind": "struct",
-                    "c_name": c_name,
-                    "struct_type": nested_struct_name,
-                    "fields": sub_fields,
-                })
+                pre_decls.append(
+                    {
+                        "kind": "struct",
+                        "c_name": c_name,
+                        "struct_type": nested_struct_name,
+                        "fields": sub_fields,
+                    }
+                )
 
         field_entries.append(entry)
 
@@ -252,7 +267,9 @@ def _perm_to_c(perm_spec, roles: dict) -> str:
     raise ValueError(f"Invalid permission spec: {perm_spec!r}")
 
 
-def _preprocess_items(items: list, enums: dict, structs: dict, roles: dict | None = None) -> list:
+def _preprocess_items(
+    items: list, enums: dict, structs: dict, roles: dict | None = None
+) -> list:
     if roles is None:
         roles = {}
     result = []
@@ -321,7 +338,9 @@ def _preprocess_items(items: list, enums: dict, structs: dict, roles: dict | Non
         struct_default_fields = []
         struct_pre_decls: list = []
         if item_type == "STRUCT" and struct_def:
-            struct_default_fields, struct_pre_decls = _build_struct_default(snake, struct_def, default, structs)
+            struct_default_fields, struct_pre_decls = _build_struct_default(
+                snake, struct_def, default, structs
+            )
 
         # Determine interface symbol
         if item_type == "STRUCT":
@@ -339,8 +358,8 @@ def _preprocess_items(items: list, enums: dict, structs: dict, roles: dict | Non
                 "c_type_enum": f"STOW_ITEM_TYPE_{item_type}",
                 "c_storage_enum": f"STOW_STORAGE_{item['storage']}",
                 "c_interface": c_interface,
-                "c_read_perm": _perm_to_c(perm_dict['read'], roles),
-                "c_write_perm": _perm_to_c(perm_dict['write'], roles),
+                "c_read_perm": _perm_to_c(perm_dict["read"], roles),
+                "c_write_perm": _perm_to_c(perm_dict["write"], roles),
                 "constraints_dict": cdict,
                 "needs_static_default": needs_static_default,
                 "c_default": c_default,
@@ -356,7 +375,9 @@ def _preprocess_items(items: list, enums: dict, structs: dict, roles: dict | Non
                 "custom_set": item.get("custom_set", ""),
                 "custom_validate": item.get("custom_validate", ""),
                 "has_custom": bool(
-                    item.get("custom_get") or item.get("custom_set") or item.get("custom_validate")
+                    item.get("custom_get")
+                    or item.get("custom_set")
+                    or item.get("custom_validate")
                 ),
             }
         )
@@ -364,7 +385,9 @@ def _preprocess_items(items: list, enums: dict, structs: dict, roles: dict | Non
     return result
 
 
-def _make_builtin_string_item(name: str, description: str, default: str, min_len: int, max_len: int) -> dict:
+def _make_builtin_string_item(
+    name: str, description: str, default: str, min_len: int, max_len: int
+) -> dict:
     snake = _to_snake(name)
     upper = snake.upper()
     return {
@@ -428,24 +451,28 @@ def _build_builtin_items(yaml_path: Path) -> list:
     if version_path.exists():
         stow_bytes += version_path.read_bytes()
     yaml_hash = hashlib.sha256(stow_bytes).hexdigest()
-    items.append(_make_builtin_string_item(
-        "StowHash",
-        "SHA256 hash of the Stow",
-        yaml_hash,
-        64,
-        64,
-    ))
+    items.append(
+        _make_builtin_string_item(
+            "StowHash",
+            "SHA256 hash of the Stow",
+            yaml_hash,
+            64,
+            64,
+        )
+    )
 
     version_path = yaml_path.parent / "VERSION"
     if version_path.exists():
         version = _parse_version_file(version_path.read_text())
-        items.append(_make_builtin_string_item(
-            "FirmwareVersion",
-            "Firmware version",
-            version,
-            1,
-            32,
-        ))
+        items.append(
+            _make_builtin_string_item(
+                "FirmwareVersion",
+                "Firmware version",
+                version,
+                1,
+                32,
+            )
+        )
 
     return items
 
@@ -465,6 +492,20 @@ def generate(yaml_path: Path, output_dir: Path) -> None:
     roles = {name: idx for idx, name in enumerate(roles_list)}
     builtin_items = _build_builtin_items(yaml_path)
     items = builtin_items + _preprocess_items(data["items"], enums, structs, roles)
+
+    # Deduplicate category sets so identical sets share one C array
+    category_sets: list = []
+    category_set_to_name: dict = {}
+    for item in items:
+        categories = tuple(item["item_categories_snake"])
+        if categories:
+            if categories not in category_set_to_name:
+                name = f"g_stow_category_set_{len(category_sets)}"
+                category_set_to_name[categories] = name
+                category_sets.append({"name": name, "categories": list(categories)})
+            item["categories_array_name"] = category_set_to_name[categories]
+        else:
+            item["categories_array_name"] = "NULL"
 
     referenced_enum_names = []
     seen: set = set()
@@ -514,6 +555,7 @@ def generate(yaml_path: Path, output_dir: Path) -> None:
         "custom_get_externs": custom_get_externs,
         "custom_set_externs": custom_set_externs,
         "custom_validate_externs": custom_validate_externs,
+        "category_sets": category_sets,
     }
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -525,8 +567,12 @@ def generate(yaml_path: Path, output_dir: Path) -> None:
 
     h_out.write_text(env.get_template("generated_stow_items.h.j2").render(**context))
     c_out.write_text(env.get_template("generated_stow_items.c.j2").render(**context))
-    enums_h_out.write_text(env.get_template("generated_stow_enums.h.j2").render(**context))
-    enums_c_out.write_text(env.get_template("generated_stow_enums.c.j2").render(**context))
+    enums_h_out.write_text(
+        env.get_template("generated_stow_enums.h.j2").render(**context)
+    )
+    enums_c_out.write_text(
+        env.get_template("generated_stow_enums.c.j2").render(**context)
+    )
 
     print(f"Generated {h_out}")
     print(f"Generated {c_out}")

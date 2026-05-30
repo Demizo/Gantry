@@ -69,10 +69,10 @@ const char* const g_stow_role_names[STOW_ROLE_COUNT] = {
 static const char g_stow_category_{{ category_snake }}[] = "{{ category_name }}";
 {% endfor %}
 
-/* Per-item categories */
-{% for item in items %}
-static const char* const {{ item.snake_name }}_categories[] = {
-{% for category_snake in item.item_categories_snake %}
+/* Category sets */
+{% for category_set in category_sets %}
+static const char* const {{ category_set.name }}[] = {
+{% for category_snake in category_set.categories %}
     g_stow_category_{{ category_snake }},
 {% endfor %}
 };
@@ -143,7 +143,7 @@ const struct stow_item_const_metadata
             {
                 .id = {{ item.id_enum }},
                 .name = "{{ item.name }}",
-                .categories     = {{ item.snake_name }}_categories,
+                .categories     = {{ item.categories_array_name }},
                 .category_count = {{ item.item_categories | length }},
                 .storage_type = {{ item.c_storage_enum }},
                 .permissions = { {{ item.c_read_perm }}, {{ item.c_write_perm }} },
