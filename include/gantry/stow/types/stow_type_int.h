@@ -13,8 +13,7 @@
  *
  */
 
-#ifndef STOW_TYPE_INT_H
-#define STOW_TYPE_INT_H
+#pragma once
 
 #include <gantry/stow/types/stow_types.h>
 #include <stddef.h>
@@ -46,5 +45,3 @@ extern const struct stow_item_interface stow_int_interface;
 /**
  * @}
  */
-
-#endif  // STOW_TYPE_INT_H

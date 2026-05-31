@@ -13,8 +13,7 @@
  *
  */
 
-#ifndef STOW_DESCRIBE_H
-#define STOW_DESCRIBE_H
+#pragma once
 
 #include <stddef.h>
 #include <zcbor_common.h>
@@ -58,5 +57,3 @@ int stow_describe(uint32_t start_id, zcbor_state_t* encoder, uint32_t* next_id_o
 /**
  * @}
  */
-
-#endif  // STOW_DESCRIBE_H

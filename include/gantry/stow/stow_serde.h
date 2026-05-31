@@ -14,8 +14,7 @@
  *
  */
 
-#ifndef STOW_SERDE_H
-#define STOW_SERDE_H
+#pragma once
 
 #include <gantry/stow/types/stow_types.h>
 #include <generated_stow_items.h>
@@ -219,5 +218,3 @@ int stow_serde_encode_error(zcbor_state_t* encoder, enum stow_error_code code);
 /**
  * @}
  */
-
-#endif  // STOW_SERDE_H

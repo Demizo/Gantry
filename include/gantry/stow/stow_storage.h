@@ -13,8 +13,7 @@
  *
  */
 
-#ifndef STOW_STORAGE_H
-#define STOW_STORAGE_H
+#pragma once
 
 #include <gantry/stow/types/stow_types.h>
 #include <stddef.h>
@@ -62,5 +61,3 @@ int stow_storage_save_item(const struct stow_item_const_metadata* item);
 /**
  * @}
  */
-
-#endif  // STOW_STORAGE_H

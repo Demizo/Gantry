@@ -13,8 +13,7 @@
  *
  */
 
-#ifndef STOW_H
-#define STOW_H
+#pragma once
 
 #include <gantry/event.h>
 #include <gantry/memory.h>
@@ -196,5 +195,3 @@ int stow_unsubscribe(enum stow_item_id id, struct stow_subscription* subscriptio
 /**
  * @}
  */
-
-#endif  // STOW_H

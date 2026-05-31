@@ -13,8 +13,7 @@
  *
  */
 
-#ifndef STATIC_UNIT_H
-#define STATIC_UNIT_H
+#pragma once
 
 #include <autoconf.h>
 
@@ -38,5 +37,3 @@
 //**********************************************************
 //* Functions
 //**********************************************************
-
-#endif  // STATIC_UNIT_H

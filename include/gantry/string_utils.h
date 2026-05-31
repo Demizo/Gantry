@@ -13,8 +13,7 @@
  *
  */
 
-#ifndef STRING_UTILS_H
-#define STRING_UTILS_H
+#pragma once
 
 #include <stddef.h>
 
@@ -29,5 +28,3 @@
  * @return -E2BIG if the destination buffer was too small.
  */
 size_t strscpy(char* dest, const char* src, size_t count);
-
-#endif  // STRING_UTILS_H

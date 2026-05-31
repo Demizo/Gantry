@@ -13,8 +13,7 @@
  *
  */
 
-#ifndef STOW_TYPES_H
-#define STOW_TYPES_H
+#pragma once
 
 #include <gantry/buffer.h>
 #include <stddef.h>
@@ -245,5 +244,3 @@ struct stow_item_const_metadata
 /**
  * @}
  */
-
-#endif  // STOW_TYPES_H

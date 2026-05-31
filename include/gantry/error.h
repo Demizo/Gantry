@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef ERROR_H
-#define ERROR_H
+#pragma once
 
 #include <zephyr/logging/log.h>
 #include <zephyr/logging/log_ctrl.h>
@@ -33,5 +32,3 @@
 //**********************************************************
 //* Functions
 //**********************************************************
-
-#endif  // ERROR_H

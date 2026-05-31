@@ -16,8 +16,7 @@
  *
  */
 
-#ifndef BUFFER_H
-#define BUFFER_H
+#pragma once
 
 #include <stdint.h>
 
@@ -45,5 +44,3 @@ typedef struct
     } name##_storage = { 0 };                           \
     buffer_t*(name) = &name##_storage.buffer;           \
     (name)->len = (uint16_t)(size);
-
-#endif  // BUFFER_H

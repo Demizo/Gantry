@@ -13,8 +13,7 @@
  *
  */
 
-#ifndef STOW_TYPE_ENUM_H
-#define STOW_TYPE_ENUM_H
+#pragma once
 
 #include <gantry/stow/types/stow_types.h>
 #include <stddef.h>
@@ -68,5 +67,3 @@ int enum_get_value_from_name(const union stow_constraints* constraints, char* na
 /**
  * @}
  */
-
-#endif  // STOW_TYPE_ENUM_H

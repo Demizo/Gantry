@@ -24,8 +24,7 @@
  *
  */
 
-#ifndef MEMORY_H
-#define MEMORY_H
+#pragma once
 
 #include <stddef.h>
 #include <zephyr/kernel.h>
@@ -235,5 +234,3 @@ int mem_set_watermark(uint8_t pool_index, uint8_t percent, mem_watermark_cb_t ca
 /**
  * @}
  */
-
-#endif  // MEMORY_H

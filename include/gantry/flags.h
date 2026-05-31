@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef FLAGS_H
-#define FLAGS_H
+#pragma once
 
 #include <zephyr/sys/atomic.h>
 
@@ -65,5 +64,3 @@
     _VALIDATE_FLAGS(name);
 
 #define CHECK_FLAG(name, flag) atomic_test_bit(name, flag)
-
-#endif  // FLAGS_H

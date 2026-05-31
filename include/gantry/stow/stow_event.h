@@ -13,8 +13,7 @@
  *
  */
 
-#ifndef STOW_EVENT_H
-#define STOW_EVENT_H
+#pragma once
 
 #include <gantry/event.h>
 #include <gantry/stow/types/stow_types.h>
@@ -79,5 +78,3 @@ void stow_event_on_free(event_t* event);
 /**
  * @}
  */
-
-#endif  // STOW_EVENT_H

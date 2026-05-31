@@ -24,8 +24,7 @@
  *
  */
 
-#ifndef EVENT_H
-#define EVENT_H
+#pragma once
 
 #include <gantry/buffer.h>
 #include <gantry/memory.h>
@@ -173,5 +172,3 @@ void event_init(event_t* event, const event_type_t* type, size_t payload_size);
 /**
  * @}
  */
-
-#endif  // EVENT_H

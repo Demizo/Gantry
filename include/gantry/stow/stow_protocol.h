@@ -18,8 +18,7 @@
  *
  */
 
-#ifndef STOW_PROTOCOL_H
-#define STOW_PROTOCOL_H
+#pragma once
 
 #include <gantry/event.h>
 #include <gantry/stow/types/stow_types.h>
@@ -194,5 +193,3 @@ int stow_protocol_handle_rx(uint32_t session_id, stow_role_t roles, struct net_b
 /**
  * @}
  */
-
-#endif  // STOW_PROTOCOL_H
