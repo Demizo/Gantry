@@ -9,22 +9,31 @@ The system state, configuration, and device information is all managed by a cent
 | Component | Description |
 | --- | --- |
 | Stow | Central data store for device information, state, and configuration. Modules and external clients can set, get, and subscribe to items in the Stow. |
-| Memory Management | Reference-counted memory pools. |
+| Memory Management | Configurable reference-counted memory pools. |
 | Events | Universal event format for inter-process communications. |
 | Resource Checker | Static analysis for memory and resource leaks. |
 | Flags | State flags for managing and monitoring module state. |
 
-The example in `samples/example_app/` demonstrates using the Gantry library in an application.
+## Integration Quick Start
+
+The project is meant to be included as a West module within a West workspace.
+
+1. Include the module's repository in your West manifest then run ``west update``.
+2. Define a ``stow.yaml`` in your applications root directory.
+3. Enable the desired Gantry features in your project's ``prj.conf``.
+4. Build our application and begin making use of the Gantry library.
+
+The ``samples`` folder provides an example application using the Gantry library.
 
 ## Project Structure
 
 The project is meant to be included as a West module within a West workspace.
 
-- ``docs`` contains this documentation.
+- ``docs`` contains project documentation.
 - ``include`` and ``lib`` contain the headers and source for the Gantry library, respectively.
 - ``samples`` contains example applications using the Gantry library.
 - ``tests`` contains a suite of unit tests.
-- ``tools`` contains useful Python utilities and code generation/analysis tools.
+- ``tools`` contains useful Python utilities, code generation, and analysis tools.
 - ``python`` contains an example implementation of a Stow client.
 
 ## Setup
@@ -58,7 +67,7 @@ just docs-open
 just doxy-open
 ```
 
-### Initialize the workspace
+### Initialize the Workspace
 
 ```sh
 just init
