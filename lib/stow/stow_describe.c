@@ -31,7 +31,7 @@ LOG_MODULE_REGISTER(stow_describe, CONFIG_STOW_LOG_LEVEL);
 /**
  * @brief String representation of each storage type
  */
-static const char* const storage_type_strs[] = {
+static const char* const storage_type_strings[] = {
     [STOW_STORAGE_EPHEMERAL] = "Ephemeral",
     [STOW_STORAGE_PERSISTENT] = "Persistent",
     [STOW_STORAGE_TOFU] = "TOFU",
@@ -40,7 +40,7 @@ static const char* const storage_type_strs[] = {
 /**
  * @brief String representation of each item type
  */
-static const char* const item_type_strs[] = {
+const char* const item_type_strings[] = {
     [STOW_ITEM_TYPE_ENUM] = "Enum",
     [STOW_ITEM_TYPE_INT] = "Int",
     [STOW_ITEM_TYPE_FLOAT] = "Float",
@@ -149,12 +149,12 @@ static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_meta
         return -ENOMEM;
     }
 
-    if (!zcbor_tstr_put_lit(encoder, "storage") || !tstr_put(encoder, storage_type_strs[item->storage_type]) ||
+    if (!zcbor_tstr_put_lit(encoder, "storage") || !tstr_put(encoder, storage_type_strings[item->storage_type]) ||
         !zcbor_tstr_put_lit(encoder, "read_perm") ||
         encode_role_list(encoder, item->permissions.read_permissions) != SUCCESS ||
         !zcbor_tstr_put_lit(encoder, "write_perm") ||
         encode_role_list(encoder, item->permissions.write_permissions) != SUCCESS ||
-        !zcbor_tstr_put_lit(encoder, "type") || !tstr_put(encoder, item_type_strs[item->type]))
+        !zcbor_tstr_put_lit(encoder, "type") || !tstr_put(encoder, item_type_strings[item->type]))
     {
         return -ENOMEM;
     }

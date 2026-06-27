@@ -51,6 +51,11 @@ enum stow_item_type
 };
 
 /**
+ * @brief String representation of each item type
+ */
+extern const char* const item_type_strings[];
+
+/**
  * @brief Union of raw values for each data type
  */
 typedef union
