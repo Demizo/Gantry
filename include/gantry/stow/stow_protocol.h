@@ -28,7 +28,7 @@
 #include <zephyr/net_buf.h>
 
 /**
- * @addtogroup stow_protocol
+ * @addtogroup stow_protocol Stow Protocol
  * @{
  */
 

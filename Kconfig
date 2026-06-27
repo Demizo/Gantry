@@ -63,4 +63,15 @@ if GANTRY_STOW
     rsource "kconfig/Kconfig.stow"
 endif
 
+menuconfig GANTRY_COBS_FRAMER
+    bool "COBS framer"
+    default n
+    select NET_BUF
+    help
+      Enable the COBS framing module used to encode and decode COBS frames
+
+if GANTRY_COBS_FRAMER
+    rsource "kconfig/Kconfig.cobs_framer"
+endif
+
 endif # GANTRY

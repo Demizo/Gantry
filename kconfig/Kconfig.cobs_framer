@@ -1,0 +1,3 @@
+config GANTRY_COBS_FRAMER_LOG_LEVEL
+    int "COBS framer log level"
+    default 3

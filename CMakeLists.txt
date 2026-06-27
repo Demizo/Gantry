@@ -17,6 +17,10 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
 
   include(${CMAKE_CURRENT_LIST_DIR}/cmake/gantry.cmake)
 
+  if(CONFIG_GANTRY_COBS_FRAMER)
+    zephyr_library_sources(lib/cobs_framer.c)
+  endif()
+
   if(CONFIG_GANTRY_STOW)
     zephyr_library_sources(
       lib/stow/stow.c
