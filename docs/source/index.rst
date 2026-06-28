@@ -15,6 +15,7 @@ The system state, configuration, and device information is all managed by a cent
    Resource Checker <resource_checker/index>
    Events <events/index>
    Flags <flags/index>
+   COBS Framer <cobs_framer/index>
 
 
 Integration Quick Start
