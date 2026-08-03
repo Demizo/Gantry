@@ -1,6 +1,6 @@
 # Gantry
 
-Gantry is a framework for bootstrapping embedded applications using the [Zephyr RTOS](https://zephyrproject.org/). The architecture is event-driven and data-centric. Applications are made up of composable modules that communicate with each other via events. Modules can define custom event types and payloads, but the core event structure is universal such that any module can parse any event.
+[Gantry](https://demizo.github.io/Gantry/) is a framework for bootstrapping embedded applications using the [Zephyr RTOS](https://zephyrproject.org/). The architecture is event-driven and data-centric. Applications are made up of composable modules that communicate with each other via events. Modules can define custom event types and payloads, but the core event structure is universal such that any module can parse any event.
 
 The system state, configuration, and device information is all managed by a central data storage module, the Stow. Modules, as well as connected devices, can subscribe to, set, and get items in the Stow. This data-centric approach makes it trivial for modules or devices to react to events and communicate with each other. It avoids common pitfalls where many modules define similar events or pass state via arbitrary event payloads.
 
@@ -56,7 +56,9 @@ This project uses `just` to easily run commands and scripts. Run `just` to view 
 
 ## Documentation
 
-Generate and open the HTML docs:
+The documentation is available at [demizo.github.io/Gantry/](https://demizo.github.io/Gantry/).
+
+To locally generate and open the HTML docs:
 
 ```sh
 # Build the documentation
