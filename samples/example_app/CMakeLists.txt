@@ -5,6 +5,8 @@ project(gantry_example_app)
 
 zephyr_cc_option(-Wfatal-errors)
 
+gantry_stow_add_fragment(${CMAKE_CURRENT_SOURCE_DIR}/ble.stow.yaml)
+
 target_include_directories(app PRIVATE 
     inc
 )

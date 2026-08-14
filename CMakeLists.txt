@@ -46,11 +46,20 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
       )
     endif()
 
+    if(CMAKE_VERSION VERSION_LESS 3.29)
+      message(FATAL_ERROR
+        "CONFIG_GANTRY_STOW requires CMake >= 3.29 for deferred Stow generation; found ${CMAKE_VERSION}")
+    endif()
+
     set(_app_yaml ${APPLICATION_SOURCE_DIR}/stow.yaml)
     if(NOT EXISTS "${_app_yaml}")
       message(FATAL_ERROR "Expected stow.yaml at ${APPLICATION_SOURCE_DIR}")
     endif()
-    gantry_stow_generate(YAML ${_app_yaml})
+
+    set(GANTRY_STOW_YAML "${_app_yaml}" CACHE INTERNAL "")
+    set(ZEPHYR_GANTRY_MODULE_DIR "${ZEPHYR_GANTRY_MODULE_DIR}" CACHE INTERNAL "")
+
+    cmake_language(DEFER DIRECTORY ${CMAKE_SOURCE_DIR} CALL gantry_stow_generate)
   endif()
 
   zephyr_library_compile_options(-Wall -Wextra -Wfatal-errors)

@@ -1,14 +1,41 @@
-# gantry_stow_generate(YAML <path> [OUTPUT_DIR <dir>])
+# gantry_stow_add_fragment(<path>)
 #
-# Runs the stow generator over the given YAML and attaches the generated
-# C sources / headers to the calling CMakeLists' `app` target.
+# Registers an additional stow YAML fragment to be merged into the app's
+# Stow definition, at lower precedence than the app's own stow.yaml (which
+# is applied on top of all registered fragments) and lower than any
+# board-specific fragment (which always wins).
 #
-# OUTPUT_DIR defaults to ${CMAKE_CURRENT_BINARY_DIR}/gantry_generated.
+# By convention fragment files end in `.stow.yaml`.
+function(gantry_stow_add_fragment path)
+  if(NOT IS_ABSOLUTE "${path}")
+    set(path "${CMAKE_CURRENT_SOURCE_DIR}/${path}")
+  endif()
+  if(NOT EXISTS "${path}")
+    message(FATAL_ERROR "gantry_stow_add_fragment: fragment not found: ${path}")
+  endif()
+  set_property(GLOBAL APPEND PROPERTY GANTRY_STOW_FRAGMENTS "${path}")
+endfunction()
+
+# gantry_stow_generate([YAML <path>] [OUTPUT_DIR <dir>])
+#
+# Composes the app's stow.yaml with any fragments registered via
+# gantry_stow_add_fragment() and any auto-discovered board fragment, runs the
+# stow generator over the merged result, and attaches the generated C
+# sources / headers to the calling CMakeLists' `app` target.
+#
+# YAML defaults to the GANTRY_STOW_YAML cache entry (set by the root
+# CMakeLists.txt) and OUTPUT_DIR defaults to ${CMAKE_BINARY_DIR}/gantry_generated.
+#
+# NOTE: Invoked via a deferred call (see root CMakeLists.txt) so that
+# fragments registered later in the app's own CMakeLists.txt are visible.
 function(gantry_stow_generate)
   cmake_parse_arguments(ARG "" "YAML;OUTPUT_DIR" "" ${ARGN})
 
   if(NOT ARG_YAML)
-    message(FATAL_ERROR "gantry_stow_generate: YAML <path> is required")
+    set(ARG_YAML "${GANTRY_STOW_YAML}")
+  endif()
+  if(NOT ARG_YAML)
+    message(FATAL_ERROR "gantry_stow_generate: YAML <path> is required (or set GANTRY_STOW_YAML)")
   endif()
   if(NOT IS_ABSOLUTE "${ARG_YAML}")
     set(ARG_YAML "${CMAKE_CURRENT_SOURCE_DIR}/${ARG_YAML}")
@@ -18,21 +45,47 @@ function(gantry_stow_generate)
   endif()
 
   if(NOT ARG_OUTPUT_DIR)
-    set(ARG_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/gantry_generated)
+    set(ARG_OUTPUT_DIR ${CMAKE_BINARY_DIR}/gantry_generated)
   endif()
 
   find_program(GANTRY_UV_CMD NAMES uv REQUIRED)
   set(_gen_dir ${ZEPHYR_GANTRY_MODULE_DIR}/tools/stow)
 
+  get_property(_fragments GLOBAL PROPERTY GANTRY_STOW_FRAGMENTS)
+
+  set(_board_full "${BOARD}")
+  if(BOARD_QUALIFIERS)
+    set(_board_full "${BOARD}/${BOARD_QUALIFIERS}")
+  endif()
+  string(REPLACE "/" "_" _board_file "${_board_full}")
+  set(_board_yaml "${APPLICATION_CONFIG_DIR}/boards/${_board_file}.stow.yaml")
+
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ARG_YAML})
+  foreach(_fragment ${_fragments})
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_fragment})
+  endforeach()
+
+  set(_fragment_args)
+  foreach(_fragment ${_fragments})
+    list(APPEND _fragment_args --fragment ${_fragment})
+  endforeach()
+
+  set(_board_args)
+  if(EXISTS "${_board_yaml}")
+    set(_board_args --board-yaml ${_board_yaml})
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_board_yaml})
+  endif()
 
   file(MAKE_DIRECTORY ${ARG_OUTPUT_DIR}/inc/stow)
   file(MAKE_DIRECTORY ${ARG_OUTPUT_DIR}/src/stow)
 
-  message(STATUS "Gantry: generating stow from ${ARG_YAML}")
+  message(STATUS "Gantry: generating stow from ${ARG_YAML} (${_fragments})")
   execute_process(
     COMMAND ${GANTRY_UV_CMD} run ${_gen_dir}/generate_stow.py
             --yaml       ${ARG_YAML}
+            ${_fragment_args}
+            ${_board_args}
+            --app-dir    ${APPLICATION_SOURCE_DIR}
             --output-dir ${ARG_OUTPUT_DIR}
     WORKING_DIRECTORY ${ZEPHYR_GANTRY_MODULE_DIR}
     RESULT_VARIABLE _gen_result

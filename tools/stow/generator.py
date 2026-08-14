@@ -443,11 +443,11 @@ def _parse_version_file(text: str) -> str:
     return version
 
 
-def _build_builtin_items(yaml_path: Path) -> list:
+def _build_builtin_items(hash_bytes: bytes, version_dir: Path) -> list:
     items = []
-    version_path = yaml_path.parent / "VERSION"
+    version_path = version_dir / "VERSION"
 
-    stow_bytes = yaml_path.read_bytes()
+    stow_bytes = hash_bytes
     if version_path.exists():
         stow_bytes += version_path.read_bytes()
     yaml_hash = hashlib.sha256(stow_bytes).hexdigest()
@@ -461,7 +461,6 @@ def _build_builtin_items(yaml_path: Path) -> list:
         )
     )
 
-    version_path = yaml_path.parent / "VERSION"
     if version_path.exists():
         version = _parse_version_file(version_path.read_text())
         items.append(
@@ -477,12 +476,9 @@ def _build_builtin_items(yaml_path: Path) -> list:
     return items
 
 
-def generate(yaml_path: Path, output_dir: Path) -> None:
-    with open(yaml_path) as f:
-        data = yaml.safe_load(f)
-
-    validate(data)
-
+def generate(
+    data: dict, output_dir: Path, hash_bytes: bytes, version_dir: Path
+) -> None:
     enums = data.get("enums") or {}
     structs_list = data.get("structs") or []
     structs = _preprocess_structs(structs_list, enums)
@@ -490,7 +486,7 @@ def generate(yaml_path: Path, output_dir: Path) -> None:
     categories_meta = {name: _to_snake(name) for name in categories_list}
     roles_list = data.get("roles") or []
     roles = {name: idx for idx, name in enumerate(roles_list)}
-    builtin_items = _build_builtin_items(yaml_path)
+    builtin_items = _build_builtin_items(hash_bytes, version_dir)
     items = builtin_items + _preprocess_items(data["items"], enums, structs, roles)
 
     # Deduplicate category sets so identical sets share one C array

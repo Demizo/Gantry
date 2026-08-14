@@ -84,6 +84,10 @@ alias ti := test-integration
 test-integration *args='':
     uv run pytest {{sample}}/tests {{args}}
 
+# Run the Stow generation unit tests
+test-stow-tools *args='':
+    uv run pytest tools/stow/tests {{args}}
+
 # Build documentation
 docs:
   doxygen Doxyfile

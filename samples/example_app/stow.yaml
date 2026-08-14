@@ -2,14 +2,6 @@
 # Enumerations
 # ==============================================================================
 enums:
-  BleConnectionState:
-    description: "Bluetooth Connection State"
-    values:
-      - name: DISCONNECTED
-        value: 0
-      - name: CONNECTED
-        value: 1
-
   Toggle:
     description: "A toggle to enable or disable"
     values:
@@ -47,25 +39,16 @@ roles:
 # ==============================================================================
 categories:
   - General
-  - BLE
   - Test
 
 # ==============================================================================
 # Items
 # ==============================================================================
 items:
+  # EXAMPLE: Stow items can be overridden. DeviceName is defined in ble.stow.yaml,
+  # but its value is redefined here.
   - name: DeviceName
-    description: "The name of the device"
-    categories: [General]
-    type: STRING
-    storage: PERSISTENT
-    permissions:
-      - read: ANY
-      - write: [Session]
     default: "Gantry"
-    constraints:
-      - min_len: 3
-      - max_len: 25
 
   - name: SerialNumber
     description: "The device serial number"
@@ -79,18 +62,6 @@ items:
     constraints:
       - min_len: 16
       - max_len: 16
-
-  - name: BleConnectionState
-    description: "The current BLE connection state"
-    categories: [General, BLE]
-    type: ENUM
-    storage: EPHEMERAL
-    permissions:
-      - read: ANY
-      - write: [Session]
-    default: DISCONNECTED
-    constraints:
-      - enum: BleConnectionState
 
   - name: TestEnum
     description: "Test enum value"
