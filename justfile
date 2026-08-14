@@ -79,6 +79,11 @@ test-all:
 test component:
   west twister -T tests/{{component}} -p native_sim --clobber-output -i -vv
 
+alias ti := test-integration
+# Run Python integration tests for the sample app
+test-integration *args='':
+    uv run pytest {{sample}}/tests {{args}}
+
 # Build documentation
 docs:
   doxygen Doxyfile
