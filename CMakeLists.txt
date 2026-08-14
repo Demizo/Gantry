@@ -2,6 +2,10 @@ if(CONFIG_GANTRY)
   zephyr_include_directories(include)
 endif()
 
+if(CONFIG_GANTRY_STOW)
+  zephyr_linker_sources(SECTIONS cmake/stow_static_subscription.ld)
+endif()
+
 if(CONFIG_GANTRY_BUILD_LIBRARY)
   zephyr_library_named(gantry)
 

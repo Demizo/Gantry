@@ -46,6 +46,9 @@ struct stow_subscriber_node
 //**********************************************************
 
 void notify_subscribers(const struct stow_item_const_metadata* item);
+static void mark_subscriber_mode(enum stow_subscription_mode mode, bool* has_handle, bool* has_copy);
+static void notify_one_subscriber(
+    const struct stow_subscription* subscription, event_t* handle_event, event_t* copy_event);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -56,6 +59,57 @@ static struct stow_item_dynamic_metadata g_stow_dynamic_metadata[STOW_ID_COUNT] 
 //**********************************************************
 //* Static Function Definitions
 //**********************************************************
+
+/**
+ * @brief Track which subscription modes are present among a set of subscribers
+ *
+ * @param mode The subscription mode to check
+ * @param[in,out] has_handle Set to true if @p mode is @ref STOW_SUBSCRIPTION_HANDLE
+ * @param[in,out] has_copy Set to true if @p mode is @ref STOW_SUBSCRIPTION_COPY
+ */
+static void mark_subscriber_mode(enum stow_subscription_mode mode, bool* has_handle, bool* has_copy)
+{
+    if (mode == STOW_SUBSCRIPTION_HANDLE)
+    {
+        *has_handle = true;
+    }
+    else if (mode == STOW_SUBSCRIPTION_COPY)
+    {
+        *has_copy = true;
+    }
+}
+
+/**
+ * @brief Invoke a single subscriber's callback with the appropriate event
+ *
+ * @param subscription The subscription to notify
+ * @param handle_event The handle-mode event, may be NULL if there are no handle subscribers
+ * @param copy_event The copy-mode event, may be NULL if there are no copy subscribers
+ */
+static void notify_one_subscriber(
+    const struct stow_subscription* subscription, event_t* handle_event, event_t* copy_event)
+{
+    // cppcheck-suppress ctuuninitvar
+    if (subscription->cb == NULL)
+    {
+        return;
+    }
+
+    if (subscription->mode == STOW_SUBSCRIPTION_HANDLE)
+    {
+        EVENT_REF(handle_event);
+        subscription->cb(handle_event);
+        // The callback is responsible for releasing this reference.
+        PASS_OWNERSHIP(handle_event);
+    }
+    else if (subscription->mode == STOW_SUBSCRIPTION_COPY)
+    {
+        EVENT_REF(copy_event);
+        subscription->cb(copy_event);
+        // The callback is responsible for releasing this reference.
+        PASS_OWNERSHIP(copy_event);
+    }
+}
 
 /**
  * @brief Notify subscribers that a given item has changed
@@ -76,13 +130,14 @@ void notify_subscribers(const struct stow_item_const_metadata* item)
     // Check subscriber types
     SYS_SLIST_FOR_EACH_CONTAINER(&g_stow_dynamic_metadata[item->id].subscribers, sub, node)
     {
-        if (sub->subscription.mode == STOW_SUBSCRIPTION_HANDLE)
+        mark_subscriber_mode(sub->subscription.mode, &has_handle_subscribers, &has_copy_subscribers);
+    }
+
+    STRUCT_SECTION_FOREACH(stow_static_subscription, static_sub)
+    {
+        if ((uint32_t)static_sub->id == item->id)
         {
-            has_handle_subscribers = true;
-        }
-        else if (sub->subscription.mode == STOW_SUBSCRIPTION_COPY)
-        {
-            has_copy_subscribers = true;
+            mark_subscriber_mode(static_sub->subscription.mode, &has_handle_subscribers, &has_copy_subscribers);
         }
     }
 
@@ -148,18 +203,15 @@ void notify_subscribers(const struct stow_item_const_metadata* item)
     // Notify subscribers
     SYS_SLIST_FOR_EACH_CONTAINER(&g_stow_dynamic_metadata[item->id].subscribers, sub, node)
     {
-        if (sub->subscription.cb != NULL)
+        // cppcheck-suppress uninitvar
+        notify_one_subscriber(&sub->subscription, handle_event, copy_event);
+    }
+
+    STRUCT_SECTION_FOREACH(stow_static_subscription, static_sub)
+    {
+        if ((uint32_t)static_sub->id == item->id)
         {
-            if (sub->subscription.mode == STOW_SUBSCRIPTION_HANDLE)
-            {
-                EVENT_REF(handle_event);
-                sub->subscription.cb(handle_event);
-            }
-            else if (sub->subscription.mode == STOW_SUBSCRIPTION_COPY)
-            {
-                EVENT_REF(copy_event);
-                sub->subscription.cb(copy_event);
-            }
+            notify_one_subscriber(&static_sub->subscription, handle_event, copy_event);
         }
     }
 
@@ -191,6 +243,15 @@ void stow_init(void)
     for (int i = 0; i < STOW_ID_COUNT; i++)
     {
         sys_slist_init(&g_stow_dynamic_metadata[i].subscribers);
+    }
+
+    // Validate static subscriptions registered via STOW_SUBSCRIPTION_DEFINE
+    STRUCT_SECTION_FOREACH(stow_static_subscription, static_sub)
+    {
+        if (!stow_is_id_valid((uint32_t)static_sub->id))
+        {
+            LOG_ERR("Static subscription %p has invalid item id: %u", (void*)static_sub, (unsigned int)static_sub->id);
+        }
     }
 
     ret = stow_storage_load();

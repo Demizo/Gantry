@@ -40,6 +40,7 @@ target_sources(app PRIVATE
     src/test_stow_buffer.c
     src/test_stow_access.c
     src/test_stow_subscribe.c
+    src/test_stow_static_subscribe.c
     src/test_stow_describe.c
     src/test_stow_struct.c
     src/test_stow_nested_struct.c

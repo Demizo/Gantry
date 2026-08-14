@@ -79,10 +79,9 @@ BT_CONN_CB_DEFINE(ble_conn_cb) = {
 // The current BLE connection
 static struct bt_conn* current_conn;
 
-static struct stow_subscription stow_subscription = {
-    .mode = STOW_SUBSCRIPTION_HANDLE,
-    .cb = on_stow_update,
-};
+// Stow subscriptions
+STOW_SUBSCRIPTION_DEFINE(
+    ble_manager_stow_sub, STOW_SUBSCRIPTION_HANDLE, on_stow_update, STOW_ID_DEVICE_NAME, STOW_ID_BLE_CONNECTION_STATE);
 
 //**********************************************************
 //* Static Function Definitions
@@ -309,14 +308,6 @@ void ble_manager_init(void)
     {
         LOG_ERR("Failed to create advertising set: %d", ret);
         return;
-    }
-
-    // Subscribe to Stow changes
-    ret = stow_subscribe(STOW_ROLE_INTERNAL, STOW_ID_DEVICE_NAME, &stow_subscription);
-    ret |= stow_subscribe(STOW_ROLE_INTERNAL, STOW_ID_BLE_CONNECTION_STATE, &stow_subscription);
-    if (ret != SUCCESS)
-    {
-        LOG_WRN("Failed to subscribe to Stow items: %d", ret);
     }
 
     SET_FLAG(ble_manager_flags, INITIALIZED);

@@ -105,6 +105,32 @@ items:
       - min: -50
       - max: 50
 
+  - name: TestStaticSubscribeInt
+    description: "A test int item for static subscription tests"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 0
+    constraints:
+      - min: -50
+      - max: 50
+
+  - name: TestStaticSubscribeInt2
+    description: "A second test int item for multi-id static subscription tests"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 0
+    constraints:
+      - min: -50
+      - max: 50
+
   - name: TestFloat
     description: "A test float item"
     categories: [General]

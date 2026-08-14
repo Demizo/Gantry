@@ -22,7 +22,9 @@
 #include <generated_stow_items.h>
 #include <stddef.h>
 #include <zephyr/kernel.h>
+#include <zephyr/sys/iterable_sections.h>
 #include <zephyr/sys/slist.h>
+#include <zephyr/sys/util_macro.h>
 
 /**
  * @addtogroup stow
@@ -61,6 +63,17 @@ struct stow_subscription
 struct stow_item_dynamic_metadata
 {
     sys_slist_t subscribers; /**< List of subscribers to the item */
+};
+
+/**
+ * @brief A static stow subscription
+ *
+ * @details Created by @ref STOW_SUBSCRIPTION_DEFINE. These subscriptions exist for the full lifetime of the app.
+ */
+struct stow_static_subscription
+{
+    enum stow_item_id id;                  /**< Item ID being subscribed to */
+    struct stow_subscription subscription; /**< The stow subscription */
 };
 
 //**********************************************************
@@ -191,6 +204,36 @@ int stow_subscribe(stow_role_t current_auth, enum stow_item_id id, struct stow_s
  * @return -ENOENT when the subscription did not exist for the given data item
  */
 int stow_unsubscribe(enum stow_item_id id, struct stow_subscription* subscription);
+
+/**
+ * @brief Statically define stow subscriptions
+ *
+ * @details Use this instead of a runtime @ref stow_subscribe call for subscriptions that live for the entire
+ * process lifetime.
+ *
+ * @param _name Base name for subscription, must be unique within the translation unit
+ * @param _mode Subscription mode, see @ref stow_subscription_mode
+ * @param _cb Callback invoked when any listed item changes
+ * @param ... One or more item IDs
+ */
+#define STOW_SUBSCRIPTION_DEFINE(_name, _mode, _cb, ...) \
+    FOR_EACH_IDX_FIXED_ARG(Z_STOW_SUBSCRIPTION_DEFINE_ONE, (;), (_name, _mode, _cb), __VA_ARGS__)
+
+/** @cond INTERNAL_HIDDEN */
+#define Z_STOW_SUBSCRIPTION_APPLY(_macro, _args) _macro _args
+
+#define Z_STOW_SUBSCRIPTION_DEFINE_ONE(_idx, _id, _fixed) \
+    Z_STOW_SUBSCRIPTION_APPLY(Z_STOW_SUBSCRIPTION_DEFINE_ONE_, (_idx, _id, __DEBRACKET _fixed))
+
+#define Z_STOW_SUBSCRIPTION_DEFINE_ONE_(_idx, _id, _name, _mode, _cb) \
+    static const STRUCT_SECTION_ITERABLE(stow_static_subscription, _CONCAT(_name, _idx)) = {                         \
+        .id = (_id),                                                                                                 \
+        .subscription = {                                                                                            \
+            .mode = (_mode),                                                                                         \
+            .cb = (_cb),                                                                                             \
+        },                                                                                                           \
+    }
+/** @endcond */
 
 /**
  * @}
