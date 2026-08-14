@@ -127,6 +127,8 @@ The Stow API allows modules to subscribe to items. The subscription callback wil
    // later:
    stow_unsubscribe(STOW_ID_TEST_INT, &sub);
 
+If a subscription will be alive for the full lifetime of the app, a static subscription can be used via :any:`STOW_SUBSCRIPTION_DEFINE`. These subscriptions are stored in ROM rather than dynamically allocated.
+
 Encode & Decode
 ===============
 
