@@ -16,6 +16,7 @@
 
 #include <gantry/cobs_framer.h>
 #include <gantry/error.h>
+#include <gantry/module.h>
 #include <gantry/stow/stow_protocol.h>
 #include <sys/errno.h>
 #include <zephyr/logging/log.h>
@@ -41,6 +42,7 @@ LOG_MODULE_REGISTER(session_manager, CONFIG_SESSION_MANAGER_LOG_LEVEL);
 //**********************************************************
 
 void route_response(uint32_t session_id, struct net_buf* buf);
+static void session_manager_init(void);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -49,6 +51,9 @@ void route_response(uint32_t session_id, struct net_buf* buf);
 NET_BUF_POOL_DEFINE(response_pool, RESPONSE_BUF_COUNT, RESPONSE_BUF_SIZE, 0, NULL);
 
 struct net_buf_pool* const response_pool_ptr = &response_pool;
+
+// Module registration
+GANTRY_LIBRARY_MODULE_DEFINE(session_manager, session_manager_init);
 
 //**********************************************************
 //* Static Function Definitions
@@ -71,11 +76,7 @@ void route_response(uint32_t session_id, struct net_buf* buf)
     }
 }
 
-//**********************************************************
-//* Public Function Definitions
-//**********************************************************
-
-void session_manager_init(void)
+static void session_manager_init(void)
 {
     const struct stow_protocol_config protocol_cfg = {
         .response_cb = route_response,
@@ -86,4 +87,15 @@ void session_manager_init(void)
 
     int ret = stow_protocol_init(&protocol_cfg);
     ASSERT(ret == SUCCESS, "Failed to initialize the stow protocol");
+
+    // The UART session is always open
+    ret = stow_protocol_session_open(UART_SESSION_ID, UART_SESSION_AUTH);
+    if (ret != SUCCESS)
+    {
+        LOG_ERR("Failed to open UART session: %d", ret);
+    }
 }
+
+//**********************************************************
+//* Public Function Definitions
+//**********************************************************

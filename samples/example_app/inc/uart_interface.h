@@ -36,19 +36,3 @@
  * @param buf Message buffer to send
  */
 void uart_interface_send(struct net_buf* buf);
-
-/**
- * @brief Initialize the UART interface
- */
-void uart_interface_init(void);
-
-/**
- * @brief UART interface thread
- *
- * @details Send and receive messages over UART
- *
- * @param arg1 Unused
- * @param arg2 Unused
- * @param arg3 Unused
- */
-void uart_interface_thread(void* arg1, void* arg2, void* arg3);

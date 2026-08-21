@@ -34,10 +34,3 @@
 //**********************************************************
 //* Functions
 //**********************************************************
-
-/**
- * @brief Initialize the session manager
- *
- * @details Configures and initializes the Stow Protocol and Session Manager
- */
-void session_manager_init(void);

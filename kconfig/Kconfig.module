@@ -1,0 +1,10 @@
+config GANTRY_MODULE_LOG_LEVEL
+    int "Module log level"
+    default 3
+
+config GANTRY_MODULE_INIT_PRIORITY
+    int "Module start SYS_INIT priority (APPLICATION level)"
+    default 0
+    help
+      SYS_INIT priority, within the APPLICATION init level, at which all registered modules
+      are started.

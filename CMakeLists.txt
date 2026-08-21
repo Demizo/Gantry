@@ -6,6 +6,10 @@ if(CONFIG_GANTRY_STOW)
   zephyr_linker_sources(SECTIONS cmake/stow_static_subscription.ld)
 endif()
 
+if(CONFIG_GANTRY_MODULE)
+  zephyr_linker_sources(SECTIONS cmake/gantry_module.ld)
+endif()
+
 if(CONFIG_GANTRY_BUILD_LIBRARY)
   zephyr_library_named(gantry)
 
@@ -17,6 +21,10 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
 
   if(CONFIG_GANTRY_EVENTS)
     zephyr_library_sources(lib/event.c)
+  endif()
+
+  if(CONFIG_GANTRY_MODULE)
+    zephyr_library_sources(lib/module.c)
   endif()
 
   include(${CMAKE_CURRENT_LIST_DIR}/cmake/gantry.cmake)

@@ -16,8 +16,8 @@
 
 #include <gantry/cobs_framer.h>
 #include <gantry/error.h>
-#include <gantry/flags.h>
 #include <gantry/memory.h>
+#include <gantry/module.h>
 #include <gantry/stow/stow_protocol.h>
 #include <generated_stow_items.h>
 #include <zephyr/bluetooth/bluetooth.h>
@@ -54,13 +54,19 @@ static ssize_t nus_rx_write(
 static void nus_tx_ccc_changed(const struct bt_gatt_attr* attr, uint16_t value);
 static int ble_interface_tx(const uint8_t* data, uint16_t len);
 static void rx_frame_cb(struct net_buf* buf, void* user_data);
+static void ble_interface_init(void);
+static void ble_interface_thread(void* arg1, void* arg2, void* arg3);
 
 //**********************************************************
 //* Static Variable Definitions
 //**********************************************************
 
-FLAGS_DEFINE(ble_interface_flags, (INITIALIZED), NO_FLAG_RULES);
 K_MSGQ_DEFINE(ble_interface_queue, sizeof(event_t*), CONFIG_BLE_INTERFACE_QUEUE_DEPTH, sizeof(void*));
+
+// Module registration
+GANTRY_MODULE_DEFINE(
+    ble_interface, ble_interface_init, ble_interface_thread, CONFIG_BLE_INTERFACE_STACK_SIZE,
+    CONFIG_BLE_INTERFACE_THREAD_PRIORITY);
 
 // Shared response pool from session manager
 extern struct net_buf_pool* const response_pool_ptr;
@@ -214,35 +220,7 @@ static void rx_frame_cb(struct net_buf* buf, void* user_data)
     net_buf_unref(buf);
 }
 
-//**********************************************************
-//* Public Function Definitions
-//**********************************************************
-
-void ble_interface_send(struct net_buf* buf)
-{
-    event_t* event = NULL;
-    int ret = msg_event_alloc(MSG_MEDIUM_BLE, MSG_DIRECTION_TX, buf, &event);
-    if (ret != SUCCESS)
-    {
-        LOG_ERR("Failed to allocate outgoing message: %d", ret);
-        net_buf_unref(buf);
-        NOT_REFERENCED(event);
-        return;
-    }
-
-    // Pass the message event to the thread
-    ret = k_msgq_put(&ble_interface_queue, (const void*)&event, K_NO_WAIT);
-    if (ret != SUCCESS)
-    {
-        LOG_WRN("Failed to queue outgoing message event");
-        EVENT_UNREF(&event);
-    }
-
-    // Freed when processed by the thread
-    PASS_OWNERSHIP(event);
-}
-
-void ble_interface_init(void)
+static void ble_interface_init(void)
 {
     // Set up COBS decoder
     int ret = cobs_frame_decoder_init(&frame_decoder, response_pool_ptr, rx_frame_cb, NULL);
@@ -252,12 +230,10 @@ void ble_interface_init(void)
         return;
     }
 
-    SET_FLAG(ble_interface_flags, INITIALIZED);
-
     LOG_INF("BLE interface initialized");
 }
 
-void ble_interface_thread(void* arg1, void* arg2, void* arg3)
+static void ble_interface_thread(void* arg1, void* arg2, void* arg3)
 {
     ARG_UNUSED(arg1);
     ARG_UNUSED(arg2);
@@ -266,12 +242,6 @@ void ble_interface_thread(void* arg1, void* arg2, void* arg3)
     int ret;
     k_timepoint_t timeout_timepoint = sys_timepoint_calc(K_FOREVER);
     event_t* event = NULL;
-
-    if (!CHECK_FLAG(ble_interface_flags, INITIALIZED))
-    {
-        LOG_ERR("Failed to start BLE interface thread, not initialized");
-        return;
-    }
 
     LOG_INF("BLE interface thread started");
 
@@ -317,4 +287,32 @@ void ble_interface_thread(void* arg1, void* arg2, void* arg3)
             // Timed out, nothing to do
         }
     }
+}
+
+//**********************************************************
+//* Public Function Definitions
+//**********************************************************
+
+void ble_interface_send(struct net_buf* buf)
+{
+    event_t* event = NULL;
+    int ret = msg_event_alloc(MSG_MEDIUM_BLE, MSG_DIRECTION_TX, buf, &event);
+    if (ret != SUCCESS)
+    {
+        LOG_ERR("Failed to allocate outgoing message: %d", ret);
+        net_buf_unref(buf);
+        NOT_REFERENCED(event);
+        return;
+    }
+
+    // Pass the message event to the thread
+    ret = k_msgq_put(&ble_interface_queue, (const void*)&event, K_NO_WAIT);
+    if (ret != SUCCESS)
+    {
+        LOG_WRN("Failed to queue outgoing message event");
+        EVENT_UNREF(&event);
+    }
+
+    // Freed when processed by the thread
+    PASS_OWNERSHIP(event);
 }

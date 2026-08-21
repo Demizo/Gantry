@@ -83,7 +83,10 @@ struct stow_static_subscription
 /**
  * @brief Initialize the stow
  *
- * Loads persistent stow item values. Must be called before the stow is used.
+ * @details Resets default values and subscriber state, then loads persistent stow item values.
+ * Called automatically at boot before any application modules run.
+ *
+ * @note This function is public and idempotent so it can be used to reset state in testing.
  */
 void stow_init(void);
 

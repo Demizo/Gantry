@@ -63,6 +63,19 @@ if GANTRY_STOW
     rsource "kconfig/Kconfig.stow"
 endif
 
+menuconfig GANTRY_MODULE
+    bool "Modules"
+    default y
+    help
+      Enable composable application modules. A module declares its own init function and
+      its own thread via GANTRY_MODULE_DEFINE, or GANTRY_LIBRARY_MODULE_DEFINE for a library
+      module with init logic but no thread of its own. All registered modules are started
+      automatically at boot, after Stow is initialized and before main is executed.
+
+if GANTRY_MODULE
+    rsource "kconfig/Kconfig.module"
+endif
+
 menuconfig GANTRY_COBS_FRAMER
     bool "COBS framer"
     default n

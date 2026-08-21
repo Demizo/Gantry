@@ -17,6 +17,7 @@
 #include <gantry/error.h>
 #include <gantry/event.h>
 #include <gantry/flags.h>
+#include <gantry/module.h>
 #include <gantry/stow/stow.h>
 #include <gantry/stow/stow_event.h>
 #include <gantry/stow/stow_protocol.h>
@@ -55,6 +56,8 @@ static int start_advertising(void);
 static void adv_restart_work_handler(struct k_work* work);
 static void apply_current_device_name(void);
 static void handle_update(event_t* event);
+static void ble_manager_init(void);
+static void ble_manager_thread(void* arg1, void* arg2, void* arg3);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -82,6 +85,11 @@ static struct bt_conn* current_conn;
 // Stow subscriptions
 STOW_SUBSCRIPTION_DEFINE(
     ble_manager_stow_sub, STOW_SUBSCRIPTION_HANDLE, on_stow_update, STOW_ID_DEVICE_NAME, STOW_ID_BLE_CONNECTION_STATE);
+
+// Module registration
+GANTRY_MODULE_DEFINE(
+    ble_manager, ble_manager_init, ble_manager_thread, CONFIG_BLE_MANAGER_STACK_SIZE,
+    CONFIG_BLE_MANAGER_THREAD_PRIORITY);
 
 //**********************************************************
 //* Static Function Definitions
@@ -278,11 +286,7 @@ static void handle_update(event_t* event)
     }
 }
 
-//**********************************************************
-//* Public Function Definitions
-//**********************************************************
-
-void ble_manager_init(void)
+static void ble_manager_init(void)
 {
     int ret;
 
@@ -315,7 +319,7 @@ void ble_manager_init(void)
     LOG_INF("BLE manager initialized");
 }
 
-void ble_manager_thread(void* arg1, void* arg2, void* arg3)
+static void ble_manager_thread(void* arg1, void* arg2, void* arg3)
 {
     ARG_UNUSED(arg1);
     ARG_UNUSED(arg2);
@@ -323,12 +327,6 @@ void ble_manager_thread(void* arg1, void* arg2, void* arg3)
 
     k_timepoint_t timeout_timepoint = sys_timepoint_calc(K_FOREVER);
     event_t* event = NULL;
-
-    if (!CHECK_FLAG(ble_manager_flags, INITIALIZED))
-    {
-        LOG_ERR("Failed to start BLE manager thread, not initialized");
-        return;
-    }
 
     LOG_INF("BLE manager thread started");
 
@@ -361,3 +359,7 @@ void ble_manager_thread(void* arg1, void* arg2, void* arg3)
         }
     }
 }
+
+//**********************************************************
+//* Public Function Definitions
+//**********************************************************

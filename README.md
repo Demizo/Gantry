@@ -14,6 +14,7 @@ The system state, configuration, and device information is all managed by a cent
 | Stow | Central data store for device information, state, and configuration. Modules and external clients can set, get, and subscribe to items in the Stow. |
 | Memory Management | Configurable reference-counted memory pools. |
 | Events | Universal event format for inter-process communications. |
+| Modules | Composable application modules. |
 | Resource Checker | Static analysis for memory and resource leaks. |
 | Flags | State flags for managing and monitoring module state. |
 

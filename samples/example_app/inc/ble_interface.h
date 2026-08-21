@@ -44,19 +44,3 @@
  * @param buf Message buffer to send
  */
 void ble_interface_send(struct net_buf* buf);
-
-/**
- * @brief Initialize the BLE interface
- */
-void ble_interface_init(void);
-
-/**
- * @brief BLE interface thread
- *
- * @details Send and receive messages over BLE
- *
- * @param arg1 Unused
- * @param arg2 Unused
- * @param arg3 Unused
- */
-void ble_interface_thread(void* arg1, void* arg2, void* arg3);

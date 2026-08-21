@@ -16,8 +16,8 @@
 
 #include <gantry/cobs_framer.h>
 #include <gantry/error.h>
-#include <gantry/flags.h>
 #include <gantry/memory.h>
+#include <gantry/module.h>
 #include <gantry/stow/stow_protocol.h>
 #include <gantry/stow/types/stow_types.h>
 #include <zephyr/drivers/uart.h>
@@ -44,15 +44,21 @@ LOG_MODULE_REGISTER(uart_interface, CONFIG_UART_INTERFACE_LOG_LEVEL);
 
 static void uart_isr(const struct device* dev, void* user_data);
 static void rx_frame_cb(struct net_buf* buf, void* user_data);
+static void uart_interface_init(void);
+static void uart_interface_thread(void* arg1, void* arg2, void* arg3);
 
 //**********************************************************
 //* Static Variable Definitions
 //**********************************************************
 
-FLAGS_DEFINE(uart_interface_flags, (INITIALIZED), NO_FLAG_RULES);
 K_MSGQ_DEFINE(uart_interface_queue, sizeof(event_t*), CONFIG_UART_INTERFACE_QUEUE_DEPTH, sizeof(void*));
 
 static const struct device* uart_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+
+// Module registration
+GANTRY_MODULE_DEFINE(
+    uart_interface, uart_interface_init, uart_interface_thread, CONFIG_UART_INTERFACE_STACK_SIZE,
+    CONFIG_UART_INTERFACE_THREAD_PRIORITY);
 
 // Shared response pool from session manager
 extern struct net_buf_pool* const response_pool_ptr;
@@ -100,35 +106,7 @@ static void rx_frame_cb(struct net_buf* buf, void* user_data)
     net_buf_unref(buf);
 }
 
-//**********************************************************
-//* Public Function Definitions
-//**********************************************************
-
-void uart_interface_send(struct net_buf* buf)
-{
-    event_t* event = NULL;
-    int ret = msg_event_alloc(MSG_MEDIUM_UART, MSG_DIRECTION_TX, buf, &event);
-    if (ret != SUCCESS)
-    {
-        LOG_ERR("Failed to allocate outgoing message: %d", ret);
-        net_buf_unref(buf);
-        NOT_REFERENCED(event);
-        return;
-    }
-
-    // Pass the message event to the thread
-    ret = k_msgq_put(&uart_interface_queue, (const void*)&event, K_NO_WAIT);
-    if (ret != SUCCESS)
-    {
-        LOG_WRN("Failed to queue message event: %d", ret);
-        EVENT_UNREF(&event);
-    }
-
-    // Freed when processed by the thread
-    PASS_OWNERSHIP(event);
-}
-
-void uart_interface_init(void)
+static void uart_interface_init(void)
 {
     int ret;
 
@@ -151,32 +129,16 @@ void uart_interface_init(void)
     uart_irq_callback_user_data_set(uart_dev, uart_isr, NULL);
     uart_irq_rx_enable(uart_dev);
 
-    SET_FLAG(uart_interface_flags, INITIALIZED);
-
     LOG_INF("UART interface initialized");
 }
 
-void uart_interface_thread(void* arg1, void* arg2, void* arg3)
+static void uart_interface_thread(void* arg1, void* arg2, void* arg3)
 {
     ARG_UNUSED(arg1);
     ARG_UNUSED(arg2);
     ARG_UNUSED(arg3);
 
     event_t* event = NULL;
-
-    if (!CHECK_FLAG(uart_interface_flags, INITIALIZED))
-    {
-        LOG_ERR("Failed to start UART interface thread, not initialized");
-        return;
-    }
-
-    // For simplicity the UART session is always open
-    int ret = stow_protocol_session_open(UART_SESSION_ID, UART_SESSION_AUTH);
-    if (ret != SUCCESS)
-    {
-        LOG_ERR("Failed to open UART session: %d", ret);
-        return;
-    }
 
     struct k_poll_event poll_events[2] = {
         K_POLL_EVENT_STATIC_INITIALIZER(K_POLL_TYPE_SEM_AVAILABLE, K_POLL_MODE_NOTIFY_ONLY, &rx_sem, 0),
@@ -236,4 +198,32 @@ void uart_interface_thread(void* arg1, void* arg2, void* arg3)
             poll_events[1].state = K_POLL_STATE_NOT_READY;
         }
     }
+}
+
+//**********************************************************
+//* Public Function Definitions
+//**********************************************************
+
+void uart_interface_send(struct net_buf* buf)
+{
+    event_t* event = NULL;
+    int ret = msg_event_alloc(MSG_MEDIUM_UART, MSG_DIRECTION_TX, buf, &event);
+    if (ret != SUCCESS)
+    {
+        LOG_ERR("Failed to allocate outgoing message: %d", ret);
+        net_buf_unref(buf);
+        NOT_REFERENCED(event);
+        return;
+    }
+
+    // Pass the message event to the thread
+    ret = k_msgq_put(&uart_interface_queue, (const void*)&event, K_NO_WAIT);
+    if (ret != SUCCESS)
+    {
+        LOG_WRN("Failed to queue message event: %d", ret);
+        EVENT_UNREF(&event);
+    }
+
+    // Freed when processed by the thread
+    PASS_OWNERSHIP(event);
 }

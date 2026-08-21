@@ -20,6 +20,7 @@
 #include <gantry/stow/types/stow_types.h>
 #include <generated_stow_items.h>
 #include <sys/errno.h>
+#include <zephyr/init.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/slist.h>
 
@@ -49,10 +50,16 @@ void notify_subscribers(const struct stow_item_const_metadata* item);
 static void mark_subscriber_mode(enum stow_subscription_mode mode, bool* has_handle, bool* has_copy);
 static void notify_one_subscriber(
     const struct stow_subscription* subscription, event_t* handle_event, event_t* copy_event);
+static int stow_sys_init(void);
 
 //**********************************************************
 //* Static Variable Definitions
 //**********************************************************
+
+/**
+ * @brief Initialization entry for the Stow
+ */
+SYS_INIT(stow_sys_init, POST_KERNEL, CONFIG_STOW_INIT_PRIORITY);
 
 static struct stow_item_dynamic_metadata g_stow_dynamic_metadata[STOW_ID_COUNT] = { 0 };
 
@@ -219,6 +226,17 @@ void notify_subscribers(const struct stow_item_const_metadata* item)
     // subscriber is responsible for dereferencing the event when complete.
     EVENT_UNREF(&handle_event);
     EVENT_UNREF(&copy_event);
+}
+
+/**
+ * @brief SYS_INIT entry point that runs @ref stow_init at boot
+ *
+ * @return SUCCESS always, to satisfy the SYS_INIT signature
+ */
+static int stow_sys_init(void)
+{
+    stow_init();
+    return SUCCESS;
 }
 
 //**********************************************************

@@ -14,6 +14,13 @@ config STOW_ITEM_STORAGE_SIZE_MAX
     int "The maximum encoded size in bytes for stow items stored in persistent storage"
     default 1024
 
+config STOW_INIT_PRIORITY
+    int "Stow SYS_INIT priority (POST_KERNEL level)"
+    default 0
+    help
+      SYS_INIT priority, within the POST_KERNEL init level, at which stow_init() is run
+      automatically at boot.
+
 menuconfig STOW_PROTOCOL
     bool "Enable the Stow protocol module"
     default n
