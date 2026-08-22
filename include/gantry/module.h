@@ -13,7 +13,9 @@
 
 #pragma once
 
+#include <gantry/event.h>
 #include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
 
 /**
@@ -92,6 +94,29 @@ struct gantry_module
  * @param _init Init function
  */
 #define GANTRY_LIBRARY_MODULE_DEFINE(_name, _init) Z_GANTRY_MODULE_DEFINE(_name, _init, NULL, NULL, 0, NULL, 0)
+
+/**
+ * @brief Define a Stow subscription callback
+ *
+ * @details Creates a Stow subscription callback that funnels item updates into the provided queue.
+ *
+ * @param _name Name of the generated callback
+ * @param _queue The queue to pass updates to
+ */
+#define STOW_CALLBACK_DEFINE(_name, _queue)                       \
+    static void _name(event_t* event)                             \
+    {                                                             \
+        EVENT_REF(event);                                         \
+        if (k_msgq_put(&(_queue), (void*)&event, K_NO_WAIT) != 0) \
+        {                                                         \
+            LOG_WRN("Event dropped, queue full");                 \
+            EVENT_UNREF(&event);                                  \
+        }                                                         \
+        else                                                      \
+        {                                                         \
+            PASS_OWNERSHIP(event);                                \
+        }                                                         \
+    }
 
 /**
  * @}

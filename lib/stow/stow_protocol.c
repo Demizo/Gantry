@@ -245,6 +245,8 @@ static void protocol_event_on_free(event_t* event)
 
 static void on_stow_update(event_t* event)
 {
+    EVENT_REF(event);
+
     if (k_msgq_put(&stow_protocol_queue, (void*)&event, K_NO_WAIT) != 0)
     {
         LOG_WRN("Event dropped, queue full");

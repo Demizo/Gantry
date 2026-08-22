@@ -47,7 +47,6 @@ LOG_MODULE_REGISTER(ble_manager, CONFIG_BLE_MANAGER_LOG_LEVEL);
 //* Static Function Declarations
 //**********************************************************
 
-static void on_stow_update(event_t* event);
 static void on_connected(struct bt_conn* conn, uint8_t err);
 static void on_disconnected(struct bt_conn* conn, uint8_t reason);
 static void on_recycled(void);
@@ -63,8 +62,18 @@ static void ble_manager_thread(void* arg1, void* arg2, void* arg3);
 //* Static Variable Definitions
 //**********************************************************
 
+GANTRY_MODULE_DEFINE(
+    ble_manager, ble_manager_init, ble_manager_thread, CONFIG_BLE_MANAGER_STACK_SIZE,
+    CONFIG_BLE_MANAGER_THREAD_PRIORITY);
+
 FLAGS_DEFINE(ble_manager_flags, (INITIALIZED, CONNECTED), { FLAG_REQUIRES(CONNECTED, INITIALIZED); });
+
 K_MSGQ_DEFINE(ble_manager_queue, sizeof(event_t*), CONFIG_BLE_MANAGER_QUEUE_DEPTH, sizeof(void*));
+
+// Stow subscriptions
+STOW_CALLBACK_DEFINE(on_stow_update, ble_manager_queue);
+STOW_SUBSCRIPTION_DEFINE(
+    ble_manager_stow_sub, STOW_SUBSCRIPTION_HANDLE, on_stow_update, STOW_ID_DEVICE_NAME, STOW_ID_BLE_CONNECTION_STATE);
 
 // Extended advertising set
 static struct bt_le_ext_adv* adv_set = NULL;
@@ -82,28 +91,9 @@ BT_CONN_CB_DEFINE(ble_conn_cb) = {
 // The current BLE connection
 static struct bt_conn* current_conn;
 
-// Stow subscriptions
-STOW_SUBSCRIPTION_DEFINE(
-    ble_manager_stow_sub, STOW_SUBSCRIPTION_HANDLE, on_stow_update, STOW_ID_DEVICE_NAME, STOW_ID_BLE_CONNECTION_STATE);
-
-// Module registration
-GANTRY_MODULE_DEFINE(
-    ble_manager, ble_manager_init, ble_manager_thread, CONFIG_BLE_MANAGER_STACK_SIZE,
-    CONFIG_BLE_MANAGER_THREAD_PRIORITY);
-
 //**********************************************************
 //* Static Function Definitions
 //**********************************************************
-
-static void on_stow_update(event_t* event)
-{
-    if (k_msgq_put(&ble_manager_queue, (void*)&event, K_NO_WAIT) != 0)
-    {
-        LOG_WRN("Event dropped, queue full");
-        EVENT_UNREF(&event);
-        return;
-    }
-}
 
 static void on_connected(struct bt_conn* conn, uint8_t err)
 {

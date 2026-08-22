@@ -104,17 +104,11 @@ static void notify_one_subscriber(
 
     if (subscription->mode == STOW_SUBSCRIPTION_HANDLE)
     {
-        EVENT_REF(handle_event);
         subscription->cb(handle_event);
-        // The callback is responsible for releasing this reference.
-        PASS_OWNERSHIP(handle_event);
     }
     else if (subscription->mode == STOW_SUBSCRIPTION_COPY)
     {
-        EVENT_REF(copy_event);
         subscription->cb(copy_event);
-        // The callback is responsible for releasing this reference.
-        PASS_OWNERSHIP(copy_event);
     }
 }
 
@@ -222,8 +216,7 @@ void notify_subscribers(const struct stow_item_const_metadata* item)
         }
     }
 
-    // Release the initial references. The reference count has been incremented for each subscriber. The
-    // subscriber is responsible for dereferencing the event when complete.
+    // Release the initial reference. Subscribers claim ownership of events they are passed.
     EVENT_UNREF(&handle_event);
     EVENT_UNREF(&copy_event);
 }
