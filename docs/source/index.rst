@@ -14,6 +14,7 @@ The system state, configuration, and device information is all managed by a cent
    Memory Management <memory_management/index>
    Resource Checker <resource_checker/index>
    Events <events/index>
+   Modules <module/index>
    Flags <flags/index>
    COBS Framer <cobs_framer/index>
 
