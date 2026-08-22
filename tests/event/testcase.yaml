@@ -1,0 +1,6 @@
+common:
+  extra_args: CONF_FILE='prj.conf;../test_prj.conf'
+tests:
+  event.native:
+    tags: unit_testing
+    platform_allow: native_sim
