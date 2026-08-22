@@ -95,6 +95,7 @@ void event_unref(event_t** event)
     event_t* current = NULL;
     event_t* next = NULL;
     int chain_length = 0;
+    bool head_freed = false;
 
     // Iterate over linked events, decrementing the reference count
     current = *event;
@@ -111,9 +112,20 @@ void event_unref(event_t** event)
 
         void** current_block = (void**)&current;
         mem_unref(current_block);
+
+        if (chain_length == 0)
+        {
+            head_freed = (current == NULL);
+        }
+
         current = next;
 
         chain_length++;
+    }
+
+    if (head_freed)
+    {
+        *event = NULL;
     }
 
     LOG_DBG("Decremented reference count for event");
