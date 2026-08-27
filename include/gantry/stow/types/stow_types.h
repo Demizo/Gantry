@@ -90,15 +90,15 @@ enum stow_storage_type
 /**
  * @brief Role bitmask type for access control.
  *
- * Each bit position represents one role from the app's Stow specification.
+ * Each bit position represents one role from the app's Stow specification. Permission checks are a bitwise AND
+ * between a caller's role bitmask and an item's permission mask.
  *
- * @note @ref STOW_ROLE_INTERNAL bypasses permission checks. This allows firmware to always access Stow items. Consumers
- * of the Stow protocol should take care to ensure that session always have AT LEAST ONE role, otherwise they will have
- * full access.
+ * @note @ref STOW_ROLE_INTERNAL marks and item as internal-only since no external role bit mask
+ * could pass the check.
  */
 typedef uint16_t stow_role_t;
 
-#define STOW_ROLE_INTERNAL ((stow_role_t)0x0000U) /**< Firmware-only; no external client access */
+#define STOW_ROLE_INTERNAL ((stow_role_t)0x0000U) /**< Internal-only; no external client access */
 #define STOW_ROLE_ANY ((stow_role_t)0xFFFFU)      /**< Any external client role has access */
 
 /**
@@ -180,13 +180,13 @@ struct stow_item_custom_interface
     /**
      * @brief Custom get function to override @ref stow_item_interface.get
      *
-     * @details Invoked by @ref stow_get (and by subscriber notifications) after the permission check
+     * @details Invoked by @ref stow_get (and by subscriber notifications)
      */
     int (*get)(const struct stow_item_const_metadata* item, data_value_t* out_value);
     /**
      * @brief Custom set function to override @ref stow_item_interface.set
      *
-     * @details Invoked by @ref stow_set after the permission and validation checks
+     * @details Invoked by @ref stow_set after the validation checks
      */
     int (*set)(const struct stow_item_const_metadata* item, data_value_t value);
     /**

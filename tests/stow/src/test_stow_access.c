@@ -8,50 +8,73 @@
 
 ZTEST_SUITE(stow_access, NULL, NULL, reset_stow, NULL, NULL);
 
-ZTEST(stow_access, test_write_requires_session)
+ZTEST(stow_access, test_external_write_requires_session)
 {
     data_value_t val = { .type = STOW_ITEM_TYPE_STRING, .data.string_value = "newname" };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_STRING, val);
+    int ret = stow_set_external(STOW_ROLE_GUEST, STOW_ID_TEST_STRING, val);
     zassert_equal(ret, -EACCES);
 }
 
-ZTEST(stow_access, test_write_with_session_succeeds)
+ZTEST(stow_access, test_external_write_with_session_succeeds)
 {
     data_value_t val = { .type = STOW_ITEM_TYPE_STRING, .data.string_value = "newname" };
-    int ret = stow_set(STOW_ROLE_SESSION, STOW_ID_TEST_STRING, val);
+    int ret = stow_set_external(STOW_ROLE_SESSION, STOW_ID_TEST_STRING, val);
     zassert_equal(ret, 0);
 }
 
-ZTEST(stow_access, test_read_only_item_cannot_be_written_by_session)
+ZTEST(stow_access, test_external_read_only_item_cannot_be_written_by_session)
 {
     data_value_t val = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 10 };
-    int ret = stow_set(STOW_ROLE_SESSION, STOW_ID_TEST_READ_ONLY, val);
+    int ret = stow_set_external(STOW_ROLE_SESSION, STOW_ID_TEST_READ_ONLY, val);
     zassert_equal(ret, -EACCES);
 }
 
-ZTEST(stow_access, test_internal_can_write_internal_item)
+ZTEST(stow_access, test_external_cannot_write_internal_only_item)
 {
     data_value_t val = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 10 };
-    int ret = stow_set(STOW_ROLE_INTERNAL, STOW_ID_TEST_READ_ONLY, val);
+    int ret = stow_set_external(STOW_ROLE_ANY, STOW_ID_TEST_READ_ONLY, val);
+    zassert_equal(ret, -EACCES);
+}
+
+ZTEST(stow_access, test_internal_write_bypasses_permissions)
+{
+    data_value_t val = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 10 };
+    int ret = stow_set(STOW_ID_TEST_READ_ONLY, val);
     zassert_equal(ret, 0);
 }
 
-ZTEST(stow_access, test_tofu_can_be_written_from_default)
+ZTEST(stow_access, test_external_tofu_can_be_written_from_default)
 {
     data_value_t val = { .type = STOW_ITEM_TYPE_STRING, .data.string_value = "myvalue" };
-    int ret = stow_set(STOW_ROLE_SESSION, STOW_ID_TEST_TOFU, val);
+    int ret = stow_set_external(STOW_ROLE_SESSION, STOW_ID_TEST_TOFU, val);
     zassert_equal(ret, 0);
 }
 
-ZTEST(stow_access, test_tofu_cannot_be_overwritten)
+ZTEST(stow_access, test_external_tofu_cannot_be_overwritten)
 {
     data_value_t val1 = { .type = STOW_ITEM_TYPE_STRING, .data.string_value = "first" };
-    int ret = stow_set(STOW_ROLE_SESSION, STOW_ID_TEST_TOFU, val1);
+    int ret = stow_set_external(STOW_ROLE_SESSION, STOW_ID_TEST_TOFU, val1);
     zassert_equal(ret, 0);
 
     data_value_t val2 = { .type = STOW_ITEM_TYPE_STRING, .data.string_value = "second" };
-    ret = stow_set(STOW_ROLE_SESSION, STOW_ID_TEST_TOFU, val2);
+    ret = stow_set_external(STOW_ROLE_SESSION, STOW_ID_TEST_TOFU, val2);
     zassert_equal(ret, -EACCES);
+}
+
+ZTEST(stow_access, test_external_read_allowed_for_read_only_item)
+{
+    data_value_t val = { 0 };
+    int ret = stow_get_external(STOW_ROLE_GUEST, STOW_ID_TEST_READ_ONLY, &val);
+    zassert_equal(ret, 0);
+    stow_release(STOW_ID_TEST_READ_ONLY, &val);
+}
+
+ZTEST(stow_access, test_external_subscribe_allowed_for_read_only_item)
+{
+    struct stow_subscription sub = { .mode = STOW_SUBSCRIPTION_HANDLE, .cb = NULL };
+    int ret = stow_subscribe_external(STOW_ROLE_ANY, STOW_ID_TEST_READ_ONLY, &sub);
+    zassert_equal(ret, 0);
+    stow_unsubscribe(STOW_ID_TEST_READ_ONLY, &sub);
 }
 
 ZTEST(stow_access, test_invalid_id)

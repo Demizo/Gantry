@@ -55,7 +55,7 @@ ZTEST(stow_protocol_subscribe, test_subscribe_then_set_delivers_update)
 
     // Change the value from elsewhere, protocol should send out an Update
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 13 };
-    zassert_equal(stow_set(STOW_ROLE_INTERNAL, STOW_ID_TEST_INT, v), 0);
+    zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf, "expected Update message");
@@ -83,7 +83,7 @@ ZTEST(stow_protocol_subscribe, test_resubscribe_is_idempotent)
 
     // Only one update should fire on a single set
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 4 };
-    zassert_equal(stow_set(STOW_ROLE_INTERNAL, STOW_ID_TEST_INT, v), 0);
+    zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);
@@ -100,7 +100,7 @@ ZTEST(stow_protocol_subscribe, test_unsubscribe_stops_updates)
     subscribe_ok(SESSION_A, STOW_ROLE_GUEST, STOW_MSG_UNSUBSCRIBE, STOW_ID_TEST_INT);
 
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 8 };
-    zassert_equal(stow_set(STOW_ROLE_INTERNAL, STOW_ID_TEST_INT, v), 0);
+    zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
 
     struct test_capture cap = test_await_tx(K_MSEC(100));
     zassert_is_null(cap.buf, "expected no update after unsubscribe");
@@ -138,7 +138,7 @@ ZTEST(stow_protocol_subscribe, test_multi_session_subscribe_fans_out_to_both)
     subscribe_ok(SESSION_B, STOW_ROLE_GUEST, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
 
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 99 };
-    zassert_equal(stow_set(STOW_ROLE_INTERNAL, STOW_ID_TEST_INT, v), 0);
+    zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
 
     // Expect updates for both sessions, in either order.
     bool got_a = false, got_b = false;
@@ -173,7 +173,7 @@ ZTEST(stow_protocol_subscribe, test_session_close_removes_subscription)
     test_drain_captures();
 
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 1 };
-    zassert_equal(stow_set(STOW_ROLE_INTERNAL, STOW_ID_TEST_INT, v), 0);
+    zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
 
     // Only B should still receive an update
     struct test_capture cap = test_await_tx(K_SECONDS(1));
@@ -198,7 +198,7 @@ ZTEST(stow_protocol_subscribe, test_auth_drop_auto_revokes_subscription)
 
     // Modify the item internally
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 50 };
-    zassert_equal(stow_set(STOW_ROLE_INTERNAL, STOW_ID_TEST_SESSION_INT, v), 0);
+    zassert_equal(stow_set(STOW_ID_TEST_SESSION_INT, v), 0);
 
     // No update should arrive
     struct test_capture cap = test_await_tx(K_MSEC(200));
@@ -217,7 +217,7 @@ ZTEST(stow_protocol_subscribe, test_auth_raise_does_not_resubscribe)
     test_drain_captures();
 
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 77 };
-    zassert_equal(stow_set(STOW_ROLE_INTERNAL, STOW_ID_TEST_SESSION_INT, v), 0);
+    zassert_equal(stow_set(STOW_ID_TEST_SESSION_INT, v), 0);
 
     struct test_capture cap = test_await_tx(K_MSEC(200));
     zassert_is_null(cap.buf, "role switch should not re-arm subscription");

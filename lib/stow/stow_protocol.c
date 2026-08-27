@@ -549,7 +549,7 @@ static void handle_describe(uint32_t session_id, enum stow_item_id start_id)
 static void handle_get(uint32_t session_id, struct protocol_session* session, enum stow_item_id id)
 {
     data_value_t value = { 0 };
-    int ret = STOW_GET(session->roles, id, &value);
+    int ret = STOW_GET_EXTERNAL(session->roles, id, &value);
     if (ret != SUCCESS)
     {
         emit_error_code(session_id, ret);
@@ -562,7 +562,7 @@ static void handle_get(uint32_t session_id, struct protocol_session* session, en
 
 static void handle_set(uint32_t session_id, struct protocol_session* session, const struct stow_serde_request* request)
 {
-    int ret = STOW_SET(session->roles, request->item_id, request->value);
+    int ret = STOW_SET_EXTERNAL(session->roles, request->item_id, request->value);
     if (ret == SUCCESS)
     {
         emit_ok(session_id);
@@ -585,7 +585,7 @@ static void handle_subscribe(uint32_t session_id, struct protocol_session* sessi
     {
         item_subscription_counts[id]++;
         atomic_set_bit(session->subscriptions, (int)id);
-        int ret = stow_subscribe(session->roles, id, &stow_protocol_subscription);
+        int ret = stow_subscribe_external(session->roles, id, &stow_protocol_subscription);
         if (ret != SUCCESS)
         {
             atomic_clear_bit(session->subscriptions, (int)id);
@@ -596,8 +596,7 @@ static void handle_subscribe(uint32_t session_id, struct protocol_session* sessi
     }
     else
     {
-        if (session->roles != STOW_ROLE_INTERNAL &&
-            (g_stow_const_metadata[id].permissions.read_permissions & session->roles) == 0)
+        if ((g_stow_const_metadata[id].permissions.read_permissions & session->roles) == 0)
         {
             emit_error(session_id, STOW_ERR_PERMISSION_DENIED);
             return;
@@ -627,7 +626,7 @@ static void handle_multi_get(
     for (uint8_t i = 0; i < request->multi_count; i++)
     {
         data_value_t* value_ptr = &values[i];
-        int ret = STOW_GET(session->roles, request->multi_ids[i], value_ptr);
+        int ret = STOW_GET_EXTERNAL(session->roles, request->multi_ids[i], value_ptr);
         if (ret != SUCCESS)
         {
             emit_error_code(session_id, ret);
@@ -661,7 +660,7 @@ static void handle_multi_set(
 {
     for (uint8_t i = 0; i < request->multi_count; i++)
     {
-        int ret = STOW_SET(session->roles, request->multi_ids[i], request->multi_values[i]);
+        int ret = STOW_SET_EXTERNAL(session->roles, request->multi_ids[i], request->multi_values[i]);
         if (ret != SUCCESS)
         {
             emit_error_code(session_id, ret);
@@ -764,8 +763,7 @@ static void handle_update(event_t* event)
             continue;
         }
 
-        if (session->roles != STOW_ROLE_INTERNAL &&
-            (payload->metadata->permissions.read_permissions & session->roles) == 0)
+        if ((payload->metadata->permissions.read_permissions & session->roles) == 0)
         {
             // Auto-revoke defensively in case the role handler missed it.
             remove_subscription(session, id);
@@ -793,8 +791,7 @@ static void handle_session_roles(const struct stow_protocol_event_payload* paylo
         {
             continue;
         }
-        if (session->roles != STOW_ROLE_INTERNAL &&
-            (g_stow_const_metadata[id].permissions.read_permissions & session->roles) == 0)
+        if ((g_stow_const_metadata[id].permissions.read_permissions & session->roles) == 0)
         {
             remove_subscription(session, (enum stow_item_id)id);
         }

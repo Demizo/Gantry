@@ -87,7 +87,7 @@ ZTEST(stow_protocol_basic, test_get_int_returns_current_value)
 
     // Seed the value so we know what to expect.
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 27 };
-    zassert_equal(stow_set(STOW_ROLE_INTERNAL, STOW_ID_TEST_INT, v), 0);
+    zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
     test_sync();  // ensure any update events fan out before our Get
 
     test_drain_captures();
@@ -137,7 +137,7 @@ ZTEST(stow_protocol_basic, test_set_int_changes_value)
     zassert_equal(cmd, STOW_MSG_OK, "expected OK (got %u)", cmd);
 
     data_value_t v = { 0 };
-    zassert_equal(stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_INT, &v), 0);
+    zassert_equal(stow_get(STOW_ID_TEST_INT, &v), 0);
     zassert_equal(v.data.int_value, -42);
     stow_release(STOW_ID_TEST_INT, &v);
 }
@@ -152,7 +152,7 @@ ZTEST(stow_protocol_basic, test_set_string_changes_value)
     zassert_equal(cmd, STOW_MSG_OK);
 
     data_value_t v = { 0 };
-    zassert_equal(stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_STRING, &v), 0);
+    zassert_equal(stow_get(STOW_ID_TEST_STRING, &v), 0);
     zassert_str_equal(v.data.string_value, "newval");
     stow_release(STOW_ID_TEST_STRING, &v);
 }
@@ -270,7 +270,7 @@ ZTEST(stow_protocol_basic, test_multi_get_returns_all_values)
     open_session(STOW_ROLE_GUEST);
 
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 55 };
-    zassert_equal(stow_set(STOW_ROLE_INTERNAL, STOW_ID_TEST_INT, v), 0);
+    zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
     test_sync();
     test_drain_captures();
 
@@ -340,7 +340,7 @@ ZTEST(stow_protocol_basic, test_multi_set_changes_both_values)
 
     // Final value should be 20 (last write wins)
     data_value_t v = { 0 };
-    zassert_equal(stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_INT, &v), 0);
+    zassert_equal(stow_get(STOW_ID_TEST_INT, &v), 0);
     zassert_equal(v.data.int_value, 20);
     stow_release(STOW_ID_TEST_INT, &v);
 }

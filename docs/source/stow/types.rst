@@ -97,7 +97,7 @@ Assume a schema contains a custom struct type with an integer and a buffer. The 
 
   // Get the struct value
   data_value_t value = {0};
-  STOW_GET(STOW_ROLE_INTERNAL, STOW_ID_KEYED_BUFFER_ITEM, &value);
+  STOW_GET(STOW_ID_KEYED_BUFFER_ITEM, &value);
 
   // Cast the raw value to the C struct type
   KeyedBuffer_t* struct_value = (KeyedBuffer_t*)value.data.raw_value;

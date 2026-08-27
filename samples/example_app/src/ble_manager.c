@@ -111,7 +111,7 @@ static void on_connected(struct bt_conn* conn, uint8_t err)
         .type = STOW_ITEM_TYPE_ENUM,
         .data = { .int_value = BleConnectionState_CONNECTED },
     };
-    (void)STOW_SET(STOW_ROLE_INTERNAL, STOW_ID_BLE_CONNECTION_STATE, value);
+    (void)STOW_SET(STOW_ID_BLE_CONNECTION_STATE, value);
 
     // Open the Stow session
     ret = stow_protocol_session_open(BLE_SESSION_ID, BLE_SESSION_AUTH);
@@ -138,7 +138,7 @@ static void on_disconnected(struct bt_conn* conn, uint8_t reason)
         .type = STOW_ITEM_TYPE_ENUM,
         .data = { .int_value = BleConnectionState_DISCONNECTED },
     };
-    (void)STOW_SET(STOW_ROLE_INTERNAL, STOW_ID_BLE_CONNECTION_STATE, value);
+    (void)STOW_SET(STOW_ID_BLE_CONNECTION_STATE, value);
 
     // Close the Stow session
     ret = stow_protocol_session_closed(BLE_SESSION_ID);
@@ -203,7 +203,7 @@ static void adv_restart_work_handler(struct k_work* work)
 static void apply_current_device_name(void)
 {
     data_value_t value;
-    int ret = STOW_GET(STOW_ROLE_INTERNAL, STOW_ID_DEVICE_NAME, &value);
+    int ret = STOW_GET(STOW_ID_DEVICE_NAME, &value);
     if (ret == SUCCESS)
     {
         int set_ret = bt_set_name(value.data.string_value);
@@ -255,7 +255,7 @@ static void handle_update(event_t* event)
 
             // Check if a disconnect was initiated
             data_value_t value;
-            int ret = STOW_GET(STOW_ROLE_INTERNAL, STOW_ID_BLE_CONNECTION_STATE, &value);
+            int ret = STOW_GET(STOW_ID_BLE_CONNECTION_STATE, &value);
             if (ret == SUCCESS)
             {
                 if (value.data.int_value == BleConnectionState_DISCONNECTED)

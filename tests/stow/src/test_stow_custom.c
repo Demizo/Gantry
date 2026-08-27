@@ -97,7 +97,7 @@ ZTEST_SUITE(stow_custom, NULL, NULL, reset_custom, NULL, NULL);
 ZTEST(stow_custom, test_custom_set_invokes_callback)
 {
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 42 };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_INT, value);
+    int ret = stow_set(STOW_ID_TEST_CUSTOM_INT, value);
     zassert_equal(ret, SUCCESS);
     zassert_equal(g_set_calls, 1);
     zassert_equal(g_backing_value, 42);
@@ -109,7 +109,7 @@ ZTEST(stow_custom, test_custom_get_invokes_callback)
 {
     g_backing_value = 17;
     data_value_t got;
-    int ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_INT, &got);
+    int ret = stow_get(STOW_ID_TEST_CUSTOM_INT, &got);
     zassert_equal(ret, SUCCESS);
     zassert_equal(g_get_calls, 1);
     zassert_equal(got.type, STOW_ITEM_TYPE_INT);
@@ -122,7 +122,7 @@ ZTEST(stow_custom, test_custom_get_invokes_callback)
 ZTEST(stow_custom, test_custom_set_skipped_on_validation_failure)
 {
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 999 };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_INT, value);
+    int ret = stow_set(STOW_ID_TEST_CUSTOM_INT, value);
     zassert_equal(ret, -EINVAL);
     zassert_equal(g_set_calls, 0);
     zassert_equal(g_backing_value, 0);
@@ -131,7 +131,7 @@ ZTEST(stow_custom, test_custom_set_skipped_on_validation_failure)
 ZTEST(stow_custom, test_custom_set_skipped_on_permission_failure)
 {
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 10 };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_READ_ONLY, value);
+    int ret = stow_set_external(STOW_ROLE_ANY, STOW_ID_TEST_CUSTOM_READ_ONLY, value);
     zassert_equal(ret, -EACCES);
     zassert_equal(g_set_calls, 0);
 }
@@ -140,7 +140,7 @@ ZTEST(stow_custom, test_custom_set_propagates_error)
 {
     g_forced_set_error = -EIO;
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 5 };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_INT, value);
+    int ret = stow_set(STOW_ID_TEST_CUSTOM_INT, value);
     zassert_equal(ret, -EIO);
     zassert_equal(g_set_calls, 1);
     zassert_equal(g_backing_value, 0);
@@ -149,13 +149,13 @@ ZTEST(stow_custom, test_custom_set_propagates_error)
 ZTEST(stow_custom, test_getter_only_set_uses_interface_storage)
 {
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 33 };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_GETTER_ONLY, value);
+    int ret = stow_set(STOW_ID_TEST_CUSTOM_GETTER_ONLY, value);
     zassert_equal(ret, SUCCESS);
     zassert_equal(g_getter_only_calls, 0);
     zassert_equal(g_set_calls, 0);
 
     data_value_t got;
-    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_GETTER_ONLY, &got);
+    ret = stow_get(STOW_ID_TEST_CUSTOM_GETTER_ONLY, &got);
     zassert_equal(ret, SUCCESS);
     zassert_equal(g_getter_only_calls, 1);
     zassert_equal(got.type, STOW_ITEM_TYPE_INT);
@@ -166,12 +166,12 @@ ZTEST(stow_custom, test_getter_only_set_uses_interface_storage)
 ZTEST(stow_custom, test_setter_only_uses_interface_storage)
 {
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 77 };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_SETTER_ONLY, value);
+    int ret = stow_set(STOW_ID_TEST_CUSTOM_SETTER_ONLY, value);
     zassert_equal(ret, SUCCESS);
     zassert_equal(g_setter_only_calls, 1);
 
     data_value_t got;
-    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_SETTER_ONLY, &got);
+    ret = stow_get(STOW_ID_TEST_CUSTOM_SETTER_ONLY, &got);
     zassert_equal(ret, SUCCESS);
     zassert_equal(g_get_calls, 0);
     zassert_equal(got.type, STOW_ITEM_TYPE_INT);
@@ -183,7 +183,7 @@ ZTEST(stow_custom, test_setter_only_validation_still_runs)
 {
     /* Out-of-range value must be rejected by validation before custom_set fires. */
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 500 };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_SETTER_ONLY, value);
+    int ret = stow_set(STOW_ID_TEST_CUSTOM_SETTER_ONLY, value);
     zassert_equal(ret, -EINVAL);
     zassert_equal(g_setter_only_calls, 0);
 }
@@ -192,12 +192,12 @@ ZTEST(stow_custom, test_custom_validate_accepts_valid)
 {
     /* 10 is in range and even -> passes both regular and custom validation. */
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 10 };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_VALIDATED, value);
+    int ret = stow_set(STOW_ID_TEST_CUSTOM_VALIDATED, value);
     zassert_equal(ret, SUCCESS);
     zassert_equal(g_validate_calls, 1);
 
     data_value_t got;
-    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_VALIDATED, &got);
+    ret = stow_get(STOW_ID_TEST_CUSTOM_VALIDATED, &got);
     zassert_equal(ret, SUCCESS);
     zassert_equal(got.data.int_value, 10);
     stow_release(STOW_ID_TEST_CUSTOM_VALIDATED, &got);
@@ -207,13 +207,13 @@ ZTEST(stow_custom, test_custom_validate_rejects)
 {
     /* 9 is in range but odd -> regular validation passes, custom rejects. */
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 9 };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_VALIDATED, value);
+    int ret = stow_set(STOW_ID_TEST_CUSTOM_VALIDATED, value);
     zassert_equal(ret, -EINVAL);
     zassert_equal(g_validate_calls, 1);
 
     /* Value should be unchanged from default (0). */
     data_value_t got;
-    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_VALIDATED, &got);
+    ret = stow_get(STOW_ID_TEST_CUSTOM_VALIDATED, &got);
     zassert_equal(ret, SUCCESS);
     zassert_equal(got.data.int_value, 0);
     stow_release(STOW_ID_TEST_CUSTOM_VALIDATED, &got);
@@ -223,7 +223,7 @@ ZTEST(stow_custom, test_custom_validate_skipped_when_regular_validation_fails)
 {
     /* 999 fails the regular range check -> custom validator must not run. */
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 999 };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_VALIDATED, value);
+    int ret = stow_set(STOW_ID_TEST_CUSTOM_VALIDATED, value);
     zassert_equal(ret, -EINVAL);
     zassert_equal(g_validate_calls, 0);
 }
@@ -233,7 +233,7 @@ ZTEST(stow_custom, test_custom_validate_forced_reject)
     /* Force the custom validator to reject a value that would otherwise pass. */
     g_validator_rejects = true;
     data_value_t value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 2 };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_CUSTOM_VALIDATED, value);
+    int ret = stow_set(STOW_ID_TEST_CUSTOM_VALIDATED, value);
     zassert_equal(ret, -EINVAL);
     zassert_equal(g_validate_calls, 1);
 }

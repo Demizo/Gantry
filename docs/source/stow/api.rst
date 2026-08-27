@@ -36,7 +36,7 @@ Use :any:`STOW_GET` to read an item's current value. **Always** call :any:`STOW_
 .. code-block:: c
 
    data_value_t val = {0};
-   STOW_GET(STOW_ROLE_INTERNAL, STOW_ID_DEVICE_NAME, &val);
+   STOW_GET(STOW_ID_DEVICE_NAME, &val);
    LOG_INF("Device name: %s", val.data.string_value);
    STOW_RELEASE(STOW_ID_DEVICE_NAME, &val);
 
@@ -51,8 +51,7 @@ Use :any:`STOW_GET` to read an item's current value. **Always** call :any:`STOW_
        participant Caller
        participant Stow
 
-       Caller->>Stow: STOW_GET(roles, item_id, &value)
-       Stow->>Stow: Check read permissions against role(s)
+       Caller->>Stow: STOW_GET(item_id, &value)
        Stow-->>Caller: Populate value with a reference or copy
        Note over Caller: Use value.data
        Caller->>Stow: STOW_RELEASE(item_id, &value)
@@ -69,7 +68,7 @@ Use :any:`STOW_SET` with a :any:`data_value_t` that includes the correct type ta
        .type = STOW_ITEM_TYPE_INT,
        .data.int_value = 42,
    };
-   STOW_SET(STOW_ROLE_INTERNAL, STOW_ID_TEST_INT, val);
+   STOW_SET(STOW_ID_TEST_INT, val);
 
 .. mermaid::
 
@@ -78,8 +77,7 @@ Use :any:`STOW_SET` with a :any:`data_value_t` that includes the correct type ta
        participant Caller
        participant Stow
 
-       Caller->>Stow: STOW_SET(role, item_id, value)
-       Stow->>Stow: Check write permissions against role(s)
+       Caller->>Stow: STOW_SET(item_id, value)
        Stow->>Stow: Validate against item constraints
        Stow->>Stow: Set the new value
        Stow->>Stow: Notify subscribers
@@ -95,7 +93,7 @@ It may be cumbersome to allocate a buffer for small buffer types. In this case, 
        .type = STOW_ITEM_TYPE_BUFFER,
        .data.buffer_value = bytes,
    };
-   STOW_SET(STOW_ROLE_INTERNAL, STOW_ID_TEST_BUFFER, val);
+   STOW_SET(STOW_ID_TEST_BUFFER, val);
 
 Subscriptions
 =============
@@ -122,7 +120,7 @@ The Stow API allows modules to subscribe to items. The subscription callback wil
        .cb   = on_update,
    };
 
-   stow_subscribe(STOW_ROLE_INTERNAL, STOW_ID_TEST_INT, &sub);
+   stow_subscribe(STOW_ID_TEST_INT, &sub);
 
    // later:
    stow_unsubscribe(STOW_ID_TEST_INT, &sub);
@@ -140,7 +138,7 @@ Items can be serialized to and from CBOR. Items are encoded when stored in non-v
    ZCBOR_STATE_E(encoder, 1, buf, sizeof(buf), 1);
 
    data_value_t val = {0};
-   STOW_GET(STOW_ROLE_INTERNAL, STOW_ID_TEST_INT, &val);
+   STOW_GET(STOW_ID_TEST_INT, &val);
    stow_encode(encoder, STOW_ID_TEST_INT, val);
    STOW_RELEASE(STOW_ID_TEST_INT, &val);
 
@@ -158,10 +156,10 @@ Items may optionally override the default get, set, and validation. These functi
    Called after the default constraint check as an additional gate. Returns ``true`` to accept the value or ``false`` to reject it. Use sparingly; clients reading the Stow description will have no way to know about application-specific validation rules.
 
 ``custom_get``
-   Replaces the default interface ``get`` after the permission check. This could be used to read a value on demand rather than reading from stored state.
+   Replaces the default interface ``get``, after the permission check when called via :any:`stow_get_external`. This could be used to read a value on demand rather than reading from stored state.
 
 ``custom_set``
-   Replaces the default interface ``set`` after the permission check, constraint validation, and any ``custom_validate``. This to intercept writes and apply modifications before saving. ``custom_set`` can call the default ``set`` implementation after its custom logic to ensure the new value is set in the Stow.
+   Replaces the default interface ``set``, after the permission check (when called via :any:`stow_set_external`), constraint validation, and any ``custom_validate``. This to intercept writes and apply modifications before saving. ``custom_set`` can call the default ``set`` implementation after its custom logic to ensure the new value is set in the Stow.
 
 **Example:**
 
@@ -194,7 +192,11 @@ Items may optionally override the default get, set, and validation. These functi
 Authentication
 ==============
 
-Each Stow item has access controls for reading and writing values. Stow operations require providing a bitfield of the caller's current roles. ``STOW_ROLE_INTERNAL`` can be used to access any item. This is meant to be used by internal firmware modules. Other roles can be defined in the :doc:`schema </stow/schema>`.
+Each Stow item has access controls for reading and writing values. The internal API (:any:`stow_set`, :any:`stow_get`, :any:`stow_subscribe`) takes no role parameter and performs no permission check. Internal firmware modules always have full access.
+
+Callers that must be checked against an item's permissions use the external variants instead: :any:`stow_set_external`, :any:`stow_get_external`, and :any:`stow_subscribe_external`. The :doc:`Stow Protocol </stow/protocol>` is the primary example. Each function takes a bitfield of the caller's current roles, checks it against the item's permission mask, and delegates to the corresponding core function on success.
+
+Each item's permissions are defined by a bitfield of roles. Roles can be defined in the :doc:`schema </stow/schema>`. If the caller has **any** of the allowed roles, it has access. A permission mask of ``STOW_ROLE_INTERNAL`` (``0``) marks an item as internal-only, so no external caller can access it.
 
 Configuration
 =============

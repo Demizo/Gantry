@@ -11,7 +11,7 @@ ZTEST_SUITE(stow_float, NULL, NULL, reset_stow, NULL, NULL);
 ZTEST(stow_float, test_get_default)
 {
     data_value_t value;
-    int ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_FLOAT, &value);
+    int ret = stow_get(STOW_ID_TEST_FLOAT, &value);
     zassert_equal(ret, 0);
     zassert_equal(value.type, STOW_ITEM_TYPE_FLOAT);
     zassert_within(value.data.float_value, 1.0f, 0.001f);
@@ -21,11 +21,11 @@ ZTEST(stow_float, test_get_default)
 ZTEST(stow_float, test_set_and_get)
 {
     data_value_t set_value = { .type = STOW_ITEM_TYPE_FLOAT, .data.float_value = 5.5f };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_FLOAT, set_value);
+    int ret = stow_set(STOW_ID_TEST_FLOAT, set_value);
     zassert_equal(ret, 0);
 
     data_value_t got;
-    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_FLOAT, &got);
+    ret = stow_get(STOW_ID_TEST_FLOAT, &got);
     zassert_equal(ret, 0);
     zassert_within(got.data.float_value, 5.5f, 0.001f);
     stow_release(STOW_ID_TEST_FLOAT, &got);
@@ -34,7 +34,7 @@ ZTEST(stow_float, test_set_and_get)
 ZTEST(stow_float, test_set_out_of_range)
 {
     data_value_t value = { .type = STOW_ITEM_TYPE_FLOAT, .data.float_value = 11.0f };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_FLOAT, value);
+    int ret = stow_set(STOW_ID_TEST_FLOAT, value);
     zassert_equal(ret, -EINVAL);
 }
 

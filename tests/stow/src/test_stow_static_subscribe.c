@@ -70,7 +70,7 @@ ZTEST_SUITE(stow_static_subscribe, NULL, NULL, reset_stow_and_flags, NULL, NULL)
 ZTEST(stow_static_subscribe, test_static_handle_subscription)
 {
     data_value_t val = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 7 };
-    stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_STATIC_SUBSCRIBE_INT, val);
+    stow_set(STOW_ID_TEST_STATIC_SUBSCRIBE_INT, val);
 
     zassert_true(g_static_handle_called);
     zassert_equal(g_static_handle_id, (int)STOW_ID_TEST_STATIC_SUBSCRIBE_INT);
@@ -79,7 +79,7 @@ ZTEST(stow_static_subscribe, test_static_handle_subscription)
 ZTEST(stow_static_subscribe, test_static_copy_subscription)
 {
     data_value_t val = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 42 };
-    stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_STATIC_SUBSCRIBE_INT, val);
+    stow_set(STOW_ID_TEST_STATIC_SUBSCRIBE_INT, val);
 
     zassert_true(g_static_copy_called);
     zassert_equal(g_static_copy_value, 42);
@@ -88,7 +88,7 @@ ZTEST(stow_static_subscribe, test_static_copy_subscription)
 ZTEST(stow_static_subscribe, test_static_multi_id_subscription)
 {
     data_value_t val1 = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 1 };
-    stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_STATIC_SUBSCRIBE_INT, val1);
+    stow_set(STOW_ID_TEST_STATIC_SUBSCRIBE_INT, val1);
 
     zassert_true(g_static_multi_called);
     zassert_equal(g_static_multi_id, (int)STOW_ID_TEST_STATIC_SUBSCRIBE_INT);
@@ -97,7 +97,7 @@ ZTEST(stow_static_subscribe, test_static_multi_id_subscription)
     g_static_multi_id = -1;
 
     data_value_t val2 = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 2 };
-    stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_STATIC_SUBSCRIBE_INT2, val2);
+    stow_set(STOW_ID_TEST_STATIC_SUBSCRIBE_INT2, val2);
 
     zassert_true(g_static_multi_called);
     zassert_equal(g_static_multi_id, (int)STOW_ID_TEST_STATIC_SUBSCRIBE_INT2);
@@ -109,11 +109,11 @@ ZTEST(stow_static_subscribe, test_static_and_dynamic_coexist)
         .mode = STOW_SUBSCRIPTION_HANDLE,
         .cb = dynamic_callback,
     };
-    int ret = stow_subscribe(STOW_ROLE_GUEST, STOW_ID_TEST_STATIC_SUBSCRIBE_INT, &dyn_sub);
+    int ret = stow_subscribe(STOW_ID_TEST_STATIC_SUBSCRIBE_INT, &dyn_sub);
     zassert_equal(ret, 0);
 
     data_value_t val = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 13 };
-    stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_STATIC_SUBSCRIBE_INT, val);
+    stow_set(STOW_ID_TEST_STATIC_SUBSCRIBE_INT, val);
 
     zassert_true(g_static_handle_called);
     zassert_true(g_dynamic_called);

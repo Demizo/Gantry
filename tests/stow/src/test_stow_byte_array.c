@@ -11,7 +11,7 @@ ZTEST_SUITE(stow_byte_array, NULL, NULL, reset_stow, NULL, NULL);
 ZTEST(stow_byte_array, test_get_default)
 {
     data_value_t value;
-    int ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_BYTES, &value);
+    int ret = stow_get(STOW_ID_TEST_BYTES, &value);
     zassert_equal(ret, 0);
     zassert_equal(value.type, STOW_ITEM_TYPE_BYTE_ARRAY);
     zassert_equal(value.data.buffer_value->len, 4);
@@ -31,11 +31,11 @@ ZTEST(stow_byte_array, test_set_and_get)
     buf->buf[3] = 0xDD;
 
     data_value_t val = { .type = STOW_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = buf };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_BYTES, val);
+    int ret = stow_set(STOW_ID_TEST_BYTES, val);
     zassert_equal(ret, 0);
 
     data_value_t got;
-    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_BYTES, &got);
+    ret = stow_get(STOW_ID_TEST_BYTES, &got);
     zassert_equal(ret, 0);
     zassert_equal(got.data.buffer_value->len, 4);
     zassert_equal(got.data.buffer_value->buf[0], 0xAA);
@@ -50,7 +50,7 @@ ZTEST(stow_byte_array, test_wrong_length)
     buf->len = 2;
 
     data_value_t val = { .type = STOW_ITEM_TYPE_BYTE_ARRAY, .data.buffer_value = buf };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_BYTES, val);
+    int ret = stow_set(STOW_ID_TEST_BYTES, val);
     zassert_equal(ret, -EINVAL);
 }
 

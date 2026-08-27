@@ -22,7 +22,7 @@
 //**********************************************************
 
 #define UART_SESSION_ID 1U
-#define UART_SESSION_AUTH STOW_ROLE_INTERNAL
+#define UART_SESSION_AUTH STOW_ROLE_ANY
 
 #define BLE_SESSION_ID 2U
 #define BLE_SESSION_AUTH STOW_ROLE_SESSION

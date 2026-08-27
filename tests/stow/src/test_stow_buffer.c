@@ -11,7 +11,7 @@ ZTEST_SUITE(stow_buffer, NULL, NULL, reset_stow, NULL, NULL);
 ZTEST(stow_buffer, test_get_default)
 {
     data_value_t value;
-    int ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_BUFFER, &value);
+    int ret = stow_get(STOW_ID_TEST_BUFFER, &value);
     zassert_equal(ret, 0);
     zassert_equal(value.type, STOW_ITEM_TYPE_BUFFER);
     zassert_equal(value.data.buffer_value->len, 0);
@@ -26,11 +26,11 @@ ZTEST(stow_buffer, test_set_and_get)
     memset(buf->buf, 0x5A, 8);
 
     data_value_t val = { .type = STOW_ITEM_TYPE_BUFFER, .data.buffer_value = buf };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_BUFFER, val);
+    int ret = stow_set(STOW_ID_TEST_BUFFER, val);
     zassert_equal(ret, 0);
 
     data_value_t got;
-    ret = stow_get(STOW_ROLE_GUEST, STOW_ID_TEST_BUFFER, &got);
+    ret = stow_get(STOW_ID_TEST_BUFFER, &got);
     zassert_equal(ret, 0);
     zassert_equal(got.data.buffer_value->len, 8);
     zassert_equal(got.data.buffer_value->buf[0], 0x5A);
@@ -44,7 +44,7 @@ ZTEST(stow_buffer, test_set_exceeds_max)
     buf->len = 65;
 
     data_value_t val = { .type = STOW_ITEM_TYPE_BUFFER, .data.buffer_value = buf };
-    int ret = stow_set(STOW_ROLE_GUEST, STOW_ID_TEST_BUFFER, val);
+    int ret = stow_set(STOW_ID_TEST_BUFFER, val);
     zassert_equal(ret, -EINVAL);
 }
 
