@@ -2,9 +2,22 @@
 Gantry
 ======
 
-Gantry is a framework made to bootstrap embedded applications. The architecture is event-driven and data-centric. Applications are made up of composable modules that communicate with each other via events. Modules can define custom event types and payloads, but the core event structure is universal such that any module can parse any event.
+Gantry is a Zephyr module for building connected embedded applications. The architecture is event-driven and data-centric. It makes applications composable, reusable, and trivial to extend.
 
-The system state, configuration, and device information is all managed by a central data storage module, the Stow. Modules, as well as connected devices, can subscribe to, set, and get items in the Stow. This data-centric approach makes it trivial for modules or devices to share state or react to events. It avoids common pitfalls where many modules define similar events or pass state via arbitrary event payloads. It also prevents the need for bloated protocols for interacting with or querying information from devices.
+Overview
+========
+
+A Gantry application is composed of independent :doc:`/module/index`. Each module communicates with the rest of the system through :doc:`/events/index`. State is shared between modules via the :doc:`/stow/index`.
+
+The Stow is the application's central data store. Configuration, live state, and device identity are declared within it. External clients can access the Stow via the :doc:`/stow/protocol`. The Stow is self-describing so clients can discover information and supported features dynamically. The protocol includes role based authentication, type validation, and value constraints for all items within the Stow. The protocol's basic operations (set, get, and subscribe) eliminate the need for overly complex communication protocol that boil down to setters and getters.
+
+Benefits
+--------
+
+- Modules are independent, composable, and reusable.
+- Values can be easily shared between modules and exposed to external clients.
+- Application items, permissions, and constraints can be arbitrarily declared in a schema, not reimplemented per feature.
+- Reference-counted memory and a static resource checker catches leaks at build time.
 
 .. toctree::
    :maxdepth: 1
