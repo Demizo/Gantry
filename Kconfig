@@ -56,8 +56,12 @@ endif
 menuconfig GANTRY_STOW
     bool "Stow"
     default y
+    select SETTINGS
+    select FLASH
+    select FLASH_MAP
+    select NVS
     help
-      Enable the reactive stow.
+      Enable the Stow.
 
 if GANTRY_STOW
     rsource "kconfig/Kconfig.stow"
