@@ -9,7 +9,7 @@ Overview
 
 A Gantry application is composed of independent :doc:`/module/index`. Each module communicates with the rest of the system through :doc:`/events/index`. State is shared between modules via the :doc:`/stow/index`.
 
-The Stow is the application's central data store. Configuration, live state, and device identity are declared within it. External clients can access the Stow via the :doc:`/stow/protocol`. The Stow is self-describing so clients can discover information and supported features dynamically. The protocol includes role based authentication, type validation, and value constraints for all items within the Stow. The protocol's basic operations (set, get, and subscribe) eliminate the need for overly complex communication protocol that boil down to setters and getters.
+The Stow is the core of a Gantry application. It is a key-value store with device configuration, live state, and information. The Stow uses a publish/subscribe model where modules can update values and get notified about changes. External clients can access the Stow via the :doc:`/stow/protocol`. The Stow is self-describing so clients can dynamically discover information and supported features. The protocol includes role based authentication, type validation, and value constraints for all items within the Stow. The protocol's basic operations (set, get, and subscribe) eliminate the need for overly complex communication protocols.
 
 Benefits
 --------
@@ -17,7 +17,7 @@ Benefits
 - Modules are independent, composable, and reusable.
 - Values can be easily shared between modules and exposed to external clients.
 - Application items, permissions, and constraints can be arbitrarily declared in a schema, not reimplemented per feature.
-- Reference-counted memory and a static resource checker catches leaks at build time.
+- Reference-counted memory is paired with a static resource checker to catch leaks at build time.
 
 .. toctree::
    :maxdepth: 1
