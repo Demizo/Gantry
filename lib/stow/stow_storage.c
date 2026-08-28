@@ -17,6 +17,7 @@
 #include <gantry/stow/stow_storage.h>
 #include <gantry/stow/types/stow_types.h>
 #include <generated_stow_items.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/errno.h>
 #include <zephyr/logging/log.h>
