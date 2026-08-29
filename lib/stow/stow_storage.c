@@ -36,7 +36,7 @@ LOG_MODULE_REGISTER(stow_storage, CONFIG_STOW_STORAGE_LOG_LEVEL);
 /**
  * @brief Subtree prefix for stow items
  */
-#define STOW_SETTINGS_SUBTREE "ds"
+#define STOW_SETTINGS_SUBTREE "stow"
 
 //**********************************************************
 //* Static Function Declarations
