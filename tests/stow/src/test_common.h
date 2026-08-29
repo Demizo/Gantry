@@ -19,8 +19,11 @@
 #include <zephyr/ztest.h>
 #include <zephyr/ztest_assert.h>
 
+#include "stow_storage_stub.h"
+
 static inline void reset_stow(void* fixture)
 {
     (void)fixture;
     stow_init();
+    stow_storage_stub_reset();
 }
