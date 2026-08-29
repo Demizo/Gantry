@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/errno.h>
+#include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
 
@@ -262,8 +263,11 @@ int stow_storage_save_item(const struct stow_item_const_metadata* item)
     }
 
     ZCBOR_STATE_E(encoder, 1, encoded_value_block, CONFIG_STOW_ITEM_STORAGE_SIZE_MAX, 1);
+
     data_value_t current_value = { 0 };
+    uint32_t key = irq_lock();
     ret = item->interface->get(item->value_ptr, &current_value);
+    irq_unlock(key);
     if (ret != SUCCESS)
     {
         LOG_ERR("Failed to get current value when saving %s (%d)", item->name, ret);
