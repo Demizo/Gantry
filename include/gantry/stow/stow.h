@@ -42,6 +42,8 @@
 /**
  * @brief Callback used to notify a subscriber when the subscribed value changes
  *
+ * @note Runs with interrupts masked, must be interrupt safe, any may not block.
+ *
  * @param event Pointer to a stow update event
  */
 typedef void (*stow_subscription_cb)(event_t* event);
@@ -62,7 +64,10 @@ struct stow_subscription
  */
 struct stow_item_dynamic_metadata
 {
-    sys_slist_t subscribers; /**< List of subscribers to the item */
+    sys_slist_t subscribers;     /**< List of subscribers to the item */
+    bool has_handle_subscribers; /**< Whether any subscriber uses @ref STOW_SUBSCRIPTION_HANDLE */
+    bool has_copy_subscribers;   /**< Whether any subscriber uses @ref STOW_SUBSCRIPTION_COPY */
+    bool dirty;                  /**< Whether the item has changed since its last save */
 };
 
 /**
@@ -100,7 +105,22 @@ void stow_init(void);
 bool stow_is_id_valid(uint32_t id);
 
 /**
+ * @brief Write modified persistent items to storage
+ *
+ * @details Writes are normally flushed by a background job. Call this to persist
+ * pending writes immediately, for example before a deliberate reset.
+ *
+ * @note Not interrupt safe.
+ *
+ * @return SUCCESS when every dirty item was saved
+ * @return the first error encountered, having attempted every dirty item
+ */
+int stow_flush(void);
+
+/**
  * @brief Set the value of a data item
+ *
+ * @note Safe to call from interrupt context. Persistence is deferred.
  *
  * @param id Item ID to modify
  * @param value The desired value
@@ -141,6 +161,8 @@ int stow_set_external(stow_role_t current_auth, enum stow_item_id id, data_value
 
 /**
  * @brief Get the current value of a data item
+ *
+ * @note Safe to call from interrupt context.
  *
  * @param[in] id Item ID to retrieve
  * @param[out] out_value Pointer to be populated with the item's current value
@@ -226,6 +248,8 @@ int stow_decode(zcbor_state_t* decoder, enum stow_item_id id, data_value_t* out_
 /**
  * @brief Subscribe to a data item
  *
+ * @note Safe to call from interrupt context.
+ *
  * @param id Item ID to subscribe to
  * @param subscription The stow subscription
  *
@@ -253,6 +277,8 @@ int stow_subscribe_external(stow_role_t current_auth, enum stow_item_id id, stru
 
 /**
  * @brief Unsubscribe from a data item
+ *
+ * @note Safe to call from interrupt context.
  *
  * @param id Item ID to unsubscribe from
  * @param subscription The subscription to remove

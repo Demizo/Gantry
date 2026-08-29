@@ -181,12 +181,16 @@ struct stow_item_custom_interface
      * @brief Custom get function to override @ref stow_item_interface.get
      *
      * @details Invoked by @ref stow_get (and by subscriber notifications)
+     *
+     * @note Runs with interrupts masked, must be interrupt safe, any may not block.
      */
     int (*get)(const struct stow_item_const_metadata* item, data_value_t* out_value);
     /**
      * @brief Custom set function to override @ref stow_item_interface.set
      *
      * @details Invoked by @ref stow_set after the validation checks
+     *
+     * @note Runs with interrupts masked, must be interrupt safe, any may not block.
      */
     int (*set)(const struct stow_item_const_metadata* item, data_value_t value);
     /**
@@ -194,6 +198,8 @@ struct stow_item_custom_interface
      *
      * @note This should be avoided whenever possible since clients will not know custom validation rules without prior
      * knowledge of the system.
+     *
+     * @note Runs with interrupts masked, must be interrupt safe, any may not block.
      *
      * @details Invoked by @ref stow_set after the regular type-level validation succeeds, as an additional gate.
      * Returns True to accept, False to reject.

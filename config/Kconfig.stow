@@ -21,6 +21,34 @@ config STOW_INIT_PRIORITY
       SYS_INIT priority, within the POST_KERNEL init level, at which stow_init() is run
       automatically at boot.
 
+config STOW_STORAGE_FLUSH_DELAY_MS
+    int "Delay before persisting Stow items"
+    default 1000
+    help
+      Updated persistent Stow items are not saved to storage immediately. This delay
+      controls the time before an item change is persisted.
+
+config STOW_STORAGE_FLUSH_THREAD_STACK_SIZE
+    int "Stow storage flush workqueue stack size"
+    default 2048
+
+config STOW_STORAGE_FLUSH_THREAD_PRIORITY
+    int "Stow storage flush workqueue thread priority"
+    default 10
+
+config STOW_CALLBACK_TIME_ASSERT
+    bool "Assert when a stow callback overruns its time budget"
+    default y if DEBUG
+    depends on ASSERT
+    help
+      Time each subscription callback and custom interface call, and assert when one exceeds
+      CONFIG_STOW_CALLBACK_TIME_BUDGET_US.
+
+config STOW_CALLBACK_TIME_BUDGET_US
+    int "Time budget for a stow callback, in microseconds"
+    default 200
+    depends on STOW_CALLBACK_TIME_ASSERT
+
 menuconfig STOW_PROTOCOL
     bool "Enable the Stow protocol module"
     default n
