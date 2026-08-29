@@ -9,7 +9,7 @@ The Stow API allows firmware modules to set, get, and subscribe to items in the 
 
 All Stow operations are validated against the given item's access controls and value constraints. It can be assumed that values in the Stow are always valid for a given item.
 
-Stow operations are thread-safe. The Stow API is also safe to use from interrupt contexts.
+The Stow API is non-blocking, thread-safe, and can be called from interrupt contexts. The permanent storage of persistent items is deferred. A flush occurs ``CONFIG_STOW_STORAGE_FLUSH_DELAY_MS`` after a write. Call :any:`stow_flush` from a thread context to persist everything pending immediately.
 
 Initialization
 ==============
@@ -127,6 +127,12 @@ The Stow API allows modules to subscribe to items. The subscription callback wil
 
 If a subscription will be alive for the full lifetime of the app, a static subscription can be used via :any:`STOW_SUBSCRIPTION_DEFINE`. These subscriptions are stored in ROM rather than dynamically allocated.
 
+.. important::
+
+   Subscription callbacks run with interrupts masked, and possibly from an interrupt context. They must complete quickly and may not block. :any:`STOW_CALLBACK_DEFINE` is recommended for callbacks.
+
+The debug options ``CONFIG_STOW_CALLBACK_TIME_ASSERT`` and ``CONFIG_STOW_CALLBACK_TIME_BUDGET_US`` can be used to ensure callbacks don't exceed the defined time budget.
+
 Encode & Decode
 ===============
 
@@ -152,6 +158,10 @@ Custom Interface
 
 Items may optionally override the default get, set, and validation. These function overrides are declared in the :doc:`schema </stow/schema>` by name and resolved at link time.
 
+.. important::
+
+   ``custom_get``, ``custom_set``, and ``custom_validate`` run with interrupts masked. They must be quick and may never block.
+
 ``custom_validate``
    Called after the default constraint check as an additional gate. Returns ``true`` to accept the value or ``false`` to reject it. Use sparingly; clients reading the Stow description will have no way to know about application-specific validation rules.
 
@@ -165,13 +175,15 @@ Items may optionally override the default get, set, and validation. These functi
 
 .. code-block:: c
 
+   static int latest_sensor_reading;
+
    int my_item_get(const struct stow_item_const_metadata *item, data_value_t *out_value)
    {
        out_value->type = STOW_ITEM_TYPE_INT;
-       out_value->data.int_value = read_sensor();
+       out_value->data.int_value = latest_sensor_reading;
        return SUCCESS;
    }
-   
+
    int my_item_set(const struct stow_item_const_metadata* item, data_value_t value)
    {
       // Perform a modification (e.g. divide by 2)
@@ -216,6 +228,13 @@ Configuration
 
    # Maximum encoded size for items in persistent storage (bytes)
    CONFIG_STOW_ITEM_STORAGE_SIZE_MAX=1024
+
+   # Delay before persistent items are saved to storage
+   CONFIG_STOW_STORAGE_FLUSH_DELAY_MS=1000
+
+   # Debug option to assert when callbacks exceed the time budget
+   CONFIG_STOW_CALLBACK_TIME_ASSERT=y
+   CONFIG_STOW_CALLBACK_TIME_BUDGET_US=200
 
 API Reference
 =============
