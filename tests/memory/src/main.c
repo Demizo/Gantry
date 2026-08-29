@@ -6,6 +6,7 @@
 
 #include <gantry/error.h>
 #include <gantry/static_unit.h>
+#include <zephyr/irq_offload.h>
 #include <zephyr/ztest.h>
 
 #include "memory.c"
@@ -203,13 +204,28 @@ ZTEST(mem_pool_info, test_get_pool_usage_null_out)
 static volatile int watermark_call_count;
 static volatile uint8_t watermark_last_pool;
 static volatile uint8_t watermark_last_percent;
+static volatile bool watermark_saw_isr;
+static volatile bool watermark_saw_irq_locked;
 
 static void watermark_cb(uint8_t pool_index, uint8_t percent)
 {
     watermark_call_count++;
     watermark_last_pool = pool_index;
     watermark_last_percent = percent;
+
+    watermark_saw_isr = k_is_in_isr();
+
+    // Sample the ambient interrupt-lock state without changing it: irq_lock() returns the prior
+    // state, and arch_irq_unlocked() decodes whether that prior state was unlocked.
+    unsigned int key = irq_lock();
+    watermark_saw_irq_locked = !arch_irq_unlocked(key);
+    irq_unlock(key);
 }
+
+/**
+ * @brief Let the system workqueue run the callbacks queued by any allocations made so far
+ */
+static void run_watermark_callbacks(void) { k_yield(); }
 
 static void watermark_before(void* fixture)
 {
@@ -217,6 +233,8 @@ static void watermark_before(void* fixture)
     watermark_call_count = 0;
     watermark_last_pool = 0xFF;
     watermark_last_percent = 0xFF;
+    watermark_saw_isr = true;
+    watermark_saw_irq_locked = true;
 }
 
 ZTEST_SUITE(mem_watermark, NULL, NULL, watermark_before, NULL, NULL);
@@ -229,9 +247,11 @@ ZTEST(mem_watermark, test_watermark_fires_at_threshold)
     void* b1 = NULL;
     void* b2 = NULL;
     MEM_ALLOC(8, &b1);
+    run_watermark_callbacks();
     zassert_equal(watermark_call_count, 0);
 
     MEM_ALLOC(8, &b2);  // 2/4 = 50%: watermark should fire
+    run_watermark_callbacks();
     zassert_equal(watermark_call_count, 1);
     zassert_equal(watermark_last_pool, 0);
     zassert_equal(watermark_last_percent, 50);
@@ -250,6 +270,7 @@ ZTEST(mem_watermark, test_watermark_fires_only_once)
         MEM_ALLOC(8, &blocks[i]);
     }
 
+    run_watermark_callbacks();
     zassert_equal(watermark_call_count, 1);
     free_all_blocks(blocks, 4);
 }
@@ -267,6 +288,7 @@ ZTEST(mem_watermark, test_watermark_reset_on_re_register)
     mem_set_watermark(0, 25, watermark_cb);
     void* b1 = NULL;
     MEM_ALLOC(8, &b1);
+    run_watermark_callbacks();
     zassert_equal(watermark_call_count, 1);
     MEM_UNREF(&b1);
 
@@ -274,8 +296,65 @@ ZTEST(mem_watermark, test_watermark_reset_on_re_register)
     mem_set_watermark(0, 25, watermark_cb);
     void* b2 = NULL;
     MEM_ALLOC(8, &b2);
+    run_watermark_callbacks();
     zassert_equal(watermark_call_count, 2);
     MEM_UNREF(&b2);
+}
+
+ZTEST(mem_watermark, test_watermark_callback_runs_in_thread_context)
+{
+    mem_set_watermark(0, 25, watermark_cb);
+
+    void* block = NULL;
+    MEM_ALLOC(8, &block);
+    run_watermark_callbacks();
+
+    zassert_equal(watermark_call_count, 1);
+    zassert_false(watermark_saw_isr, "Watermark callback ran in interrupt context");
+    zassert_false(watermark_saw_irq_locked, "Watermark callback ran with interrupts locked");
+
+    MEM_UNREF(&block);
+}
+
+ZTEST(mem_watermark, test_watermark_callback_runs_in_thread_context_when_allocated_under_irq_lock)
+{
+    mem_set_watermark(0, 25, watermark_cb);
+
+    void* block = NULL;
+    unsigned int key = irq_lock();
+    MEM_ALLOC(8, &block);
+    irq_unlock(key);
+    run_watermark_callbacks();
+
+    zassert_equal(watermark_call_count, 1);
+    zassert_false(watermark_saw_isr, "Watermark callback ran in interrupt context");
+    zassert_false(watermark_saw_irq_locked, "Watermark callback ran with interrupts locked");
+
+    MEM_UNREF(&block);
+}
+
+static void offload_alloc(const void* arg)
+{
+    void** block = (void**)arg;
+    MEM_ALLOC(8, block);
+}
+
+ZTEST(mem_watermark, test_watermark_triggered_from_isr_runs_in_thread_context)
+{
+    mem_set_watermark(0, 25, watermark_cb);
+
+    void* block = NULL;
+    irq_offload(offload_alloc, &block);
+    zassert_not_null(block);
+    zassert_equal(watermark_call_count, 0, "Callback must not run inside the ISR");
+
+    run_watermark_callbacks();
+
+    zassert_equal(watermark_call_count, 1);
+    zassert_false(watermark_saw_isr, "Watermark callback ran in interrupt context");
+    zassert_false(watermark_saw_irq_locked, "Watermark callback ran with interrupts locked");
+
+    MEM_UNREF(&block);
 }
 
 ZTEST(mem_watermark, test_watermark_does_not_re_fire)
@@ -284,6 +363,7 @@ ZTEST(mem_watermark, test_watermark_does_not_re_fire)
     mem_set_watermark(0, 25, watermark_cb);
     void* b1 = NULL;
     MEM_ALLOC(8, &b1);
+    run_watermark_callbacks();
     zassert_equal(watermark_call_count, 1);
 
     // Go below watermark
@@ -291,6 +371,7 @@ ZTEST(mem_watermark, test_watermark_does_not_re_fire)
 
     // Attempt to trigger watermark again
     MEM_ALLOC(8, &b1);
+    run_watermark_callbacks();
     zassert_equal(watermark_call_count, 1);
     MEM_UNREF(&b1);
 }
