@@ -198,6 +198,8 @@ int mem_get_pool_usage(uint8_t pool_index, uint32_t* used_out, uint32_t* total_o
 /**
  * @brief Callback type for pool watermark notifications
  *
+ * @note Always runs in thread context
+ *
  * @param pool_index The pool index that hit the watermark
  * @param percent The watermark percentage that was hit
  */

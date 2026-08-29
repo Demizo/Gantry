@@ -67,6 +67,7 @@ typedef struct
 typedef struct
 {
     mem_watermark_cb_t callback; /**< Callback to fire when the watermark is first reached */
+    struct k_work work;          /**< Work item the callback runs from */
     uint8_t percent;             /**< Percent at which the watermark is set */
     bool triggered;              /**< Whether the watermark has been triggered */
 } mem_watermark_t;
@@ -79,6 +80,9 @@ typedef struct
 static void* block_to_header(void* data);
 static void* header_to_block(void* block);
 STATIC_UNIT mem_block_header_t* validate_and_get_header(void* data);
+#ifdef CONFIG_MEM_WATERMARK
+static void watermark_work_handler(struct k_work* work);
+#endif
 
 //**********************************************************
 //* Static Variable Definitions
@@ -87,7 +91,9 @@ STATIC_UNIT mem_block_header_t* validate_and_get_header(void* data);
 static const uint8_t magic[8] = { 'M', 'E', 'M', 'B', 'L', 'O', 'C', 'K' };
 
 #ifdef CONFIG_MEM_WATERMARK
-static mem_watermark_t watermarks[CONFIG_MEM_POOL_COUNT];
+static mem_watermark_t watermarks[CONFIG_MEM_POOL_COUNT] = {
+    [0 ... CONFIG_MEM_POOL_COUNT - 1] = { .work = Z_WORK_INITIALIZER(watermark_work_handler) },
+};
 #endif
 
 /**
@@ -197,6 +203,19 @@ STATIC_UNIT mem_block_header_t* validate_and_get_header(void* block)
     return header;
 }
 
+#ifdef CONFIG_MEM_WATERMARK
+/**
+ * @brief Run a pool's watermark callback in thread context
+ *
+ * @param work The triggered pool's work item
+ */
+static void watermark_work_handler(struct k_work* work)
+{
+    mem_watermark_t* watermark = CONTAINER_OF(work, mem_watermark_t, work);
+    watermark->callback((uint8_t)ARRAY_INDEX(watermarks, watermark), watermark->percent);
+}
+#endif
+
 //**********************************************************
 //* Public Function Definitions
 //**********************************************************
@@ -292,11 +311,7 @@ int mem_alloc(size_t size, void** block_ptr)
                 if (usage_percent >= wm->percent)
                 {
                     wm->triggered = true;
-                    mem_watermark_cb_t cb = wm->callback;
-                    uint8_t wm_percent = wm->percent;
-                    irq_unlock(key);
-                    cb(pool_size, wm_percent);
-                    key = irq_lock();
+                    k_work_submit(&wm->work);
                 }
             }
 #endif
@@ -426,6 +441,7 @@ int mem_set_watermark(uint8_t pool_index, uint8_t percent, mem_watermark_cb_t ca
 
     uint32_t key = irq_lock();
 
+    (void)k_work_cancel(&watermarks[pool_index].work);
     watermarks[pool_index].callback = callback;
     watermarks[pool_index].percent = percent;
     watermarks[pool_index].triggered = false;
