@@ -40,9 +40,24 @@ The project is meant to be included as a West module within a West workspace.
 The ``samples`` folder provides an example application using Gantry.
 
 1. Include the module's repository in your West manifest then run ``west update``.
-2. Define a ``stow.yaml`` in your applications root directory, see :doc:`/stow/schema`.
+
+   .. code-block:: yaml
+
+      manifest:
+        remotes:
+          - name: gantry
+            url-base: https://github.com/Demizo
+
+        projects:
+          - name: gantry
+            remote: gantry
+            repo-path: Gantry
+            revision: main
+            path: modules/lib/gantry
+
+2. Define a ``stow.yaml`` in your application's root directory, see :doc:`/stow/schema`.
 3. Enable the desired Gantry features in your project's ``prj.conf``.
-4. Build our application and begin making use of the Gantry library.
+4. Build your application and begin making use of the Gantry library.
 
 License
 =======
