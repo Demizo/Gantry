@@ -2,12 +2,12 @@ source "Kconfig.zephyr"
 
 menu "Example App"
 
-rsource "kconfig/Kconfig.main"
+rsource "config/Kconfig.main"
 
-rsource "kconfig/Kconfig.session"
+rsource "config/Kconfig.session"
 
-rsource "kconfig/Kconfig.uart"
+rsource "config/Kconfig.uart"
 
-rsource "kconfig/Kconfig.ble"
+rsource "config/Kconfig.ble"
 
 endmenu

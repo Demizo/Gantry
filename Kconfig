@@ -6,7 +6,7 @@ menuconfig GANTRY
 
 if GANTRY
 
-rsource "kconfig/Kconfig.analysis"
+rsource "config/Kconfig.analysis"
 
 config GANTRY_BUILD_LIBRARY
     bool "Build Gantry sources as a Zephyr library"
@@ -30,7 +30,7 @@ menuconfig GANTRY_FLAGS
       Enable runtime flag validation helpers.
 
 if GANTRY_FLAGS
-    rsource "kconfig/Kconfig.flags"
+    rsource "config/Kconfig.flags"
 endif
 
 menuconfig GANTRY_MEMORY
@@ -40,7 +40,7 @@ menuconfig GANTRY_MEMORY
       Enable the reference-counted memory pool subsystem.
 
 if GANTRY_MEMORY
-    rsource "kconfig/Kconfig.memory"
+    rsource "config/Kconfig.memory"
 endif
 
 menuconfig GANTRY_EVENTS
@@ -50,7 +50,7 @@ menuconfig GANTRY_EVENTS
       Enable the event/message-passing subsystem.
 
 if GANTRY_EVENTS
-    rsource "kconfig/Kconfig.events"
+    rsource "config/Kconfig.events"
 endif
 
 menuconfig GANTRY_STOW
@@ -64,7 +64,7 @@ menuconfig GANTRY_STOW
       Enable the Stow.
 
 if GANTRY_STOW
-    rsource "kconfig/Kconfig.stow"
+    rsource "config/Kconfig.stow"
 endif
 
 menuconfig GANTRY_MODULE
@@ -77,7 +77,7 @@ menuconfig GANTRY_MODULE
       automatically at boot, after Stow is initialized and before main is executed.
 
 if GANTRY_MODULE
-    rsource "kconfig/Kconfig.module"
+    rsource "config/Kconfig.module"
 endif
 
 menuconfig GANTRY_COBS_FRAMER
@@ -88,7 +88,7 @@ menuconfig GANTRY_COBS_FRAMER
       Enable the COBS framing module used to encode and decode COBS frames
 
 if GANTRY_COBS_FRAMER
-    rsource "kconfig/Kconfig.cobs_framer"
+    rsource "config/Kconfig.cobs_framer"
 endif
 
 endif # GANTRY
