@@ -27,7 +27,7 @@ The project is meant to be included as a West module within a West workspace.
 3. Enable the desired Gantry features in your project's ``prj.conf``.
 4. Build our application and begin making use of the Gantry library.
 
-The ``samples`` folder provides an example application using the Gantry library.
+The ``samples`` folder provides an example application using the Gantry library. [Gantry Bridge](https://github.com/Demizo/Gantry_Bridge) can be used to interact with the sample app. 
 
 ## Project Structure
 
