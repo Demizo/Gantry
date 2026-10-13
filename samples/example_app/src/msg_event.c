@@ -56,7 +56,6 @@ int msg_event_alloc(enum msg_medium medium, enum msg_direction direction, struct
     int ret = EVENT_ALLOC(&msg_event, sizeof(struct msg_event_payload), event_ptr);
     if (ret != SUCCESS)
     {
-        NOT_REFERENCED(event_ptr);
         return ret;
     }
 

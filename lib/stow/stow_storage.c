@@ -105,7 +105,6 @@ static int delete_stored_value(const char* name)
     if (ret != SUCCESS)
     {
         LOG_ERR("Failed to allocate name during deletion of %s (%d)", name, ret);
-        NOT_REFERENCED(settings_name);
         return ret;
     }
 
@@ -149,7 +148,6 @@ static int stow_set_handler(const char* name, size_t len, settings_read_cb read_
     if (ret != SUCCESS)
     {
         LOG_ERR("Failed to allocate block of size %d to load %s (%d)", len, name, ret);
-        NOT_REFERENCED(read_block);
         return ret;
     }
 
@@ -245,7 +243,6 @@ int stow_storage_save_item(const struct stow_item_const_metadata* item)
     if (ret != SUCCESS)
     {
         LOG_ERR("Failed to allocate name when saving %s (%d)", item->name, ret);
-        NOT_REFERENCED(settings_name);
         return ret;
     }
 
@@ -258,7 +255,6 @@ int stow_storage_save_item(const struct stow_item_const_metadata* item)
     {
         LOG_ERR("Failed to allocate encoded value block when saving %s (%d)", item->name, ret);
         MEM_UNREF(&settings_name);
-        NOT_REFERENCED(encoded_value_block);
         return ret;
     }
 

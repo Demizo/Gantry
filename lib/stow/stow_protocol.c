@@ -274,7 +274,6 @@ static int alloc_protocol_event(
     int ret = EVENT_ALLOC(&stow_protocol_event, sizeof(struct stow_protocol_event_payload), &event);
     if (ret != SUCCESS)
     {
-        NOT_REFERENCED(event);
         return ret;
     }
 
@@ -553,7 +552,6 @@ static void handle_get(uint32_t session_id, struct protocol_session* session, en
     if (ret != SUCCESS)
     {
         emit_error_code(session_id, ret);
-        NOT_REFERENCED(value);
         return;
     }
     emit_get_response(session_id, id, value);
@@ -630,7 +628,6 @@ static void handle_multi_get(
         if (ret != SUCCESS)
         {
             emit_error_code(session_id, ret);
-            NOT_REFERENCED(value_ptr);
             failed = true;
             break;
         }

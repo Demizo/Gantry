@@ -231,18 +231,14 @@ int mem_set_watermark(uint8_t pool_index, uint8_t percent, mem_watermark_cb_t ca
 #endif
 
 /**
- * @brief Indicates to static analysis that ownership over the memory will be the responsibility of the caller
+ * @brief Marks a point where ownership of a resource leaves the function
+ *
+ * @details Tells the resource checker that the caller (or another owner) is now responsible for releasing the value, so
+ * it is not reported as leaked on this path. It releases the identifier whatever resource class it was acquired as.
  *
  * @releases * data
  */
 #define PASS_OWNERSHIP(data)
-
-/**
- * @brief Indicates to static analysis that the memory was not allocated or referenced
- *
- * @releases * data
- */
-#define NOT_REFERENCED(data)
 
 /**
  * @}

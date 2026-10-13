@@ -212,7 +212,6 @@ void uart_interface_send(struct net_buf* buf)
     {
         LOG_ERR("Failed to allocate outgoing message: %d", ret);
         net_buf_unref(buf);
-        NOT_REFERENCED(event);
         return;
     }
 

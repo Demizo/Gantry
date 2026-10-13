@@ -150,7 +150,6 @@ static ssize_t nus_rx_write(
     {
         LOG_WRN("Failed to allocate rx event: %d", ret);
         net_buf_unref(buf);
-        NOT_REFERENCED(event);
         return len;
     }
 
@@ -301,7 +300,6 @@ void ble_interface_send(struct net_buf* buf)
     {
         LOG_ERR("Failed to allocate outgoing message: %d", ret);
         net_buf_unref(buf);
-        NOT_REFERENCED(event);
         return;
     }
 

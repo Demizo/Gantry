@@ -60,8 +60,6 @@ int event_alloc(const event_type_t* type, size_t payload_size, event_t** event_p
     if (ret)
     {
         LOG_ERR("Failed to allocate event: %d", ret);
-
-        NOT_REFERENCED(event_block);
         return ret;
     }
 

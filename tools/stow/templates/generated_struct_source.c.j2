@@ -253,7 +253,6 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     int ret = mem_alloc(sizeof({{ struct.name }}_t), &new_block);
     if (ret != SUCCESS)
     {
-        NOT_REFERENCED(new_block);
         return ret;
     }
 

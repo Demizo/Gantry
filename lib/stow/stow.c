@@ -260,7 +260,6 @@ static void notify_subscribers(const struct stow_item_const_metadata* item)
         if (ret != SUCCESS)
         {
             LOG_ERR("Failed to allocate handle event for item %d (%d)", item->id, ret);
-            NOT_REFERENCED(handle_event);
             return;
         }
 
@@ -279,7 +278,6 @@ static void notify_subscribers(const struct stow_item_const_metadata* item)
         {
             LOG_ERR("Failed to allocate copy event for item %d (%d)", item->id, ret);
             EVENT_UNREF(&handle_event);
-            NOT_REFERENCED(copy_event);
             return;
         }
 
@@ -586,7 +584,6 @@ int stow_subscribe(enum stow_item_id id, struct stow_subscription* subscription)
     if (ret != SUCCESS)
     {
         LOG_ERR("Failed to allocate subscription node for item id: %d (%d)", id, ret);
-        NOT_REFERENCED(current_node_block);
         irq_unlock(key);
         return -ENOMEM;
     }

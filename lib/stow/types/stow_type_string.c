@@ -136,7 +136,6 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     int ret = mem_alloc(str.len + 1, &string_block);
     if (ret != SUCCESS)
     {
-        NOT_REFERENCED(string_block);
         return ret;
     }
 

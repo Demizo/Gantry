@@ -105,7 +105,6 @@ int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request*
                 ret = stow_decode(decoder, request_out->item_id, &value);
                 if (ret != SUCCESS)
                 {
-                    NOT_REFERENCED(value);
                     LOG_WRN("Failed to decode value for item id %u (%d)", id, ret);
                     return ret;
                 }
@@ -170,7 +169,6 @@ int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request*
                 ret = stow_decode(decoder, (enum stow_item_id)id, &value);
                 if (ret != SUCCESS)
                 {
-                    NOT_REFERENCED(value);
                     LOG_WRN("Failed to decode value for item %u in Multi-Set (%d)", id, ret);
                     return ret;
                 }

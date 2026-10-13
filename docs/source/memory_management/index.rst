@@ -35,7 +35,7 @@ To avoid memory leaks, the general memory model is as follows: **the function th
 
 This model allows the :doc:`Resource Checker </resource_checker/index>` to automatically detect memory leaks. It also keeps memory management consistent and clear. If a function allocates or references memory, it must also free it.
 
-There will be exceptions to this rule. For example, when making a helper function that allocates memory and provides it to the caller. In these cases, the :any:`PASS_OWNERSHIP` macro can be used to indicate to the resource checker that the memory is intentionally not freed. Additionally, when exiting a function early due to a failed allocation, the resource checker must be informed that the memory was not allocated and therefore does not need to be freed. For this, use the :any:`NOT_REFERENCED` macro. 
+There will be exceptions to this rule. For example, when making a helper function that allocates memory and provides it to the caller. In these cases, the :any:`PASS_OWNERSHIP` macro can be used to indicate to the resource checker that the memory is intentionally not freed. A function that returns early because :any:`MEM_ALLOC` failed needs no marker: the resource checker knows that a failed allocation holds nothing, as long as the result is tested directly (see :doc:`/resource_checker/index`).
 
 .. code-block:: c
 
@@ -46,7 +46,6 @@ There will be exceptions to this rule. For example, when making a helper functio
       if (ret != SUCCESS)
       {
          // Alloc didn't succeed so there is nothing to free
-         NOT_REFERENCED(new_block);
          return ret;
       }
 
