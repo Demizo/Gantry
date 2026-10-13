@@ -130,7 +130,7 @@ int stow_protocol_init(const struct stow_protocol_config* config);
 /**
  * @brief Open a session
  *
- * @note Sessions should always have at least one role, otherwise they will have full access.
+ * @note A session with no roles has no access to any item.
  *
  * @param session_id Unique identifier for the session
  * @param roles Initial role bitmask for the session
@@ -147,7 +147,7 @@ int stow_protocol_session_open(uint32_t session_id, stow_role_t roles);
  * @details Updates the session's roles. Active subscriptions that no longer satisfy
  * the new roles are automatically revoked.
  *
- * @note Sessions should always have at least one role, otherwise they will have full access.
+ * @note A session with no roles has no access to any item.
  *
  * @param session_id The session to update
  * @param roles The new role bitmask
