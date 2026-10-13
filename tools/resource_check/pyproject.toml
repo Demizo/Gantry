@@ -3,6 +3,7 @@ name = "resource-check"
 version = "0.1.0"
 description = "Finds resources that leak on a return path in C code, driven by @acquires and @releases annotations"
 authors = [{ name = "Demizo", email = "demizodemazo@gmail.com" }]
+readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.13"
 dependencies = [
