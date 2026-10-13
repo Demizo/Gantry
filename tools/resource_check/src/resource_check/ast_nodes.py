@@ -67,6 +67,29 @@ def declarator_identifier(declarator: Node | None) -> Node | None:
     return declarator
 
 
+def result_identifier(call_node: Node) -> Node | None:
+    parent = call_node.parent
+    if parent is None:
+        return None
+    if (
+        parent.type == "init_declarator"
+        and parent.child_by_field_name("value") == call_node
+    ):
+        return declarator_identifier(parent.child_by_field_name("declarator"))
+    if (
+        parent.type == "assignment_expression"
+        and parent.child_by_field_name("right") == call_node
+    ):
+        left = parent.child_by_field_name("left")
+        if (
+            left is not None
+            and left.type == "identifier"
+            and text(parent.child_by_field_name("operator")) == "="
+        ):
+            return left
+    return None
+
+
 def contains_label(node: Node) -> bool:
     return node.type == "labeled_statement" or any(
         contains_label(child) for child in node.children

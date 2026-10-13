@@ -296,8 +296,12 @@ def load_annotations(
 ) -> tuple[Annotations, list[Finding]]:
     registry = Annotations()
     findings: list[Finding] = []
+    seen: set[Path] = set()
     for target in targets:
         for path in iter_annotation_files(target):
+            if path.resolve() in seen:
+                continue
+            seen.add(path.resolve())
             scan = scan_file(path, parser)
             findings.extend(scan.findings)
             findings.extend(

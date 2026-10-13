@@ -58,9 +58,7 @@ rtt:
 # Static + resource analysis on library and sample sources
 analyze:
   uv run tools/check_headers.py
-  uv run tools/resource_check/generate_resource_check.py
-  -spatch --sp-file tools/resource_check/generated_resource_check.cocci --dir lib/ --no-includes --very-quiet
-  -spatch --sp-file tools/resource_check/generated_resource_check.cocci --dir {{sample}}/src/ --no-includes --very-quiet
+  uv run --project tools/resource_check resource-check lib/ {{sample}}/src/ --annotations include --annotations {{sample}}/inc
   cppcheck --quiet --inline-suppr --enable=warning,performance,portability --check-level=exhaustive --error-exitcode=1 --inconclusive lib/ {{sample}}/src/
 
 # Format the library, sample, and test sources
@@ -90,7 +88,7 @@ test-stow-tools *args='':
 
 # Run the resource checker's own unit tests
 test-resource-check *args='':
-    uv run --project tools/resource_check pytest tools/resource_check/tests {{args}}
+    uv run --project tools/resource_check pytest tools/resource_check/tests tests/resource_check {{args}}
 
 # Build documentation
 docs:

@@ -124,11 +124,14 @@ extern volatile mem_trace_info_t g_current_mem_trace;
  * maximum block size.
  * @return -ENOTEMPTY the block pointer was not pointing to a NULL pointer.
  * @return -ENOMEM No blocks were available that could fit the requested size.
+ * @acquires memory block_ptr
  */
 int mem_alloc(size_t size, void** block_ptr);
 
 /**
  * @brief Convenience macro for @ref mem_alloc with memory tracing
+ *
+ * @acquires memory data
  */
 #define MEM_ALLOC(size, data) TRACE_WRAP(mem_alloc(size, data))
 
@@ -139,11 +142,14 @@ int mem_alloc(size_t size, void** block_ptr);
  * information filled in.
  *
  * @param[in] block The memory block pointer to be reference counted
+ * @acquires memory block
  */
 void mem_ref(void* block);
 
 /**
  * @brief Convenience macro for @ref mem_ref with memory tracing
+ *
+ * @acquires memory data
  */
 #define MEM_REF(data) TRACE_WRAP_VOID(mem_ref(data))
 
@@ -158,11 +164,14 @@ void mem_ref(void* block);
  *
  * @param[in,out] block_ptr A pointer to the memory block pointer to be dereferenced. If the reference count reaches 0,
  * the block pointer will be set to NULL.
+ * @releases memory block_ptr
  */
 void mem_unref(void** block_ptr);
 
 /**
  * @brief Convenience macro for @ref mem_unref with memory tracing
+ *
+ * @releases memory data
  */
 #define MEM_UNREF(data) TRACE_WRAP_VOID(mem_unref(data))
 
@@ -223,11 +232,15 @@ int mem_set_watermark(uint8_t pool_index, uint8_t percent, mem_watermark_cb_t ca
 
 /**
  * @brief Indicates to static analysis that ownership over the memory will be the responsibility of the caller
+ *
+ * @releases * data
  */
 #define PASS_OWNERSHIP(data)
 
 /**
  * @brief Indicates to static analysis that the memory was not allocated or referenced
+ *
+ * @releases * data
  */
 #define NOT_REFERENCED(data)
 

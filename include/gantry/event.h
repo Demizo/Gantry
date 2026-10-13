@@ -115,11 +115,14 @@ struct event_t
  * pointer when this function is called. It is only populated when the allocation succeeds.
  *
  * @return result of @ref mem_alloc
+ * @acquires memory event_ptr
  */
 int event_alloc(const event_type_t* type, size_t payload_size, event_t** event_ptr);
 
 /**
  * @brief Convenience macro for @ref event_alloc with memory tracing
+ *
+ * @acquires memory event_ptr
  */
 #define EVENT_ALLOC(type, payload_size, event_ptr) TRACE_WRAP(event_alloc(type, payload_size, event_ptr))
 
@@ -130,11 +133,14 @@ int event_alloc(const event_type_t* type, size_t payload_size, event_t** event_p
  * information filled in.
  *
  * @param[in] event The event pointer to be reference counted
+ * @acquires memory event
  */
 void event_ref(event_t* event);
 
 /**
  * @brief Convenience macro for @ref event_ref with memory tracing
+ *
+ * @acquires memory event
  */
 #define EVENT_REF(event) TRACE_WRAP_VOID(event_ref(event))
 
@@ -149,11 +155,14 @@ void event_ref(event_t* event);
  *
  * @param[in,out] event_ptr A pointer to the event pointer to be dereferenced. If the reference count reaches 0,
  * the event pointer will be set to NULL.
+ * @releases memory event_ptr
  */
 void event_unref(event_t** event_ptr);
 
 /**
  * @brief Convenience macro for @ref event_unref with memory tracing
+ *
+ * @releases memory event
  */
 #define EVENT_UNREF(event) TRACE_WRAP_VOID(event_unref(event))
 

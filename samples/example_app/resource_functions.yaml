@@ -1,3 +1,0 @@
-alloc_functions:
-  - name: msg_event_alloc
-    single_param: false

@@ -63,5 +63,6 @@ DECLARE_EVENT_TYPE(msg_event);
  * @param[out] event_ptr Populated with the allocated event on success
  *
  * @return SUCCESS or a negative error code.
+ * @acquires memory event_ptr
  */
 int msg_event_alloc(enum msg_medium medium, enum msg_direction direction, struct net_buf* buf, event_t** event_ptr);
