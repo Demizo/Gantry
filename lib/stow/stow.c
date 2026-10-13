@@ -133,8 +133,7 @@ static int set_item_value(const struct stow_item_const_metadata* item, data_valu
 {
     if (item->custom_interface == NULL || item->custom_interface->set == NULL)
     {
-        item->interface->set(item->value_ptr, value);
-        return SUCCESS;
+        return item->interface->set(item->value_ptr, value);
     }
 
     int ret;
@@ -361,7 +360,11 @@ void stow_init(void)
             .type = item->type,
             .data = item->default_value,
         };
-        TRACE_WRAP_VOID(item->interface->set(item->value_ptr, value));
+        int ret = TRACE_WRAP(item->interface->set(item->value_ptr, value));
+        if (ret != SUCCESS)
+        {
+            LOG_ERR("Failed to set default value of item %d (%d)", i, ret);
+        }
 
         g_stow_dynamic_metadata[i] = (struct stow_item_dynamic_metadata){ 0 };
         sys_slist_init(&g_stow_dynamic_metadata[i].subscribers);

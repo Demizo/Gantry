@@ -37,7 +37,7 @@ LOG_MODULE_REGISTER(stow_type_buffer, CONFIG_STOW_TYPES_LOG_LEVEL);
 
 static bool validate(const union stow_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
-static void set(void* dest, data_value_t value);
+static int set(void* dest, data_value_t value);
 static int get(void* src, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
@@ -69,7 +69,7 @@ static bool is_equal(data_value_t a, data_value_t b)
     return (memcmp(a.data.buffer_value->buf, b.data.buffer_value->buf, b.data.buffer_value->len) == 0);
 }
 
-static void set(void* dest, data_value_t value)
+static int set(void* dest, data_value_t value)
 {
     ASSERT(value.type == STOW_ITEM_TYPE_BUFFER, "Unexpected value type");
     int ret = SUCCESS;
@@ -80,9 +80,7 @@ static void set(void* dest, data_value_t value)
     ret = mem_alloc(sizeof(buffer_t) + buffer->len, &new_buffer_block);
     if (ret != SUCCESS)
     {
-        // Block was not allocated
-        PASS_OWNERSHIP(new_buffer_block);
-        return;
+        return ret;
     }
 
     // Copy over buffer
@@ -97,6 +95,7 @@ static void set(void* dest, data_value_t value)
     // Set item to new buffer
     *(buffer_t**)(dest) = (buffer_t*)new_buffer_block;
     PASS_OWNERSHIP(new_buffer_block);
+    return SUCCESS;
 }
 
 static int get(void* src, data_value_t* out_value)

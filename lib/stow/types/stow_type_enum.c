@@ -34,7 +34,7 @@ LOG_MODULE_REGISTER(stow_type_enum, CONFIG_STOW_TYPES_LOG_LEVEL);
 
 static bool validate(const union stow_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
-static void set(void* dest, data_value_t value);
+static int set(void* dest, data_value_t value);
 static int get(void* src, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
@@ -65,10 +65,11 @@ static bool is_equal(data_value_t a, data_value_t b)
     return a.data.int_value == b.data.int_value;
 }
 
-static void set(void* dest, data_value_t value)
+static int set(void* dest, data_value_t value)
 {
     ASSERT(value.type == STOW_ITEM_TYPE_ENUM, "Unexpected value type");
     *(int*)dest = value.data.int_value;
+    return SUCCESS;
 }
 
 static int get(void* src, data_value_t* out_value)

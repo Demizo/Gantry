@@ -37,7 +37,7 @@ LOG_MODULE_REGISTER(stow_type_byte_array, CONFIG_STOW_TYPES_LOG_LEVEL);
 
 static bool validate(const union stow_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
-static void set(void* dest, data_value_t value);
+static int set(void* dest, data_value_t value);
 static int get(void* src, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
@@ -69,7 +69,7 @@ static bool is_equal(data_value_t a, data_value_t b)
     return (memcmp(a.data.buffer_value->buf, b.data.buffer_value->buf, b.data.buffer_value->len) == 0);
 }
 
-static void set(void* dest, data_value_t value)
+static int set(void* dest, data_value_t value)
 {
     ASSERT(value.type == STOW_ITEM_TYPE_BYTE_ARRAY, "Unexpected value type");
     buffer_t* current_value = (buffer_t*)dest;
@@ -77,6 +77,7 @@ static void set(void* dest, data_value_t value)
 
     current_value->len = new_value->len;
     memcpy(current_value->buf, new_value->buf, new_value->len);
+    return SUCCESS;
 }
 
 static int get(void* src, data_value_t* out_value)

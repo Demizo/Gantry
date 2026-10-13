@@ -48,6 +48,37 @@ ZTEST(stow_buffer, test_set_exceeds_max)
     zassert_equal(ret, -EINVAL);
 }
 
+ZTEST(stow_buffer, test_set_reports_allocation_failure)
+{
+    uint8_t raw_buf[sizeof(buffer_t) + 4];
+    buffer_t* buf = (buffer_t*)raw_buf;
+    buf->len = 4;
+    memset(buf->buf, 0x11, 4);
+    data_value_t val = { .type = STOW_ITEM_TYPE_BUFFER, .data.buffer_value = buf };
+
+    void* blocks[256] = { 0 };
+    size_t block_count = 0;
+    while (block_count < ARRAY_SIZE(blocks) && mem_alloc(1, &blocks[block_count]) == 0)
+    {
+        block_count++;
+    }
+    zassert_true(block_count < ARRAY_SIZE(blocks), "memory pools were not exhausted");
+
+    int ret = stow_set(STOW_ID_TEST_BUFFER, val);
+
+    for (size_t i = 0; i < block_count; i++)
+    {
+        mem_unref(&blocks[i]);
+    }
+
+    zassert_equal(ret, -ENOMEM, "expected -ENOMEM, got %d", ret);
+
+    data_value_t got;
+    zassert_equal(stow_get(STOW_ID_TEST_BUFFER, &got), 0);
+    zassert_equal(got.data.buffer_value->len, 0, "value changed despite the failed set");
+    stow_release(STOW_ID_TEST_BUFFER, &got);
+}
+
 ZTEST(stow_buffer, test_encode_decode)
 {
     uint8_t raw_buf[sizeof(buffer_t) + 3];

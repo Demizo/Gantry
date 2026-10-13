@@ -179,6 +179,50 @@ ZTEST(stow_protocol_basic, test_set_invalid_value_returns_error)
     zassert_equal(cmd, STOW_MSG_ERROR);
 }
 
+ZTEST(stow_protocol_basic, test_set_allocation_failure_returns_out_of_memory)
+{
+    open_session(STOW_ROLE_GUEST);
+
+    uint8_t req[16];
+    zcbor_state_t enc[4];
+    zcbor_new_encode_state(enc, ARRAY_SIZE(enc), req, sizeof(req), 1);
+    const uint8_t payload[] = { 0x01, 0x02, 0x03 };
+    struct zcbor_string bstr = { .value = payload, .len = sizeof(payload) };
+    zassert_true(
+        zcbor_list_start_encode(enc, 3) && zcbor_uint32_put(enc, STOW_MSG_SET) &&
+        zcbor_uint32_put(enc, STOW_ID_TEST_BUFFER) && zcbor_bstr_encode(enc, &bstr) && zcbor_list_end_encode(enc, 3));
+    size_t len = enc[0].payload - req;
+
+    void* blocks[256] = { 0 };
+    size_t block_count = 0;
+    while (block_count < ARRAY_SIZE(blocks) && mem_alloc(1, &blocks[block_count]) == 0)
+    {
+        block_count++;
+    }
+    zassert_true(block_count < ARRAY_SIZE(blocks), "memory pools were not exhausted");
+    zassert_true(block_count >= 2);
+    mem_unref(&blocks[--block_count]);
+    mem_unref(&blocks[--block_count]);
+
+    zassert_equal(test_submit_rx(SESSION_ID, STOW_ROLE_GUEST, req, len), 0);
+    struct test_capture cap = test_await_tx(K_SECONDS(1));
+
+    for (size_t i = 0; i < block_count; i++)
+    {
+        mem_unref(&blocks[i]);
+    }
+
+    zassert_not_null(cap.buf);
+    uint32_t cmd;
+    zcbor_state_t dec[4];
+    zassert_true(test_decode_response_header(cap.buf, &cmd, dec, ARRAY_SIZE(dec)));
+    zassert_equal(cmd, STOW_MSG_ERROR, "expected Error (got %u)", cmd);
+    uint32_t code;
+    zassert_true(zcbor_uint32_decode(dec, &code));
+    zassert_equal(code, STOW_ERR_OUT_OF_MEMORY);
+    net_buf_unref(cap.buf);
+}
+
 //**********************************************************
 //* Error paths
 //**********************************************************

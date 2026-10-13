@@ -47,7 +47,7 @@ LOG_MODULE_REGISTER(stow_struct_{{ struct.snake_name }}, CONFIG_STOW_TYPES_LOG_L
 
 static bool validate(const union stow_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
-static void set(void* dest, data_value_t value);
+static int set(void* dest, data_value_t value);
 static int get(void* src, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
@@ -140,7 +140,7 @@ static bool is_equal(data_value_t a, data_value_t b)
     return true;
 }
 
-static void set(void* dest, data_value_t value)
+static int set(void* dest, data_value_t value)
 {
     ASSERT(value.type == STOW_ITEM_TYPE_STRUCT, "Unexpected value type");
     {{ struct.name }}_t* src = ({{ struct.name }}_t*)value.data.raw_value;
@@ -150,8 +150,7 @@ static void set(void* dest, data_value_t value)
     int ret = mem_alloc(sizeof({{ struct.name }}_t), &new_block);
     if (ret != SUCCESS)
     {
-        PASS_OWNERSHIP(new_block);
-        return;
+        return ret;
     }
 
     {{ struct.name }}_t* new_struct = ({{ struct.name }}_t*)new_block;
@@ -161,7 +160,14 @@ static void set(void* dest, data_value_t value)
     // Copy {{ field.name }}
     {
         data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = {{ field.data_member_cast }}src->{{ field.snake_name }} };
-        {{ field.interface_sym }}.set((void*)&(new_struct->{{ field.snake_name }}), fval);
+        ret = {{ field.interface_sym }}.set((void*)&(new_struct->{{ field.snake_name }}), fval);
+        if (ret != SUCCESS)
+        {
+            data_value_t partial_value = { .type = STOW_ITEM_TYPE_STRUCT, .data.raw_value = new_block };
+            PASS_OWNERSHIP(new_block);
+            release(&partial_value);
+            return ret;
+        }
     }
 {% endfor %}
 
@@ -175,6 +181,7 @@ static void set(void* dest, data_value_t value)
 
     *({{ struct.name }}_t**)dest = ({{ struct.name }}_t*)new_block;
     PASS_OWNERSHIP(new_block);
+    return SUCCESS;
 }
 
 static int get(void* src, data_value_t* out_value)
@@ -276,8 +283,9 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
             ret = -EINVAL;
             goto decode_cleanup;
         }
-        {{ field.interface_sym }}.set((void*)&(new_struct->{{ field.snake_name }}), fval);
+        ret = {{ field.interface_sym }}.set((void*)&(new_struct->{{ field.snake_name }}), fval);
         {{ field.interface_sym }}.release(&fval);
+        if (ret != SUCCESS) goto decode_cleanup;
     }
 {% endfor %}
 

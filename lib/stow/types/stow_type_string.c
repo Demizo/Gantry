@@ -38,7 +38,7 @@ LOG_MODULE_REGISTER(stow_type_string, CONFIG_STOW_TYPES_LOG_LEVEL);
 
 static bool validate(const union stow_constraints* constraints, data_value_t value);
 static bool is_equal(data_value_t a, data_value_t b);
-static void set(void* dest, data_value_t value);
+static int set(void* dest, data_value_t value);
 static int get(void* src, data_value_t* out_value);
 static void release(data_value_t* value);
 static int encode(zcbor_state_t* encoder, data_value_t value);
@@ -70,12 +70,13 @@ static bool is_equal(data_value_t a, data_value_t b)
     return (strcmp(a.data.string_value, b.data.string_value) == 0);
 }
 
-static void set(void* dest, data_value_t value)
+static int set(void* dest, data_value_t value)
 {
     ASSERT(value.type == STOW_ITEM_TYPE_STRING, "Unexpected value type");
     // SAFETY: This API assumes that the provided value has already been validated. This means the incoming value is
     // known to fit in the destination buffer and will terminate.
     strcpy((char*)dest, value.data.string_value);
+    return SUCCESS;
 }
 
 static int get(void* src, data_value_t* out_value)

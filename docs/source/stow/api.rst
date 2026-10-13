@@ -191,8 +191,7 @@ Items may optionally override the default get, set, and validation. These functi
       value.int_value = value.int_value / 2;
 
       // Call the default set implementation to store the value
-      item->interface->set(item->value_ptr, value);
-      return SUCCESS;
+      return item->interface->set(item->value_ptr, value);
    }
 
    bool my_item_validate(const struct stow_item_const_metadata *item, data_value_t value)

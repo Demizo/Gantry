@@ -200,8 +200,13 @@ static int stow_set_handler(const char* name, size_t len, settings_read_cb read_
         return ret;
     }
 
-    item->interface->set(item->value_ptr, decoded_value);
+    ret = item->interface->set(item->value_ptr, decoded_value);
     item->interface->release(&decoded_value);
+    if (ret != SUCCESS)
+    {
+        LOG_ERR("Failed to load %s (%d)", name, ret);
+        return ret;
+    }
 
     LOG_DBG("Loaded %s from storage", name);
 

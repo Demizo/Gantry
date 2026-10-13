@@ -58,8 +58,7 @@ int test_getter_only(const struct stow_item_const_metadata* item, data_value_t* 
 int test_setter_only(const struct stow_item_const_metadata* item, data_value_t value)
 {
     g_setter_only_calls++;
-    item->interface->set(item->value_ptr, value);
-    return SUCCESS;
+    return item->interface->set(item->value_ptr, value);
 }
 
 /*

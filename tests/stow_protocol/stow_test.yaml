@@ -67,3 +67,16 @@ items:
     constraints:
       - min: 0
       - max: 9999
+
+  - name: TestBuffer
+    description: "Always-accessible buffer item"
+    categories: [General]
+    type: BUFFER
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: []
+    constraints:
+      - min_len: 0
+      - max_len: 16
