@@ -67,18 +67,29 @@ def declarator_identifier(declarator: Node | None) -> Node | None:
     return declarator
 
 
+def value_node(call_node: Node) -> Node:
+    node = call_node
+    while node.parent is not None and node.parent.type in (
+        "cast_expression",
+        "parenthesized_expression",
+    ):
+        node = node.parent
+    return node
+
+
 def result_identifier(call_node: Node) -> Node | None:
-    parent = call_node.parent
+    value = value_node(call_node)
+    parent = value.parent
     if parent is None:
         return None
     if (
         parent.type == "init_declarator"
-        and parent.child_by_field_name("value") == call_node
+        and parent.child_by_field_name("value") == value
     ):
         return declarator_identifier(parent.child_by_field_name("declarator"))
     if (
         parent.type == "assignment_expression"
-        and parent.child_by_field_name("right") == call_node
+        and parent.child_by_field_name("right") == value
     ):
         left = parent.child_by_field_name("left")
         if (

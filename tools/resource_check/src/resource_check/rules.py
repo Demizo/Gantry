@@ -118,5 +118,34 @@ class IdentifierArgumentRuleKind:
                     )
 
 
+class UncapturedResultRuleKind:
+    def __init__(self, annotations: Annotations):
+        self.annotations = annotations
+
+    def check(self, cfg: CFG, file_path: str) -> Iterable[Finding]:
+        for block in cfg.blocks:
+            for call in block.calls:
+                spec = self.annotations.get(call_name(call))
+                if spec is None or not any(
+                    t.target == RETURN_TARGET for t in spec.acquires
+                ):
+                    continue
+                if result_identifier(call) is not None:
+                    continue
+                call_line = line(call)
+                yield Finding(
+                    file=file_path,
+                    line=call_line,
+                    text=(
+                        f"[{file_path}:{call_line}] POLICY ERROR: The result of {spec.name} must be "
+                        f"assigned to an identifier. Static analysis requires the use of identifiers!"
+                    ),
+                )
+
+
 def build_rule_kinds(annotations: Annotations) -> list[RuleKind]:
-    return [LeakRuleKind(annotations), IdentifierArgumentRuleKind(annotations)]
+    return [
+        LeakRuleKind(annotations),
+        IdentifierArgumentRuleKind(annotations),
+        UncapturedResultRuleKind(annotations),
+    ]

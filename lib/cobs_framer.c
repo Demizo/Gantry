@@ -39,11 +39,14 @@ static int internal_stream_cb(const uint8_t* buf, size_t len, void* user_data);
 
 static int alloc_rx_buf(struct cobs_frame_decoder* framer)
 {
-    framer->rx_buf = net_buf_alloc(framer->pool, K_NO_WAIT);
-    if (framer->rx_buf == NULL)
+    struct net_buf* rx_buf = net_buf_alloc(framer->pool, K_NO_WAIT);
+    framer->rx_buf = rx_buf;
+    if (rx_buf == NULL)
     {
         return -ENOMEM;
     }
+
+    PASS_OWNERSHIP(rx_buf);
     return SUCCESS;
 }
 

@@ -985,7 +985,9 @@ int stow_protocol_handle_rx(uint32_t session_id, stow_role_t roles, struct net_b
 
     payload->rx.session_id = session_id;
     payload->rx.roles = roles;
-    payload->rx.buf = net_buf_ref(buf);
+    struct net_buf* rx_buf = net_buf_ref(buf);
+    payload->rx.buf = rx_buf;
+    PASS_OWNERSHIP(rx_buf);
 
     return push_event(event);
 }

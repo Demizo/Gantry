@@ -8,6 +8,7 @@ from .ast_nodes import (
     result_identifier,
     strip_parentheses,
     text,
+    value_node,
 )
 from .cfg import CFG, BasicBlock
 from .dataflow import Event, EventsOf, Key, affects
@@ -145,8 +146,9 @@ def _result_variable(call: Node) -> tuple[str, Node | None] | None:
     if identifier is None:
         return None
     scope = None
-    if call.parent.type == "init_declarator" and call.parent.parent is not None:
-        scope = call.parent.parent.parent
+    parent = value_node(call).parent
+    if parent.type == "init_declarator" and parent.parent is not None:
+        scope = parent.parent.parent
     return text(identifier), scope
 
 

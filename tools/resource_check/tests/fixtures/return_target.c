@@ -41,15 +41,3 @@ int leak_assignment(int flag)
     slot_close(slot);
     return 0;
 }
-
-int clean_discarded_result_is_not_tracked(void)
-{
-    slot_open();
-    return 0;
-}
-
-int clean_result_stored_in_field_is_not_tracked(struct owner* owner)
-{
-    owner->slot = slot_open();
-    return 0;
-}

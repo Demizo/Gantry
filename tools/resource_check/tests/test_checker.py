@@ -115,6 +115,58 @@ def test_annotation_errors_in_the_checked_file_are_reported(check_source):
     assert "ANNOTATION ERROR" in findings[0].text
 
 
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "framer->rx_buf = net_buf_alloc(pool, K_NO_WAIT);",
+        "net_buf_ref(buf);",
+        "use(net_buf_ref(buf));",
+        "return net_buf_alloc(pool, K_NO_WAIT);",
+        "if (net_buf_alloc(pool, K_NO_WAIT) == NULL) { return 1; }",
+    ],
+)
+def test_return_target_acquire_must_be_assigned_to_an_identifier(
+    check_source, statement
+):
+    findings = check_source(f"""
+        struct net_buf* f(struct net_buf* buf, struct net_buf_pool* pool, struct framer* framer) {{
+            {statement}
+            return NULL;
+        }}
+    """)
+    assert len(findings) == 1
+    assert "POLICY ERROR" in findings[0].text
+    assert "net_buf_" in findings[0].text
+
+
+@pytest.mark.parametrize(
+    "assignment",
+    [
+        "struct net_buf* b = net_buf_alloc(pool, K_NO_WAIT);",
+        "struct net_buf* b = (struct net_buf*)net_buf_alloc(pool, K_NO_WAIT);",
+        "struct net_buf* b; b = (net_buf_alloc(pool, K_NO_WAIT));",
+    ],
+)
+def test_assigned_return_target_acquire_is_tracked_through_casts(
+    check_source, assignment
+):
+    findings = check_source(f"""
+        int f(struct net_buf_pool* pool, int flag) {{
+            {assignment}
+            if (b == NULL) {{
+                return -1;
+            }}
+            if (flag) {{
+                return 1;  // LEAK
+            }}
+            net_buf_unref(b);
+            return 0;
+        }}
+    """)
+    assert [f.line for f in findings] == [8]
+    assert "Variable 'b'" in findings[0].text
+
+
 def test_unannotated_functions_are_never_tracked(check_source):
     findings = check_source("""
         int f(int flag) {
