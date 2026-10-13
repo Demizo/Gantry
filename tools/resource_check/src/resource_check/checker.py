@@ -4,9 +4,15 @@ from pathlib import Path
 from tree_sitter import Parser
 
 from .annotations import Annotations, load_annotations, scan_tree
+from .ast_nodes import line
 from .cfg import build_cfg
 from .findings import Finding
-from .parser import iter_function_definitions, make_parser, parse_file
+from .parser import (
+    iter_function_definitions,
+    iter_unparsed_code,
+    make_parser,
+    parse_file,
+)
 from .rules import build_rule_kinds
 
 BUNDLED_ANNOTATIONS = Path(__file__).resolve().parent / "bundled"
@@ -20,6 +26,17 @@ def check_file(path: Path, annotations: Annotations, parser: Parser) -> list[Fin
     findings.extend(f for spec in scan.specs if (f := visible.add(spec)) is not None)
 
     rule_kinds = build_rule_kinds(visible)
+    for node in iter_unparsed_code(tree.root_node):
+        findings.append(
+            Finding(
+                file=str(path),
+                line=line(node),
+                text=(
+                    f"[{path}:{line(node)}] PARSE ERROR: The parser could not read this code, so the functions "
+                    f"in it are not analysed. A preprocessor conditional that splits a block is the usual cause."
+                ),
+            )
+        )
     for function_node in iter_function_definitions(tree.root_node):
         cfg = build_cfg(function_node)
         for kind in rule_kinds:

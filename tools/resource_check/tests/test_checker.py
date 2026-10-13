@@ -167,6 +167,36 @@ def test_assigned_return_target_acquire_is_tracked_through_casts(
     assert "Variable 'b'" in findings[0].text
 
 
+def test_code_the_parser_cannot_read_is_reported(check_source):
+    findings = check_source("""
+        int f(int x) {
+        #if A
+            if (x) {
+        #else
+            if (!x) {
+        #endif
+                return 1;
+            }
+            return 0;
+        }
+    """)
+    assert len(findings) == 1
+    assert "PARSE ERROR" in findings[0].text
+    assert findings[0].line == 2
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'LOG_INF("no semicolon")\n return 0;',
+        "K_SPINLOCK(&lock) {\n if (x) { return 1; }\n }\n return 0;",
+    ],
+)
+def test_macro_syntax_that_keeps_the_structure_is_not_a_parse_error(check_source, body):
+    findings = check_source(f"int f(int x) {{\n {body}\n}}\n")
+    assert findings == []
+
+
 def test_unannotated_functions_are_never_tracked(check_source):
     findings = check_source("""
         int f(int flag) {
