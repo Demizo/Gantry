@@ -50,6 +50,23 @@ def unwrap_identifier_reference(node: Node | None) -> Node | None:
     return None
 
 
+def iter_nodes(node: Node):
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        yield current
+        stack.extend(reversed(current.children))
+
+
+def declarator_identifier(declarator: Node | None) -> Node | None:
+    while declarator is not None and declarator.type != "identifier":
+        inner = declarator.child_by_field_name("declarator")
+        if inner is None:
+            inner = declarator.named_children[0] if declarator.named_children else None
+        declarator = inner
+    return declarator
+
+
 def contains_label(node: Node) -> bool:
     return node.type == "labeled_statement" or any(
         contains_label(child) for child in node.children
