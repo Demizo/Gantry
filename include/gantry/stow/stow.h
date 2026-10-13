@@ -126,7 +126,7 @@ int stow_flush(void);
  * @param value The desired value
  *
  * @return SUCCESS when the value is set
- * @return -EACCES when the item is TOFU and has already been modified
+ * @return -EALREADY when the item is TOFU and has already been modified
  * @return -EINVAL when the provided value is invalid
  * @return -ENOMEM when the value cannot be stored
  */
@@ -147,8 +147,8 @@ int stow_set(enum stow_item_id id, data_value_t value);
  * @param value The desired value
  *
  * @return SUCCESS when the value is set
- * @return -EACCES when the caller's role has no overlap with the item's write permission mask, or the item is TOFU
- * and has already been modified
+ * @return -EACCES when the caller's role has no overlap with the item's write permission mask
+ * @return -EALREADY when the item is TOFU and has already been modified
  * @return -EINVAL when the provided value is invalid
  * @return -ENOMEM when the value cannot be stored
  */

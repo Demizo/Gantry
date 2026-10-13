@@ -60,10 +60,10 @@ ZTEST(stow_concurrency, test_concurrent_tofu_writers_exactly_one_succeeds)
     k_thread_join(tid_b, K_FOREVER);
 
     int success_count = (args_a.ret == SUCCESS) + (args_b.ret == SUCCESS);
-    int denied_count = (args_a.ret == -EACCES) + (args_b.ret == -EACCES);
+    int denied_count = (args_a.ret == -EALREADY) + (args_b.ret == -EALREADY);
 
     zassert_equal(success_count, 1, "Expected exactly one writer to succeed");
-    zassert_equal(denied_count, 1, "Expected exactly one writer to be denied with -EACCES");
+    zassert_equal(denied_count, 1, "Expected exactly one writer to be denied with -EALREADY");
 
     // The stored value must match whichever writer actually won, not a mix of both.
     data_value_t got = { 0 };

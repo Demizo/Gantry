@@ -435,6 +435,7 @@ static void emit_error_code(uint32_t session_id, int err)
             code = STOW_ERR_OUT_OF_MEMORY;
             break;
         case -EACCES:
+        case -EALREADY:
             code = STOW_ERR_PERMISSION_DENIED;
             break;
         default:

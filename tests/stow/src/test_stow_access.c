@@ -58,7 +58,7 @@ ZTEST(stow_access, test_external_tofu_cannot_be_overwritten)
 
     data_value_t val2 = { .type = STOW_ITEM_TYPE_STRING, .data.string_value = "second" };
     ret = stow_set_external(STOW_ROLE_SESSION, STOW_ID_TEST_TOFU, val2);
-    zassert_equal(ret, -EACCES);
+    zassert_equal(ret, -EALREADY);
 }
 
 ZTEST(stow_access, test_external_read_allowed_for_read_only_item)

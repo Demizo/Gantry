@@ -95,7 +95,7 @@ ZTEST(stow_isr, test_set_from_isr_tofu)
 
     // The ISR write consumed the item's one-time write, just as a thread-context write would.
     data_value_t value = { .type = STOW_ITEM_TYPE_STRING, .data.string_value = "from_thread" };
-    zassert_equal(stow_set(STOW_ID_TEST_TOFU, value), -EACCES);
+    zassert_equal(stow_set(STOW_ID_TEST_TOFU, value), -EALREADY);
 }
 
 ZTEST(stow_isr, test_persistent_set_from_isr_is_flushed)

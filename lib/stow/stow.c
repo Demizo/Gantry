@@ -147,7 +147,7 @@ static int set_item_value(const struct stow_item_const_metadata* item, data_valu
  * @param item The TOFU item to check
  *
  * @return SUCCESS when the item has not been modified yet
- * @return -EACCES when the item has already been modified
+ * @return -EALREADY when the item has already been modified
  * @return the error code when the current value could not be read
  */
 static int check_tofu_unmodified(const struct stow_item_const_metadata* item)
@@ -167,7 +167,7 @@ static int check_tofu_unmodified(const struct stow_item_const_metadata* item)
     if (!is_default)
     {
         LOG_WRN("Attempted to change TOFU value that has already been modified, item id: %d", item->id);
-        return -EACCES;
+        return -EALREADY;
     }
 
     return SUCCESS;
