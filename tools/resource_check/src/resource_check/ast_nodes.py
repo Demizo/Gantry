@@ -94,3 +94,13 @@ def contains_label(node: Node) -> bool:
     return node.type == "labeled_statement" or any(
         contains_label(child) for child in node.children
     )
+
+
+def strip_parentheses(node: Node | None) -> Node | None:
+    while (
+        node is not None
+        and node.type == "parenthesized_expression"
+        and node.named_children
+    ):
+        node = node.named_children[0]
+    return node

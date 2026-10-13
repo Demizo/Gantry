@@ -124,14 +124,14 @@ extern volatile mem_trace_info_t g_current_mem_trace;
  * maximum block size.
  * @return -ENOTEMPTY the block pointer was not pointing to a NULL pointer.
  * @return -ENOMEM No blocks were available that could fit the requested size.
- * @acquires memory block_ptr
+ * @acquires memory block_ptr on-success
  */
 int mem_alloc(size_t size, void** block_ptr);
 
 /**
  * @brief Convenience macro for @ref mem_alloc with memory tracing
  *
- * @acquires memory data
+ * @acquires memory data on-success
  */
 #define MEM_ALLOC(size, data) TRACE_WRAP(mem_alloc(size, data))
 

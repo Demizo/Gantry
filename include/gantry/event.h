@@ -115,14 +115,14 @@ struct event_t
  * pointer when this function is called. It is only populated when the allocation succeeds.
  *
  * @return result of @ref mem_alloc
- * @acquires memory event_ptr
+ * @acquires memory event_ptr on-success
  */
 int event_alloc(const event_type_t* type, size_t payload_size, event_t** event_ptr);
 
 /**
  * @brief Convenience macro for @ref event_alloc with memory tracing
  *
- * @acquires memory event_ptr
+ * @acquires memory event_ptr on-success
  */
 #define EVENT_ALLOC(type, payload_size, event_ptr) TRACE_WRAP(event_alloc(type, payload_size, event_ptr))
 

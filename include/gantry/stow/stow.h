@@ -170,14 +170,14 @@ int stow_set_external(stow_role_t current_auth, enum stow_item_id id, data_value
  * @return SUCCESS when the value was retrieved
  * @return -EINVAL when the output pointer is NULL
  * @return -ENOMEM when the value cannot be retrieved
- * @acquires memory out_value
+ * @acquires memory out_value on-success
  */
 int stow_get(enum stow_item_id id, data_value_t* out_value);
 
 /**
  * @brief Convenience macro for @ref stow_get with memory tracing
  *
- * @acquires memory out_value
+ * @acquires memory out_value on-success
  */
 #define STOW_GET(id, out_value) TRACE_WRAP(stow_get(id, out_value))
 
@@ -194,14 +194,14 @@ int stow_get(enum stow_item_id id, data_value_t* out_value);
  * @return -EACCES when the caller's role has no overlap with the item's read permission mask
  * @return -EINVAL when the output pointer is NULL
  * @return -ENOMEM when the value cannot be retrieved
- * @acquires memory out_value
+ * @acquires memory out_value on-success
  */
 int stow_get_external(stow_role_t current_auth, enum stow_item_id id, data_value_t* out_value);
 
 /**
  * @brief Convenience macro for @ref stow_get_external with memory tracing
  *
- * @acquires memory out_value
+ * @acquires memory out_value on-success
  */
 #define STOW_GET_EXTERNAL(current_auth, id, out_value) TRACE_WRAP(stow_get_external(current_auth, id, out_value))
 
@@ -246,14 +246,14 @@ int stow_encode(zcbor_state_t* encoder, enum stow_item_id id, data_value_t value
  * @return SUCCESS when the value was decoded
  * @return -EBADMSG when the CBOR value could not be decoded
  * @return -ENOMEM when memory cannot be allocated for the decoded value
- * @acquires memory out_value
+ * @acquires memory out_value on-success
  */
 int stow_decode(zcbor_state_t* decoder, enum stow_item_id id, data_value_t* out_value);
 
 /**
  * @brief Convenience macro for @ref stow_decode with debug tracing
  *
- * @acquires memory out_value
+ * @acquires memory out_value on-success
  */
 #define STOW_DECODE(decoder, id, out_value) TRACE_WRAP(stow_decode(decoder, id, out_value))
 

@@ -13,6 +13,7 @@ from .ast_nodes import (
     unwrap_identifier_reference,
 )
 from .cfg import CFG
+from .conditions import find_failure_edges
 from .dataflow import Event, Key, find_unmatched_exits
 from .findings import Finding
 
@@ -48,7 +49,13 @@ class LeakRuleKind:
                 identifier = _tracked_identifier(call_node, spec, tag)
                 if identifier is not None:
                     events.append(
-                        Event(kind, text(identifier), tag.resource_class, call_node)
+                        Event(
+                            kind,
+                            text(identifier),
+                            tag.resource_class,
+                            call_node,
+                            tag.condition,
+                        )
                     )
         return events
 
@@ -64,7 +71,10 @@ class LeakRuleKind:
                         starts[key] = call
 
         for key, start_call in starts.items():
-            for exit_block in find_unmatched_exits(cfg, key, self.events_of):
+            failure_edges = find_failure_edges(cfg, key, self.events_of)
+            for exit_block in find_unmatched_exits(
+                cfg, key, self.events_of, failure_edges
+            ):
                 leak_line = line(exit_block.return_node)
                 yield Finding(
                     file=file_path,

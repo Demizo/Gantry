@@ -267,3 +267,52 @@ def test_multiple_return_points_all_reachable():
     """)
     return_blocks = [b for b in cfg.blocks if b.is_return]
     assert len(return_blocks) == 3
+
+
+def test_if_records_condition_and_targets():
+    cfg = _cfg_of("""
+        int f(int x) {
+            if (check(x)) {
+                foo();
+            } else {
+                bar();
+            }
+            return 0;
+        }
+    """)
+    branch = next(b.branch for b in cfg.blocks if b.branch is not None)
+    assert branch.condition.text == b"(check(x))"
+    assert branch.true_target is _block_calling(cfg, b"foo()")
+    assert branch.false_target is _block_calling(cfg, b"bar()")
+
+
+def test_if_without_else_branches_to_the_join_block():
+    cfg = _cfg_of("""
+        int f(int x) {
+            if (check(x)) {
+                return 1;
+            }
+            bar();
+            return 0;
+        }
+    """)
+    branch = next(b.branch for b in cfg.blocks if b.branch is not None)
+    assert branch.true_target.is_return is False
+    assert branch.false_target is _block_calling(cfg, b"bar()")
+
+
+def test_else_if_chain_records_a_branch_per_condition():
+    cfg = _cfg_of("""
+        int f(int x) {
+            if (a(x)) {
+                foo();
+            } else if (b(x)) {
+                bar();
+            }
+            return 0;
+        }
+    """)
+    conditions = sorted(
+        b.branch.condition.text for b in cfg.blocks if b.branch is not None
+    )
+    assert conditions == [b"(a(x))", b"(b(x))"]

@@ -7,17 +7,26 @@ from .ast_nodes import contains_label, find_calls
 
 
 @dataclass
+class Branch:
+    condition: Node
+    true_target: "BasicBlock"
+    false_target: "BasicBlock | None" = None
+
+
+@dataclass
 class BasicBlock:
     id: int
     calls: list[Node] = field(default_factory=list)
     is_return: bool = False
     return_node: Node | None = None
+    branch: Branch | None = None
     successors: list["BasicBlock"] = field(default_factory=list)
     predecessors: list["BasicBlock"] = field(default_factory=list)
 
 
 @dataclass
 class CFG:
+    function: Node
     entry: BasicBlock
     blocks: list[BasicBlock]
 
@@ -54,7 +63,7 @@ class _CFGBuilder:
         self.build_compound(body, entry)
         for goto_block, label in self.pending_gotos:
             self.add_edge(goto_block, self.label_blocks.get(label))
-        return CFG(entry=entry, blocks=self.blocks)
+        return CFG(function=function_node, entry=entry, blocks=self.blocks)
 
     def build_compound(
         self, node: Node, current: BasicBlock | None
@@ -132,12 +141,15 @@ class _CFGBuilder:
 
         then_entry = self.new_block()
         self.add_edge(current, then_entry)
+        branch = Branch(condition=condition, true_target=then_entry)
+        current.branch = branch
         then_exit = self.build_stmt(node.child_by_field_name("consequence"), then_entry)
 
         alternative = node.child_by_field_name("alternative")
         if alternative is not None:
             else_entry = self.new_block()
             self.add_edge(current, else_entry)
+            branch.false_target = else_entry
             else_stmt = alternative.named_children[0]
             else_exit = self.build_stmt(else_stmt, else_entry)
         else:
@@ -150,6 +162,8 @@ class _CFGBuilder:
         if else_exit is not None:
             join = join or self.new_block()
             self.add_edge(else_exit, join)
+        if branch.false_target is None:
+            branch.false_target = join
         return join
 
     def build_while(self, node: Node, current: BasicBlock | None) -> BasicBlock | None:
