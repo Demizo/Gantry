@@ -909,7 +909,6 @@ int stow_protocol_session_open(uint32_t session_id, stow_role_t roles)
         else if (free_slot == NULL)
         {
             free_slot = &sessions[i];
-            break;
         }
     }
 

@@ -65,6 +65,18 @@ ZTEST(stow_protocol_sessions, test_close_frees_slot)
     (void)stow_protocol_session_closed(0xABCD);
 }
 
+ZTEST(stow_protocol_sessions, test_open_detects_duplicate_behind_free_slot)
+{
+    open_tracked(SESSION_BASE, STOW_ROLE_GUEST);
+    open_tracked(SESSION_BASE + 1, STOW_ROLE_GUEST);
+
+    zassert_equal(stow_protocol_session_closed(SESSION_BASE), 0);
+    test_sync();
+
+    int ret = stow_protocol_session_open(SESSION_BASE + 1, STOW_ROLE_GUEST);
+    zassert_equal(ret, -EALREADY, "duplicate session opened: %d", ret);
+}
+
 ZTEST(stow_protocol_sessions, test_multi_session_isolated_responses)
 {
     open_tracked(SESSION_BASE, STOW_ROLE_GUEST);
