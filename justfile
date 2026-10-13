@@ -88,6 +88,10 @@ test-integration *args='':
 test-stow-tools *args='':
     uv run pytest tools/stow/tests {{args}}
 
+# Run the resource checker's own unit tests
+test-resource-check *args='':
+    uv run --project tools/resource_check pytest tools/resource_check/tests {{args}}
+
 # Build documentation
 docs:
   doxygen Doxyfile

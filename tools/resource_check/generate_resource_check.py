@@ -1,7 +1,8 @@
 import argparse
+from pathlib import Path
+
 import yaml
 from jinja2 import Environment, FileSystemLoader
-from pathlib import Path
 
 
 def normalize_functions(funcs):
@@ -9,7 +10,7 @@ def normalize_functions(funcs):
 
 
 def load_yaml(path: Path) -> dict:
-    with open(path, "r") as f:
+    with open(path) as f:
         return yaml.safe_load(f) or {}
 
 
@@ -17,11 +18,13 @@ def main():
     script_dir = Path(__file__).parent
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--library-yaml", type=Path,
-                        default=script_dir / "resource_functions.yaml")
+    parser.add_argument(
+        "--library-yaml", type=Path, default=script_dir / "resource_functions.yaml"
+    )
     parser.add_argument("--app-yaml", type=Path, default=None)
-    parser.add_argument("--output", type=Path,
-                        default=script_dir / "generated_resource_check.cocci")
+    parser.add_argument(
+        "--output", type=Path, default=script_dir / "generated_resource_check.cocci"
+    )
     args = parser.parse_args()
 
     lib = load_yaml(args.library_yaml)
