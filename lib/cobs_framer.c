@@ -65,8 +65,9 @@ static int internal_stream_cb(const uint8_t* buf, size_t len, void* user_data)
     {
         if (frame_decoder->rx_buf->len > 0)
         {
-            frame_decoder->cb(frame_decoder->rx_buf, frame_decoder->user_data);
+            struct net_buf* frame = frame_decoder->rx_buf;
             frame_decoder->rx_buf = NULL;
+            frame_decoder->cb(frame, frame_decoder->user_data);
 
             if (alloc_rx_buf(frame_decoder) != SUCCESS)
             {
@@ -154,23 +155,30 @@ int cobs_frame_decoder_feed(struct cobs_frame_decoder* frame_decoder, const uint
             continue;
         }
 
+        if (frame_decoder->rx_buf == NULL)
+        {
+            frame_decoder->is_syncing = true;
+            return -ENOMEM;
+        }
+
+        const uint8_t* zero_ptr = memchr(data + processed, 0U, len - processed);
+        size_t chunk = (zero_ptr != NULL) ? (size_t)(zero_ptr - (data + processed)) + 1U : len - processed;
+
         // Pass the chunk to Zephyr's stream decoder
-        int ret = cobs_decoder_write(&frame_decoder->dec, data + processed, len - processed);
+        int ret = cobs_decoder_write(&frame_decoder->dec, data + processed, chunk);
         if (ret < 0)
         {
-            LOG_WRN("COBS decode error, dropping frame (%d)", ret);
-            frame_decoder->is_syncing = true;
+            if (ret != -ENOMEM && ret != -ENOSPC)
+            {
+                LOG_WRN("COBS decode error, dropping frame (%d)", ret);
+            }
+            frame_decoder->is_syncing = (zero_ptr == NULL);
             if (frame_decoder->rx_buf)
             {
                 net_buf_reset(frame_decoder->rx_buf);
             }
-            // Loop continues and falls into the is_syncing block to scan for the next delimiter
         }
-        else
-        {
-            //?NOTE: On success, ret is the number of bytes from the input buffer that were used
-            processed += ret;
-        }
+        processed += chunk;
     }
 
     return SUCCESS;
@@ -198,7 +206,11 @@ int cobs_frame_encode(struct net_buf_pool* pool, const struct net_buf* input, st
         return -ENOSPC;
     }
 
-    int ret = cobs_encode((struct net_buf*)input, out, COBS_FLAG_TRAILING_DELIMITER);
+    struct net_buf* source = (struct net_buf*)input;
+    struct net_buf_simple_state input_state;
+    net_buf_simple_save(&source->b, &input_state);
+    int ret = cobs_encode(source, out, COBS_FLAG_TRAILING_DELIMITER);
+    net_buf_simple_restore(&source->b, &input_state);
     if (ret < 0)
     {
         LOG_ERR("Zephyr COBS encode failed: %d", ret);
