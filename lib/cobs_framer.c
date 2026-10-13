@@ -13,6 +13,7 @@
 
 #include <gantry/cobs_framer.h>
 #include <gantry/error.h>
+#include <gantry/memory.h>
 #include <string.h>
 #include <sys/errno.h>
 #include <zephyr/data/cobs.h>
@@ -203,5 +204,6 @@ int cobs_frame_encode(struct net_buf_pool* pool, const struct net_buf* input, st
     }
 
     *output = out;
+    PASS_OWNERSHIP(out);
     return SUCCESS;
 }

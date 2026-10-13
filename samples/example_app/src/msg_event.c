@@ -42,7 +42,8 @@ static void on_free(event_t* event)
     struct msg_event_payload* payload = (struct msg_event_payload*)event->data.buf;
     if (payload->buf != NULL)
     {
-        net_buf_unref(payload->buf);
+        struct net_buf* buf = payload->buf;
+        net_buf_unref(buf);
         payload->buf = NULL;
     }
 }

@@ -292,6 +292,7 @@ int mem_alloc(size_t size, void** block_ptr)
             header->ref_count = 1;
 
             *block_ptr = header_to_block(block);
+            PASS_OWNERSHIP(block);
 
 #ifdef CONFIG_MEM_TRACE
             LOG_DBG(

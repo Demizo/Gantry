@@ -238,7 +238,8 @@ static void protocol_event_on_free(event_t* event)
 
     if (payload->type == STOW_PROTOCOL_RX && payload->rx.buf != NULL)
     {
-        net_buf_unref(payload->rx.buf);
+        struct net_buf* rx_buf = payload->rx.buf;
+        net_buf_unref(rx_buf);
         payload->rx.buf = NULL;
     }
 }
@@ -323,6 +324,7 @@ static int alloc_response_buf(struct net_buf** out_buf, size_t* out_budget)
 
     *out_buf = buf;
     *out_budget = tail - g_protocol_config.tailroom;
+    PASS_OWNERSHIP(buf);
     return SUCCESS;
 }
 

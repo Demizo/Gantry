@@ -152,6 +152,7 @@ static ssize_t nus_rx_write(
         net_buf_unref(buf);
         return len;
     }
+    PASS_OWNERSHIP(buf);
 
     if (k_msgq_put(&ble_interface_queue, (const void*)&event, K_NO_WAIT) != 0)
     {
