@@ -53,6 +53,7 @@ static ssize_t nus_rx_write(
     uint8_t flags);
 static void nus_tx_ccc_changed(const struct bt_gatt_attr* attr, uint16_t value);
 static int ble_interface_tx(const uint8_t* data, uint16_t len);
+static int ble_notify(struct bt_conn* conn, const uint8_t* data, uint16_t len);
 static void rx_frame_cb(struct net_buf* buf, void* user_data);
 static void ble_interface_init(void);
 static void ble_interface_thread(void* arg1, void* arg2, void* arg3);
@@ -105,17 +106,23 @@ static void on_connected(struct bt_conn* conn, uint8_t err)
     {
         return;
     }
-    current_conn = bt_conn_ref(conn);
+    struct bt_conn* ref = bt_conn_ref(conn);
+    uint32_t key = irq_lock();
+    current_conn = ref;
+    irq_unlock(key);
 }
 
 static void on_disconnected(struct bt_conn* conn, uint8_t reason)
 {
     ARG_UNUSED(conn);
     ARG_UNUSED(reason);
-    if (current_conn != NULL)
+    uint32_t key = irq_lock();
+    struct bt_conn* old = current_conn;
+    current_conn = NULL;
+    irq_unlock(key);
+    if (old != NULL)
     {
-        bt_conn_unref(current_conn);
-        current_conn = NULL;
+        bt_conn_unref(old);
     }
 }
 
@@ -172,16 +179,26 @@ static void nus_tx_ccc_changed(const struct bt_gatt_attr* attr, uint16_t value)
 
 static int ble_interface_tx(const uint8_t* data, uint16_t len)
 {
-    if (current_conn == NULL)
+    uint32_t key = irq_lock();
+    struct bt_conn* conn = current_conn != NULL ? bt_conn_ref(current_conn) : NULL;
+    irq_unlock(key);
+    if (conn == NULL)
     {
         return -ENOTCONN;
     }
+    int ret = ble_notify(conn, data, len);
+    bt_conn_unref(conn);
+    return ret;
+}
+
+static int ble_notify(struct bt_conn* conn, const uint8_t* data, uint16_t len)
+{
     if (data == NULL || len == 0U)
     {
         return -EINVAL;
     }
 
-    uint16_t mtu = bt_gatt_get_mtu(current_conn);
+    uint16_t mtu = bt_gatt_get_mtu(conn);
     if (mtu <= 3U)
     {
         return -EIO;
@@ -196,7 +213,7 @@ static int ble_interface_tx(const uint8_t* data, uint16_t len)
         uint16_t remaining = len - offset;
         uint16_t chunk = remaining < chunk_size ? remaining : chunk_size;
 
-        int ret = bt_gatt_notify(current_conn, tx_attr, &data[offset], chunk);
+        int ret = bt_gatt_notify(conn, tx_attr, &data[offset], chunk);
         if (ret != 0)
         {
             LOG_WRN("bt_gatt_notify failed at offset %u: %d", offset, ret);
