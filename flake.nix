@@ -59,7 +59,6 @@
           mcuboot-imgtool
           uv
           cppcheck
-          coccinelle
           clang-tools
           gdb
           just-lsp

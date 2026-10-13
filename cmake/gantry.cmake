@@ -144,62 +144,34 @@ function(gantry_register_analysis)
     endif()
   endif()
 
-  set(_lib_cocci ${ZEPHYR_GANTRY_MODULE_DIR}/tools/resource_check/generated_resource_check.cocci)
-  set(_app_resource_yaml ${APPLICATION_SOURCE_DIR}/resource_functions.yaml)
-  set(_cocci ${_lib_cocci})
+  find_program(GANTRY_UV_CMD NAMES uv)
+  if(GANTRY_UV_CMD)
+    set(_resource_check_cmd
+      ${GANTRY_UV_CMD} run --project ${ZEPHYR_GANTRY_MODULE_DIR}/tools/resource_check
+      resource-check --annotations ${ZEPHYR_GANTRY_MODULE_DIR}/include)
 
-  if(EXISTS "${_app_resource_yaml}")
-    set(_merged_cocci ${CMAKE_CURRENT_BINARY_DIR}/gantry_generated/resource_check.cocci)
-    find_program(GANTRY_UV_CMD NAMES uv REQUIRED)
-    set(_rc_gen ${ZEPHYR_GANTRY_MODULE_DIR}/tools/resource_check/generate_resource_check.py)
-    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gantry_generated)
-    message(STATUS "Gantry: merging app resource_functions.yaml into resource checker")
-    execute_process(
-      COMMAND ${GANTRY_UV_CMD} run ${_rc_gen}
-              --library-yaml ${ZEPHYR_GANTRY_MODULE_DIR}/tools/resource_check/resource_functions.yaml
-              --app-yaml     ${_app_resource_yaml}
-              --output       ${_merged_cocci}
-      WORKING_DIRECTORY ${ZEPHYR_GANTRY_MODULE_DIR}
-      RESULT_VARIABLE _rc_gen_result
-    )
-    if(NOT _rc_gen_result EQUAL 0)
-      message(FATAL_ERROR "Gantry: resource check generation failed (exit ${_rc_gen_result})")
-    endif()
-    set(_cocci ${_merged_cocci})
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_app_resource_yaml})
-  endif()
+    # The application's own headers are added so that its functions can carry annotations too.
+    foreach(_app_inc ${APPLICATION_SOURCE_DIR}/inc ${APPLICATION_SOURCE_DIR}/include)
+      if(IS_DIRECTORY "${_app_inc}")
+        list(APPEND _resource_check_cmd --annotations ${_app_inc})
+      endif()
+    endforeach()
 
-  find_program(GANTRY_SPATCH_CMD NAMES spatch)
-  if(GANTRY_SPATCH_CMD AND EXISTS "${_cocci}")
     if(CONFIG_GANTRY_ANALYSIS_CHECK_LIBRARY)
-      set(_spatch_comment "Gantry: running resource checker on library and application")
-      add_custom_target(gantry_spatch ALL
-        COMMAND ${GANTRY_SPATCH_CMD}
-          --sp-file ${_cocci}
-          --dir     ${_module_lib}
-          --no-includes
-          --very-quiet
-        COMMAND ${GANTRY_SPATCH_CMD}
-          --sp-file ${_cocci}
-          --dir     ${_app_src}
-          --no-includes
-          --very-quiet
-        WORKING_DIRECTORY ${APPLICATION_SOURCE_DIR}
-        COMMENT "${_spatch_comment}"
-        VERBATIM)
+      set(_resource_check_dirs ${_module_lib} ${_app_src})
+      set(_resource_check_comment "Gantry: running resource checker on library and application")
     else()
-      add_custom_target(gantry_spatch ALL
-        COMMAND ${GANTRY_SPATCH_CMD}
-          --sp-file ${_cocci}
-          --dir     ${_app_src}
-          --no-includes
-          --very-quiet
-        WORKING_DIRECTORY ${APPLICATION_SOURCE_DIR}
-        COMMENT "Gantry: running resource checker on application"
-        VERBATIM)
+      set(_resource_check_dirs ${_app_src})
+      set(_resource_check_comment "Gantry: running resource checker on application")
     endif()
-    add_dependencies(app gantry_spatch)
-  elseif(NOT GANTRY_SPATCH_CMD)
-    message(WARNING "Gantry: spatch not found; skipping resource-leak analysis")
+
+    add_custom_target(gantry_resource_check ALL
+      COMMAND ${_resource_check_cmd} ${_resource_check_dirs}
+      WORKING_DIRECTORY ${APPLICATION_SOURCE_DIR}
+      COMMENT "${_resource_check_comment}"
+      VERBATIM)
+    add_dependencies(app gantry_resource_check)
+  else()
+    message(WARNING "Gantry: uv not found; skipping resource-leak analysis")
   endif()
 endfunction()
