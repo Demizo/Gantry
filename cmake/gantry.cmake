@@ -16,6 +16,41 @@ function(gantry_stow_add_fragment path)
   set_property(GLOBAL APPEND PROPERTY GANTRY_STOW_FRAGMENTS "${path}")
 endfunction()
 
+# _gantry_stow_run(WHAT <what> SCRIPT <script> OUTPUT_DIR <dir> YAML <path>
+#                  [FRAGMENTS <path>...] [ARGS <arg>...])
+#
+# Runs a Stow generator script over a stow.yaml and its fragments, which
+# become configure dependencies, and adds the generated headers to the
+# include path.
+function(_gantry_stow_run)
+  cmake_parse_arguments(ARG "" "WHAT;SCRIPT;OUTPUT_DIR;YAML" "FRAGMENTS;ARGS" ${ARGN})
+
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ARG_YAML} ${ARG_FRAGMENTS})
+  set(_fragment_args)
+  foreach(_fragment ${ARG_FRAGMENTS})
+    list(APPEND _fragment_args --fragment ${_fragment})
+  endforeach()
+
+  file(MAKE_DIRECTORY ${ARG_OUTPUT_DIR}/inc/stow)
+  file(MAKE_DIRECTORY ${ARG_OUTPUT_DIR}/src/stow)
+
+  find_program(GANTRY_UV_CMD NAMES uv REQUIRED)
+  execute_process(
+    COMMAND ${GANTRY_UV_CMD} run ${ZEPHYR_GANTRY_MODULE_DIR}/tools/stow/${ARG_SCRIPT}
+            --yaml       ${ARG_YAML}
+            ${_fragment_args}
+            ${ARG_ARGS}
+            --output-dir ${ARG_OUTPUT_DIR}
+    WORKING_DIRECTORY ${ZEPHYR_GANTRY_MODULE_DIR}
+    RESULT_VARIABLE _gen_result
+  )
+  if(NOT _gen_result EQUAL 0)
+    message(FATAL_ERROR "Gantry ${ARG_WHAT} generation failed (exit ${_gen_result})")
+  endif()
+
+  zephyr_include_directories(${ARG_OUTPUT_DIR}/inc/stow)
+endfunction()
+
 # gantry_stow_generate([YAML <path>] [OUTPUT_DIR <dir>])
 #
 # Composes the app's stow.yaml with any fragments registered via
@@ -48,9 +83,6 @@ function(gantry_stow_generate)
     set(ARG_OUTPUT_DIR ${CMAKE_BINARY_DIR}/gantry_generated)
   endif()
 
-  find_program(GANTRY_UV_CMD NAMES uv REQUIRED)
-  set(_gen_dir ${ZEPHYR_GANTRY_MODULE_DIR}/tools/stow)
-
   get_property(_fragments GLOBAL PROPERTY GANTRY_STOW_FRAGMENTS)
 
   set(_board_full "${BOARD}")
@@ -60,39 +92,21 @@ function(gantry_stow_generate)
   string(REPLACE "/" "_" _board_file "${_board_full}")
   set(_board_yaml "${APPLICATION_CONFIG_DIR}/boards/${_board_file}.stow.yaml")
 
-  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ARG_YAML})
-  foreach(_fragment ${_fragments})
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_fragment})
-  endforeach()
-
-  set(_fragment_args)
-  foreach(_fragment ${_fragments})
-    list(APPEND _fragment_args --fragment ${_fragment})
-  endforeach()
-
   set(_board_args)
   if(EXISTS "${_board_yaml}")
     set(_board_args --board-yaml ${_board_yaml})
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_board_yaml})
   endif()
 
-  file(MAKE_DIRECTORY ${ARG_OUTPUT_DIR}/inc/stow)
-  file(MAKE_DIRECTORY ${ARG_OUTPUT_DIR}/src/stow)
-
   message(STATUS "Gantry: generating stow from ${ARG_YAML} (${_fragments})")
-  execute_process(
-    COMMAND ${GANTRY_UV_CMD} run ${_gen_dir}/generate_stow.py
-            --yaml       ${ARG_YAML}
-            ${_fragment_args}
-            ${_board_args}
-            --app-dir    ${APPLICATION_SOURCE_DIR}
-            --output-dir ${ARG_OUTPUT_DIR}
-    WORKING_DIRECTORY ${ZEPHYR_GANTRY_MODULE_DIR}
-    RESULT_VARIABLE _gen_result
+  _gantry_stow_run(
+    WHAT       stow
+    SCRIPT     generate_stow.py
+    OUTPUT_DIR ${ARG_OUTPUT_DIR}
+    YAML       ${ARG_YAML}
+    FRAGMENTS  ${_fragments}
+    ARGS       ${_board_args} --app-dir ${APPLICATION_SOURCE_DIR}
   )
-  if(NOT _gen_result EQUAL 0)
-    message(FATAL_ERROR "Gantry stow generation failed (exit ${_gen_result})")
-  endif()
 
   file(GLOB _generated_struct_sources
     ${ARG_OUTPUT_DIR}/src/stow/generated_struct_*.c)
@@ -102,7 +116,60 @@ function(gantry_stow_generate)
     ${ARG_OUTPUT_DIR}/src/stow/generated_stow_enums.c
     ${_generated_struct_sources}
   )
-  zephyr_include_directories(${ARG_OUTPUT_DIR}/inc/stow)
+endfunction()
+
+# gantry_stow_client_generate(PREFIX <prefix> YAML <path> [FRAGMENTS <path>...]
+#                             [ITEMS <name>...] [OUTPUT_DIR <dir>])
+#
+# Generates Stow client bindings for a peer: the peer's stow.yaml is composed
+# with its FRAGMENTS and validated as in the peer's own build, then the named
+# ITEMS (every schema item when omitted) are bound under PREFIX, so several
+# peers and the local Stow can share one image. The generated sources are
+# attached to the `app` target.
+#
+# OUTPUT_DIR defaults to ${CMAKE_BINARY_DIR}/gantry_generated.
+function(gantry_stow_client_generate)
+  cmake_parse_arguments(ARG "" "PREFIX;YAML;OUTPUT_DIR" "FRAGMENTS;ITEMS" ${ARGN})
+
+  if(NOT ARG_PREFIX OR NOT ARG_YAML)
+    message(FATAL_ERROR "gantry_stow_client_generate: PREFIX and YAML are required")
+  endif()
+  if(NOT ARG_OUTPUT_DIR)
+    set(ARG_OUTPUT_DIR ${CMAKE_BINARY_DIR}/gantry_generated)
+  endif()
+
+  set(_inputs)
+  foreach(_path ${ARG_YAML} ${ARG_FRAGMENTS})
+    if(NOT IS_ABSOLUTE "${_path}")
+      set(_path "${CMAKE_CURRENT_SOURCE_DIR}/${_path}")
+    endif()
+    if(NOT EXISTS "${_path}")
+      message(FATAL_ERROR "gantry_stow_client_generate: not found: ${_path}")
+    endif()
+    list(APPEND _inputs ${_path})
+  endforeach()
+  list(POP_FRONT _inputs _yaml)
+
+  set(_args --prefix ${ARG_PREFIX})
+  foreach(_item ${ARG_ITEMS})
+    list(APPEND _args --item ${_item})
+  endforeach()
+
+  message(STATUS "Gantry: generating Stow client bindings '${ARG_PREFIX}' from ${_yaml}")
+  _gantry_stow_run(
+    WHAT       "Stow client"
+    SCRIPT     generate_stow_client.py
+    OUTPUT_DIR ${ARG_OUTPUT_DIR}
+    YAML       ${_yaml}
+    FRAGMENTS  ${_inputs}
+    ARGS       ${_args}
+  )
+
+  file(GLOB _sources
+    ${ARG_OUTPUT_DIR}/src/stow/generated_${ARG_PREFIX}_stow_client.c
+    ${ARG_OUTPUT_DIR}/src/stow/generated_${ARG_PREFIX}_stow_enums.c
+    ${ARG_OUTPUT_DIR}/src/stow/generated_${ARG_PREFIX}_struct_*.c)
+  target_sources(app PRIVATE ${_sources})
 endfunction()
 
 # gantry_register_analysis()

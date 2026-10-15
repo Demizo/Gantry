@@ -37,6 +37,8 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
     zephyr_library_sources(lib/cobs_framer.c)
   endif()
 
+  set(ZEPHYR_GANTRY_MODULE_DIR "${ZEPHYR_GANTRY_MODULE_DIR}" CACHE INTERNAL "")
+
   if(CONFIG_GANTRY_STOW_TYPES)
     zephyr_library_sources(
       lib/stow/types/stow_type_enum.c
@@ -91,7 +93,6 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
     endif()
 
     set(GANTRY_STOW_YAML "${_app_yaml}" CACHE INTERNAL "")
-    set(ZEPHYR_GANTRY_MODULE_DIR "${ZEPHYR_GANTRY_MODULE_DIR}" CACHE INTERNAL "")
 
     cmake_language(DEFER DIRECTORY ${CMAKE_SOURCE_DIR} CALL gantry_stow_generate)
   endif()
