@@ -29,36 +29,12 @@
  */
 LOG_MODULE_REGISTER(stow_describe, CONFIG_STOW_LOG_LEVEL);
 
-/**
- * @brief String representation of each storage type
- */
-static const char* const storage_type_strings[] = {
-    [STOW_STORAGE_EPHEMERAL] = "Ephemeral",
-    [STOW_STORAGE_PERSISTENT] = "Persistent",
-    [STOW_STORAGE_TOFU] = "TOFU",
-};
-
-/**
- * @brief String representation of each item type
- */
-const char* const item_type_strings[] = {
-    [STOW_ITEM_TYPE_ENUM] = "Enum",
-    [STOW_ITEM_TYPE_INT] = "Int",
-    [STOW_ITEM_TYPE_FLOAT] = "Float",
-    [STOW_ITEM_TYPE_STRING] = "String",
-    [STOW_ITEM_TYPE_BYTE_ARRAY] = "Byte Array",
-    [STOW_ITEM_TYPE_BUFFER] = "Buffer",
-    [STOW_ITEM_TYPE_STRUCT] = "Struct",
-};
-
 //**********************************************************
 //* Static Function Declarations
 //**********************************************************
 
 static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_metadata* item);
 static uint32_t next_described(const atomic_t* filter, uint32_t id);
-static bool tstr_put(zcbor_state_t* encoder, const char* str);
-static int encode_role_list(zcbor_state_t* encoder, stow_role_t perm);
 
 //**********************************************************
 //* Static Function Definitions
@@ -79,39 +55,6 @@ static uint32_t next_described(const atomic_t* filter, uint32_t id)
         id++;
     }
     return id;
-}
-
-static bool tstr_put(zcbor_state_t* encoder, const char* str)
-{
-    struct zcbor_string s = { .value = str, .len = strlen(str) };
-    return zcbor_tstr_encode(encoder, &s);
-}
-
-static int encode_role_list(zcbor_state_t* encoder, stow_role_t perm)
-{
-    uint8_t count = 0;
-    for (uint8_t bit = 0; bit < STOW_ROLE_COUNT; bit++)
-    {
-        if (perm & (stow_role_t)(1U << bit))
-        {
-            count++;
-        }
-    }
-    if (!stow_cbor_list_start(encoder, count))
-    {
-        return -ENOMEM;
-    }
-    for (uint8_t bit = 0; bit < STOW_ROLE_COUNT; bit++)
-    {
-        if (perm & (stow_role_t)(1U << bit))
-        {
-            if (!tstr_put(encoder, g_stow_role_names[bit]))
-            {
-                return -ENOMEM;
-            }
-        }
-    }
-    return SUCCESS;
 }
 
 /**
@@ -135,14 +78,14 @@ static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_meta
         .len = strlen(item->name),
     };
 
-    if (!stow_cbor_map_start(encoder, 9) || !zcbor_tstr_put_lit(encoder, "id") ||
-        !zcbor_uint32_put(encoder, item->id) || !zcbor_tstr_put_lit(encoder, "name") ||
+    if (!stow_cbor_map_start(encoder, 9) || !zcbor_uint32_put(encoder, STOW_DESCRIBE_ID) ||
+        !zcbor_uint32_put(encoder, item->id) || !zcbor_uint32_put(encoder, STOW_DESCRIBE_NAME) ||
         !zcbor_tstr_encode(encoder, &name_str))
     {
         return -ENOMEM;
     }
 
-    if (!zcbor_tstr_put_lit(encoder, "categories") || !stow_cbor_list_start(encoder, item->category_count))
+    if (!zcbor_uint32_put(encoder, STOW_DESCRIBE_CATEGORIES) || !stow_cbor_list_start(encoder, item->category_count))
     {
         return -ENOMEM;
     }
@@ -158,17 +101,17 @@ static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_meta
         }
     }
 
-    if (!zcbor_tstr_put_lit(encoder, "storage") || !tstr_put(encoder, storage_type_strings[item->storage_type]) ||
-        !zcbor_tstr_put_lit(encoder, "read_perm") ||
-        encode_role_list(encoder, item->permissions.read_permissions) != SUCCESS ||
-        !zcbor_tstr_put_lit(encoder, "write_perm") ||
-        encode_role_list(encoder, item->permissions.write_permissions) != SUCCESS ||
-        !zcbor_tstr_put_lit(encoder, "type") || !tstr_put(encoder, item_type_strings[item->type]))
+    if (!zcbor_uint32_put(encoder, STOW_DESCRIBE_STORAGE) || !zcbor_uint32_put(encoder, item->storage_type) ||
+        !zcbor_uint32_put(encoder, STOW_DESCRIBE_READ_PERM) ||
+        !zcbor_uint32_put(encoder, item->permissions.read_permissions) ||
+        !zcbor_uint32_put(encoder, STOW_DESCRIBE_WRITE_PERM) ||
+        !zcbor_uint32_put(encoder, item->permissions.write_permissions) ||
+        !zcbor_uint32_put(encoder, STOW_DESCRIBE_TYPE) || !zcbor_uint32_put(encoder, item->type))
     {
         return -ENOMEM;
     }
 
-    if (!zcbor_tstr_put_lit(encoder, "default"))
+    if (!zcbor_uint32_put(encoder, STOW_DESCRIBE_DEFAULT))
     {
         return -ENOMEM;
     }
@@ -179,7 +122,7 @@ static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_meta
         return ret;
     }
 
-    if (!zcbor_tstr_put_lit(encoder, "constraints"))
+    if (!zcbor_uint32_put(encoder, STOW_DESCRIBE_CONSTRAINTS))
     {
         return -ENOMEM;
     }

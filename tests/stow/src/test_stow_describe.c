@@ -48,9 +48,10 @@ ZTEST(stow_describe, test_filter_describes_only_selected_items)
 
     ZCBOR_STATE_D(dec, 3, buf, enc[0].payload - buf, 1, 0);
     zassert_true(zcbor_map_start_decode(dec));
-    struct zcbor_string key;
+    uint32_t key;
     uint32_t id;
-    zassert_true(zcbor_tstr_decode(dec, &key));
+    zassert_true(zcbor_uint32_decode(dec, &key));
+    zassert_equal(key, STOW_DESCRIBE_ID);
     zassert_true(zcbor_uint32_decode(dec, &id));
     zassert_equal(id, STOW_ID_TEST_INT);
     for (int i = 0; i < 8 * 2; i++)
@@ -124,13 +125,12 @@ ZTEST(stow_describe, test_chunked_describe_covers_all_items)
     zassert_equal(items_encoded, STOW_ID_COUNT);
 }
 
-#define EXPECT_KEY(dec_state, expected_str)                                                                          \
-    do                                                                                                               \
-    {                                                                                                                \
-        struct zcbor_string key;                                                                                     \
-        zassert_true(zcbor_tstr_decode(dec_state, &key), "Failed to decode key");                                    \
-        zassert_equal(key.len, strlen(expected_str), "Key length mismatch for %s", expected_str);                    \
-        zassert_mem_equal(key.value, expected_str, strlen(expected_str), "Key mismatch, expected %s", expected_str); \
+#define EXPECT_KEY(dec_state, expected_key)                                                 \
+    do                                                                                      \
+    {                                                                                       \
+        uint32_t key;                                                                       \
+        zassert_true(zcbor_uint32_decode(dec_state, &key), "Failed to decode key");         \
+        zassert_equal(key, (expected_key), "Expected key %u, got %u", (expected_key), key); \
     } while (0)
 
 ZTEST(stow_describe, test_describe_encoding)
@@ -151,42 +151,137 @@ ZTEST(stow_describe, test_describe_encoding)
     // Start map decode
     zassert_true(zcbor_map_start_decode(dec), "Failed to start map decode");
 
+    const struct stow_item_const_metadata* item = &g_stow_const_metadata[0];
+
     // id
-    EXPECT_KEY(dec, "id");
+    EXPECT_KEY(dec, STOW_DESCRIBE_ID);
     zassert_true(zcbor_uint32_decode(dec, &val_u32), "Failed to decode id");
+    zassert_equal(val_u32, 0);
 
     // name
-    EXPECT_KEY(dec, "name");
+    EXPECT_KEY(dec, STOW_DESCRIBE_NAME);
     zassert_true(zcbor_tstr_decode(dec, &val_tstr), "Failed to decode name");
 
     // categories (Skip the value)
-    EXPECT_KEY(dec, "categories");
+    EXPECT_KEY(dec, STOW_DESCRIBE_CATEGORIES);
     zassert_true(zcbor_any_skip(dec, NULL), "Failed to skip 'categories' value");
 
     // storage
-    EXPECT_KEY(dec, "storage");
-    zassert_true(zcbor_tstr_decode(dec, &val_tstr), "Failed to decode storage");
+    EXPECT_KEY(dec, STOW_DESCRIBE_STORAGE);
+    zassert_true(zcbor_uint32_decode(dec, &val_u32), "Failed to decode storage");
+    zassert_equal(val_u32, item->storage_type);
 
     // read_perm
-    EXPECT_KEY(dec, "read_perm");
-    zassert_true(zcbor_any_skip(dec, NULL), "Failed to skip 'read_perm' value");
+    EXPECT_KEY(dec, STOW_DESCRIBE_READ_PERM);
+    zassert_true(zcbor_uint32_decode(dec, &val_u32), "Failed to decode read_perm");
+    zassert_equal(val_u32, item->permissions.read_permissions);
 
     // write_perm
-    EXPECT_KEY(dec, "write_perm");
-    zassert_true(zcbor_any_skip(dec, NULL), "Failed to skip 'write_perm' value");
+    EXPECT_KEY(dec, STOW_DESCRIBE_WRITE_PERM);
+    zassert_true(zcbor_uint32_decode(dec, &val_u32), "Failed to decode write_perm");
+    zassert_equal(val_u32, item->permissions.write_permissions);
 
     // type
-    EXPECT_KEY(dec, "type");
-    zassert_true(zcbor_tstr_decode(dec, &val_tstr), "Failed to decode type");
+    EXPECT_KEY(dec, STOW_DESCRIBE_TYPE);
+    zassert_true(zcbor_uint32_decode(dec, &val_u32), "Failed to decode type");
+    zassert_equal(val_u32, item->type);
 
     // default (Skip the value)
-    EXPECT_KEY(dec, "default");
+    EXPECT_KEY(dec, STOW_DESCRIBE_DEFAULT);
     zassert_true(zcbor_any_skip(dec, NULL), "Failed to skip 'default' value");
 
     // constraints (Skip the value)
-    EXPECT_KEY(dec, "constraints");
+    EXPECT_KEY(dec, STOW_DESCRIBE_CONSTRAINTS);
     zassert_true(zcbor_any_skip(dec, NULL), "Failed to skip 'constraints' value");
 
     // End map decode
     zassert_true(zcbor_map_end_decode(dec), "Failed to end map decode");
+}
+
+/**
+ * @brief Describe one item and position a decoder at its constraints
+ *
+ * @return Encoded length
+ */
+static size_t describe_to_constraints(uint32_t id, uint8_t* buf, size_t size, zcbor_state_t* dec, size_t dec_states)
+{
+    ATOMIC_DEFINE(filter, STOW_ID_COUNT) = { 0 };
+    atomic_set_bit(filter, (int)id);
+    zcbor_state_t enc[4];
+    zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, size, STOW_ID_COUNT);
+    uint32_t next_id = 0;
+    zassert_equal(stow_describe(0, filter, enc, &next_id), 0);
+    size_t len = enc[0].payload - buf;
+
+    zcbor_new_decode_state(dec, dec_states, buf, len, 1, NULL, 0);
+    zassert_true(zcbor_map_start_decode(dec));
+    for (uint32_t key = STOW_DESCRIBE_ID; key < STOW_DESCRIBE_CONSTRAINTS; key++)
+    {
+        EXPECT_KEY(dec, key);
+        zassert_true(zcbor_any_skip(dec, NULL));
+    }
+    EXPECT_KEY(dec, STOW_DESCRIBE_CONSTRAINTS);
+    return len;
+}
+
+ZTEST(stow_describe, test_float_constraints_use_integer_keys)
+{
+    uint8_t buf[256];
+    zcbor_state_t dec[6];
+    describe_to_constraints(STOW_ID_TEST_FLOAT, buf, sizeof(buf), dec, ARRAY_SIZE(dec));
+    const struct stow_float_constraints* expected =
+        &g_stow_const_metadata[STOW_ID_TEST_FLOAT].constraints.float_constraints;
+
+    float min = 0;
+    float max = 0;
+    zassert_true(zcbor_map_start_decode(dec));
+    EXPECT_KEY(dec, STOW_CONSTRAINT_MIN);
+    zassert_true(zcbor_float32_decode(dec, &min));
+    EXPECT_KEY(dec, STOW_CONSTRAINT_MAX);
+    zassert_true(zcbor_float32_decode(dec, &max));
+    zassert_true(zcbor_map_end_decode(dec));
+    zassert_equal(min, expected->min);
+    zassert_equal(max, expected->max);
+}
+
+ZTEST(stow_describe, test_enum_constraints_use_integer_keys)
+{
+    uint8_t buf[256];
+    zcbor_state_t dec[6];
+    describe_to_constraints(STOW_ID_TEST_ENUM, buf, sizeof(buf), dec, ARRAY_SIZE(dec));
+
+    int32_t value = -1;
+    struct zcbor_string name;
+    zassert_true(zcbor_list_start_decode(dec));
+    zassert_true(zcbor_map_start_decode(dec));
+    EXPECT_KEY(dec, STOW_ENUM_CONSTRAINT_VALUE);
+    zassert_true(zcbor_int32_decode(dec, &value));
+    EXPECT_KEY(dec, STOW_ENUM_CONSTRAINT_NAME);
+    zassert_true(zcbor_tstr_decode(dec, &name));
+    zassert_true(zcbor_map_end_decode(dec));
+    zassert_equal(value, 0);
+    zassert_equal(name.len, strlen("RED"));
+    zassert_mem_equal(name.value, "RED", name.len);
+}
+
+ZTEST(stow_describe, test_struct_field_constraints_use_integer_keys)
+{
+    uint8_t buf[1024];
+    zcbor_state_t dec[8];
+    describe_to_constraints(STOW_ID_TEST_STRUCT_ITEM, buf, sizeof(buf), dec, ARRAY_SIZE(dec));
+
+    struct zcbor_string name;
+    uint32_t type = 0;
+    zassert_true(zcbor_list_start_decode(dec));
+    zassert_true(zcbor_map_start_decode(dec));
+    EXPECT_KEY(dec, STOW_FIELD_CONSTRAINT_NAME);
+    zassert_true(zcbor_tstr_decode(dec, &name));
+    EXPECT_KEY(dec, STOW_FIELD_CONSTRAINT_TYPE);
+    zassert_true(zcbor_uint32_decode(dec, &type));
+    EXPECT_KEY(dec, STOW_FIELD_CONSTRAINT_CONSTRAINTS);
+    zassert_true(zcbor_any_skip(dec, NULL));
+    zassert_true(zcbor_map_end_decode(dec));
+    zassert_equal(name.len, strlen("IntField"));
+    zassert_mem_equal(name.value, "IntField", name.len);
+    zassert_equal(type, STOW_ITEM_TYPE_INT);
 }

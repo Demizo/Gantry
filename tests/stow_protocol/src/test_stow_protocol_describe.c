@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <gantry/stow/stow_describe.h>
 #include <zephyr/fatal.h>
 
 #include "test_common.h"
@@ -13,12 +14,21 @@
 #define SESSION_SMALL 23
 
 #define SMALL_BUF_SIZE 48
+#define NARROW_BUF_SIZE 160
 
 NET_BUF_POOL_DEFINE(small_pool, 2, SMALL_BUF_SIZE, 0, NULL);
+NET_BUF_POOL_DEFINE(narrow_pool, 4, NARROW_BUF_SIZE, 0, NULL);
 
 static struct stow_transport small_transport = {
     .send = NULL,
     .pool = &small_pool,
+    .headroom = 0U,
+    .tailroom = 0U,
+};
+
+static struct stow_transport narrow_transport = {
+    .send = NULL,
+    .pool = &narrow_pool,
     .headroom = 0U,
     .tailroom = 0U,
 };
@@ -170,8 +180,9 @@ static size_t parse_chunk(const uint8_t* chunk, size_t len, uint32_t* ids)
     while (dec[0].payload < start + body_len)
     {
         zassert_true(zcbor_map_start_decode(dec), "chunk holds a partial item");
-        struct zcbor_string key;
-        zassert_true(zcbor_tstr_decode(dec, &key));
+        uint32_t key;
+        zassert_true(zcbor_uint32_decode(dec, &key));
+        zassert_equal(key, STOW_DESCRIBE_ID);
         zassert_true(zcbor_uint32_decode(dec, &ids[count]));
         for (int i = 0; i < 8 * 2; i++)
         {
@@ -336,7 +347,8 @@ ZTEST(stow_protocol_describe, test_filter_with_no_known_names_is_empty)
 
 ZTEST(stow_protocol_describe, test_filter_chunks_over_matching_items)
 {
-    test_open_session(SESSION_A, STOW_ROLE_GUEST);
+    narrow_transport.send = test_transport.send;
+    zassert_equal(test_endpoint_open(SESSION_A, STOW_ROLE_GUEST, &narrow_transport), 0);
 
     const char* const names[] = { "StowHash", "TestSessionInt", "TestLongString" };
     uint8_t chunk[TEST_BUF_DATA_SIZE];

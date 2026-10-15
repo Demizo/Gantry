@@ -130,8 +130,8 @@ static int encode_constraints(zcbor_state_t* encoder, const union stow_constrain
             .len = strlen(values[i].name),
         };
 
-        if (!stow_cbor_map_start(encoder, 2) || !zcbor_tstr_put_lit(encoder, "value") ||
-            !zcbor_int32_put(encoder, values[i].value) || !zcbor_tstr_put_lit(encoder, "name") ||
+        if (!stow_cbor_map_start(encoder, 2) || !zcbor_uint32_put(encoder, STOW_ENUM_CONSTRAINT_VALUE) ||
+            !zcbor_int32_put(encoder, values[i].value) || !zcbor_uint32_put(encoder, STOW_ENUM_CONSTRAINT_NAME) ||
             !zcbor_tstr_encode(encoder, &name_str))
         {
             return -ENOMEM;

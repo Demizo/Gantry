@@ -113,8 +113,9 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
 
 static int encode_constraints(zcbor_state_t* encoder, const union stow_constraints* constraints)
 {
-    if (!stow_cbor_map_start(encoder, 2) || !zcbor_tstr_put_lit(encoder, "min") ||
-        !zcbor_float32_put(encoder, constraints->float_constraints.min) || !zcbor_tstr_put_lit(encoder, "max") ||
+    if (!stow_cbor_map_start(encoder, 2) || !zcbor_uint32_put(encoder, STOW_CONSTRAINT_MIN) ||
+        !zcbor_float32_put(encoder, constraints->float_constraints.min) ||
+        !zcbor_uint32_put(encoder, STOW_CONSTRAINT_MAX) ||
         !zcbor_float32_put(encoder, constraints->float_constraints.max))
     {
         return -ENOMEM;

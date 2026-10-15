@@ -33,6 +33,22 @@
 //* Typedefs, Enums, and Structs
 //**********************************************************
 
+/**
+ * @brief Keys of the map that describes one item
+ */
+enum stow_describe_key
+{
+    STOW_DESCRIBE_ID = 0,          /**< Item ID */
+    STOW_DESCRIBE_NAME = 1,        /**< Item name */
+    STOW_DESCRIBE_CATEGORIES = 2,  /**< Category names */
+    STOW_DESCRIBE_STORAGE = 3,     /**< @ref stow_storage_type */
+    STOW_DESCRIBE_READ_PERM = 4,   /**< Bitmask of the roles that may read the item */
+    STOW_DESCRIBE_WRITE_PERM = 5,  /**< Bitmask of the roles that may write the item */
+    STOW_DESCRIBE_TYPE = 6,        /**< @ref stow_item_type */
+    STOW_DESCRIBE_DEFAULT = 7,     /**< Default value */
+    STOW_DESCRIBE_CONSTRAINTS = 8, /**< Type-specific constraints */
+};
+
 //**********************************************************
 //* Functions
 //**********************************************************

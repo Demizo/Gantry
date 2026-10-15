@@ -40,20 +40,15 @@
  */
 enum stow_item_type
 {
-    STOW_ITEM_TYPE_ENUM,
-    STOW_ITEM_TYPE_INT,
-    STOW_ITEM_TYPE_FLOAT,
-    STOW_ITEM_TYPE_STRING,
-    STOW_ITEM_TYPE_BYTE_ARRAY,
-    STOW_ITEM_TYPE_BUFFER,
-    STOW_ITEM_TYPE_STRUCT,
+    STOW_ITEM_TYPE_ENUM = 0,
+    STOW_ITEM_TYPE_INT = 1,
+    STOW_ITEM_TYPE_FLOAT = 2,
+    STOW_ITEM_TYPE_STRING = 3,
+    STOW_ITEM_TYPE_BYTE_ARRAY = 4,
+    STOW_ITEM_TYPE_BUFFER = 5,
+    STOW_ITEM_TYPE_STRUCT = 6,
     STOW_ITEM_TYPE_COUNT
 };
-
-/**
- * @brief String representation of each item type
- */
-extern const char* const item_type_strings[];
 
 /**
  * @brief Union of raw values for each data type
@@ -77,13 +72,41 @@ typedef struct
 } data_value_t;
 
 /**
+ * @brief Keys of the map that bounds an Int or Float value, or the length of a String, Byte Array or Buffer
+ */
+enum stow_constraint_key
+{
+    STOW_CONSTRAINT_MIN = 0, /**< Minimum value or length */
+    STOW_CONSTRAINT_MAX = 1, /**< Maximum value or length */
+};
+
+/**
+ * @brief Keys of the map that describes one value of an Enum
+ */
+enum stow_enum_constraint_key
+{
+    STOW_ENUM_CONSTRAINT_VALUE = 0, /**< Number of the value */
+    STOW_ENUM_CONSTRAINT_NAME = 1,  /**< Name of the value */
+};
+
+/**
+ * @brief Keys of the map that describes one field of a Struct
+ */
+enum stow_field_constraint_key
+{
+    STOW_FIELD_CONSTRAINT_NAME = 0,        /**< Name of the field */
+    STOW_FIELD_CONSTRAINT_TYPE = 1,        /**< @ref stow_item_type of the field */
+    STOW_FIELD_CONSTRAINT_CONSTRAINTS = 2, /**< Constraints of the field */
+};
+
+/**
  * @brief Storage types for stow items
  */
 enum stow_storage_type
 {
-    STOW_STORAGE_EPHEMERAL,  /**< Items are reset to their default value upon reboot */
-    STOW_STORAGE_PERSISTENT, /**< Items are stored in non-volatile storage. Their values persist across reboots. */
-    STOW_STORAGE_TOFU,       /**< Item can be written while at its default value. It cannot be changed again. */
+    STOW_STORAGE_EPHEMERAL = 0,  /**< Items are reset to their default value upon reboot */
+    STOW_STORAGE_PERSISTENT = 1, /**< Items are stored in non-volatile storage. Their values persist across reboots. */
+    STOW_STORAGE_TOFU = 2,       /**< Item can be written while at its default value. It cannot be changed again. */
     STOW_STORAGE_COUNT
 };
 
