@@ -14,11 +14,10 @@
 
 #include "ble_interface.h"
 
-#include <gantry/cobs_framer.h>
 #include <gantry/error.h>
 #include <gantry/memory.h>
 #include <gantry/module.h>
-#include <gantry/stow/stow_protocol.h>
+#include <gantry/stow/stow_cobs_transport.h>
 #include <generated_stow_items.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/conn.h>
@@ -54,7 +53,6 @@ static ssize_t nus_rx_write(
 static void nus_tx_ccc_changed(const struct bt_gatt_attr* attr, uint16_t value);
 static int ble_interface_tx(const uint8_t* data, uint16_t len);
 static int ble_notify(struct bt_conn* conn, const uint8_t* data, uint16_t len);
-static void rx_frame_cb(struct net_buf* buf, void* user_data);
 static void ble_interface_init(void);
 static void ble_interface_thread(void* arg1, void* arg2, void* arg3);
 
@@ -63,23 +61,18 @@ static void ble_interface_thread(void* arg1, void* arg2, void* arg3);
 //**********************************************************
 
 K_MSGQ_DEFINE(ble_interface_queue, sizeof(event_t*), CONFIG_BLE_INTERFACE_QUEUE_DEPTH, sizeof(void*));
+K_MSGQ_DEFINE(ble_tx_queue, sizeof(struct net_buf*), CONFIG_BLE_INTERFACE_QUEUE_DEPTH, sizeof(void*));
 
 // Module registration
 GANTRY_MODULE_DEFINE(
     ble_interface, ble_interface_init, ble_interface_thread, CONFIG_BLE_INTERFACE_STACK_SIZE,
     CONFIG_BLE_INTERFACE_THREAD_PRIORITY);
 
-// Shared response pool from session manager
-extern struct net_buf_pool* const response_pool_ptr;
-
 // Pool for received data
 NET_BUF_POOL_DEFINE(ble_rx_pool, CONFIG_BLE_INTERFACE_RX_POOL_COUNT, CONFIG_BLE_INTERFACE_RX_POOL_BUF_SIZE, 0, NULL);
 
 // The current BLE connection
 static struct bt_conn* current_conn;
-
-// COBS decoder for incoming messages
-static struct cobs_frame_decoder frame_decoder;
 
 // Callbacks for tracking BLE connection state
 BT_CONN_CB_DEFINE(ble_interface_conn_cb) = {
@@ -124,6 +117,18 @@ static void on_disconnected(struct bt_conn* conn, uint8_t reason)
     {
         bt_conn_unref(old);
     }
+
+    event_t* event = NULL;
+    while (k_msgq_get(&ble_interface_queue, (void*)&event, K_NO_WAIT) == 0)
+    {
+        EVENT_UNREF(&event);
+    }
+
+    struct net_buf* frame = NULL;
+    while (k_msgq_get(&ble_tx_queue, (void*)&frame, K_NO_WAIT) == 0)
+    {
+        net_buf_unref(frame);
+    }
 }
 
 static ssize_t nus_rx_write(
@@ -152,7 +157,7 @@ static ssize_t nus_rx_write(
     net_buf_add_mem(buf, data, len);
 
     event_t* event = NULL;
-    int ret = msg_event_alloc(MSG_MEDIUM_BLE, MSG_DIRECTION_RX, buf, &event);
+    int ret = msg_event_alloc(buf, &event);
     if (ret != SUCCESS)
     {
         LOG_WRN("Failed to allocate rx event: %d", ret);
@@ -225,30 +230,7 @@ static int ble_notify(struct bt_conn* conn, const uint8_t* data, uint16_t len)
     return SUCCESS;
 }
 
-static void rx_frame_cb(struct net_buf* buf, void* user_data)
-{
-    ARG_UNUSED(user_data);
-
-    int ret = stow_protocol_handle_rx(BLE_SESSION_ID, BLE_SESSION_AUTH, buf);
-    if (ret != SUCCESS)
-    {
-        LOG_WRN("Failed to submit stow protocol message: %d", ret);
-    }
-    net_buf_unref(buf);
-}
-
-static void ble_interface_init(void)
-{
-    // Set up COBS decoder
-    int ret = cobs_frame_decoder_init(&frame_decoder, response_pool_ptr, rx_frame_cb, NULL);
-    if (ret != SUCCESS)
-    {
-        LOG_ERR("Failed to create COBS decoder: %d", ret);
-        return;
-    }
-
-    LOG_INF("BLE interface initialized");
-}
+static void ble_interface_init(void) { LOG_INF("BLE interface initialized"); }
 
 static void ble_interface_thread(void* arg1, void* arg2, void* arg3)
 {
@@ -257,78 +239,50 @@ static void ble_interface_thread(void* arg1, void* arg2, void* arg3)
     ARG_UNUSED(arg3);
 
     int ret;
-    k_timepoint_t timeout_timepoint = sys_timepoint_calc(K_FOREVER);
     event_t* event = NULL;
+    struct net_buf* frame = NULL;
+
+    struct k_poll_event poll_events[2] = {
+        K_POLL_EVENT_STATIC_INITIALIZER(
+            K_POLL_TYPE_MSGQ_DATA_AVAILABLE, K_POLL_MODE_NOTIFY_ONLY, &ble_interface_queue, 0),
+        K_POLL_EVENT_STATIC_INITIALIZER(K_POLL_TYPE_MSGQ_DATA_AVAILABLE, K_POLL_MODE_NOTIFY_ONLY, &ble_tx_queue, 0),
+    };
 
     LOG_INF("BLE interface thread started");
 
     while (true)
     {
-        if (k_msgq_get(&ble_interface_queue, (void*)&event, sys_timepoint_timeout(timeout_timepoint)) == 0)
+        k_poll(poll_events, ARRAY_SIZE(poll_events), K_FOREVER);
+
+        while (k_msgq_get(&ble_interface_queue, (void*)&event, K_NO_WAIT) == 0)
         {
             ASSERT(event->type == &msg_event, "Unexpected event type");
 
             struct msg_event_payload* payload = (struct msg_event_payload*)event->data.buf;
-
-            switch (payload->direction)
+            ret = stow_cobs_transport_feed(&ble_link, payload->buf->data, payload->buf->len);
+            if (ret != SUCCESS)
             {
-                case MSG_DIRECTION_RX:
-                    cobs_frame_decoder_feed(&frame_decoder, payload->buf->data, payload->buf->len);
-                    break;
-
-                case MSG_DIRECTION_TX:
-                {
-                    struct net_buf* encoded = NULL;
-                    ret = cobs_frame_encode(response_pool_ptr, payload->buf, &encoded);
-                    if (ret == SUCCESS)
-                    {
-                        ret = ble_interface_tx(encoded->data, encoded->len);
-                        if (ret != SUCCESS && ret != -ENOTCONN)
-                        {
-                            LOG_WRN("Failed to transmit over BLE: %d", ret);
-                        }
-                        net_buf_unref(encoded);
-                    }
-                    else
-                    {
-                        LOG_ERR("COBS encode failed: %d", ret);
-                    }
-                    break;
-                }
+                LOG_WRN("Failed to receive BLE frame: %d", ret);
             }
 
             EVENT_UNREF(&event);
         }
-        else
+
+        while (k_msgq_get(&ble_tx_queue, (void*)&frame, K_NO_WAIT) == 0)
         {
-            // Timed out, nothing to do
+            ret = ble_interface_tx(frame->data, frame->len);
+            if (ret != SUCCESS && ret != -ENOTCONN)
+            {
+                LOG_WRN("Failed to transmit over BLE: %d", ret);
+            }
+            net_buf_unref(frame);
         }
+
+        poll_events[0].state = K_POLL_STATE_NOT_READY;
+        poll_events[1].state = K_POLL_STATE_NOT_READY;
     }
 }
 
 //**********************************************************
 //* Public Function Definitions
 //**********************************************************
-
-void ble_interface_send(struct net_buf* buf)
-{
-    event_t* event = NULL;
-    int ret = msg_event_alloc(MSG_MEDIUM_BLE, MSG_DIRECTION_TX, buf, &event);
-    if (ret != SUCCESS)
-    {
-        LOG_ERR("Failed to allocate outgoing message: %d", ret);
-        net_buf_unref(buf);
-        return;
-    }
-
-    // Pass the message event to the thread
-    ret = k_msgq_put(&ble_interface_queue, (const void*)&event, K_NO_WAIT);
-    if (ret != SUCCESS)
-    {
-        LOG_WRN("Failed to queue outgoing message event");
-        EVENT_UNREF(&event);
-    }
-
-    // Freed when processed by the thread
-    PASS_OWNERSHIP(event);
-}

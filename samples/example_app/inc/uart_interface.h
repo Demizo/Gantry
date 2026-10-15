@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include <zephyr/net_buf.h>
+#include <zephyr/kernel.h>
 #include <zephyr/types.h>
 
 //**********************************************************
@@ -26,13 +26,11 @@
 //* Typedefs, Enums, and Structs
 //**********************************************************
 
+/**
+ * @brief Encoded frames waiting to be sent over UART, as `struct net_buf*`
+ */
+extern struct k_msgq uart_tx_queue;
+
 //**********************************************************
 //* Functions
 //**********************************************************
-
-/**
- * @brief Transmit a message over UART
- *
- * @param buf Message buffer to send
- */
-void uart_interface_send(struct net_buf* buf);

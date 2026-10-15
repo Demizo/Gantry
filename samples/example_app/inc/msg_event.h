@@ -29,22 +29,8 @@
 //* Typedefs, Enums, and Structs
 //**********************************************************
 
-enum msg_medium
-{
-    MSG_MEDIUM_UART = 0,
-    MSG_MEDIUM_BLE,
-};
-
-enum msg_direction
-{
-    MSG_DIRECTION_RX = 0,
-    MSG_DIRECTION_TX,
-};
-
 struct msg_event_payload
 {
-    enum msg_medium medium;
-    enum msg_direction direction;
     struct net_buf* buf;
 };
 
@@ -57,12 +43,10 @@ DECLARE_EVENT_TYPE(msg_event);
 /**
  * @brief Allocate a message event.
  *
- * @param[in] medium Transport medium
- * @param[in] direction Direction of the message
  * @param[in] buf net_buf containing the message
  * @param[out] event_ptr Populated with the allocated event on success
  *
  * @return SUCCESS or a negative error code.
  * @acquires memory event_ptr on-success
  */
-int msg_event_alloc(enum msg_medium medium, enum msg_direction direction, struct net_buf* buf, event_t** event_ptr);
+int msg_event_alloc(struct net_buf* buf, event_t** event_ptr);

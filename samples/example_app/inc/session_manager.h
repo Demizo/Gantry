@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <gantry/stow/stow_cobs_transport.h>
 #include <stdint.h>
 #include <zephyr/net_buf.h>
 
@@ -30,6 +31,16 @@
 //**********************************************************
 //* Typedefs, Enums, and Structs
 //**********************************************************
+
+/**
+ * @brief Raw COBS transport for the UART link
+ */
+extern struct stow_cobs_transport uart_link;
+
+/**
+ * @brief Raw COBS transport for the BLE link
+ */
+extern struct stow_cobs_transport ble_link;
 
 //**********************************************************
 //* Functions

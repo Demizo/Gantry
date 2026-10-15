@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include <zephyr/net_buf.h>
+#include <zephyr/kernel.h>
 #include <zephyr/types.h>
 
 //**********************************************************
@@ -34,13 +34,11 @@
 //* Typedefs, Enums, and Structs
 //**********************************************************
 
+/**
+ * @brief Encoded frames waiting to be sent over BLE, as `struct net_buf*`
+ */
+extern struct k_msgq ble_tx_queue;
+
 //**********************************************************
 //* Functions
 //**********************************************************
-
-/**
- * @brief Transmit a message over BLE
- *
- * @param buf Message buffer to send
- */
-void ble_interface_send(struct net_buf* buf);

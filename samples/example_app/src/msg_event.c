@@ -52,7 +52,7 @@ static void on_free(event_t* event)
 //* Public Function Definitions
 //**********************************************************
 
-int msg_event_alloc(enum msg_medium medium, enum msg_direction direction, struct net_buf* buf, event_t** event_ptr)
+int msg_event_alloc(struct net_buf* buf, event_t** event_ptr)
 {
     int ret = EVENT_ALLOC(&msg_event, sizeof(struct msg_event_payload), event_ptr);
     if (ret != SUCCESS)
@@ -61,8 +61,6 @@ int msg_event_alloc(enum msg_medium medium, enum msg_direction direction, struct
     }
 
     struct msg_event_payload* payload = (struct msg_event_payload*)(*event_ptr)->data.buf;
-    payload->medium = medium;
-    payload->direction = direction;
     payload->buf = buf;
 
     PASS_OWNERSHIP(event_ptr);

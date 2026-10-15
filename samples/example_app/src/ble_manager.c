@@ -19,8 +19,8 @@
 #include <gantry/flags.h>
 #include <gantry/module.h>
 #include <gantry/stow/stow.h>
+#include <gantry/stow/stow_cobs_transport.h>
 #include <gantry/stow/stow_event.h>
-#include <gantry/stow/stow_protocol.h>
 #include <generated_stow_enums.h>
 #include <generated_stow_items.h>
 #include <zephyr/bluetooth/bluetooth.h>
@@ -114,7 +114,7 @@ static void on_connected(struct bt_conn* conn, uint8_t err)
     (void)STOW_SET(STOW_ID_BLE_CONNECTION_STATE, value);
 
     // Open the Stow session
-    ret = stow_protocol_session_open(BLE_SESSION_ID, BLE_SESSION_AUTH);
+    ret = stow_cobs_transport_open(&ble_link);
     if (ret != SUCCESS)
     {
         LOG_ERR("Failed to open BLE session: %d", ret);
@@ -130,7 +130,6 @@ static void on_connected(struct bt_conn* conn, uint8_t err)
 
 static void on_disconnected(struct bt_conn* conn, uint8_t reason)
 {
-    int ret;
     char address[BT_ADDR_LE_STR_LEN];
 
     // Update the connection state
@@ -141,11 +140,7 @@ static void on_disconnected(struct bt_conn* conn, uint8_t reason)
     (void)STOW_SET(STOW_ID_BLE_CONNECTION_STATE, value);
 
     // Close the Stow session
-    ret = stow_protocol_session_closed(BLE_SESSION_ID);
-    if (ret != SUCCESS)
-    {
-        LOG_ERR("Failed to close BLE session: %d", ret);
-    }
+    stow_cobs_transport_close(&ble_link);
 
     if (current_conn != NULL)
     {

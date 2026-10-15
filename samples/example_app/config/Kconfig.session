@@ -4,8 +4,8 @@ config SESSION_MANAGER_LOG_LEVEL
     int "Session manager log level"
     default 3
 
-config SESSION_MANAGER_MAX_RESPONSE_SIZE
-    int "Maximum size for responses (bytes)"
+config SESSION_MANAGER_MAX_MESSAGE_SIZE
+    int "Maximum Stow message size (bytes)"
     default 1024
 
 
