@@ -28,6 +28,21 @@ if(NOT GEN_RESULT EQUAL 0)
     message(FATAL_ERROR "Failed to generate test stow items from ${TEST_STOW_YAML}")
 endif()
 
+set(VECTORS_FILE ${GANTRY_ROOT}/protocols/stow/vectors.json)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${VECTORS_FILE})
+
+execute_process(
+    COMMAND ${UV_CMD} run ${CMAKE_CURRENT_SOURCE_DIR}/generate_vectors.py
+            --vectors ${VECTORS_FILE}
+            --output  ${GENERATED_DIR}/inc/stow/generated_vectors.h
+    WORKING_DIRECTORY ${GANTRY_ROOT}
+    RESULT_VARIABLE VECTOR_RESULT
+    OUTPUT_QUIET
+)
+if(NOT VECTOR_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to generate golden vectors from ${VECTORS_FILE}")
+endif()
+
 file(GLOB GENERATED_STRUCT_SOURCES
     ${GENERATED_DIR}/src/stow/generated_struct_*.c)
 
@@ -43,6 +58,7 @@ target_sources(app PRIVATE
     src/test_stow_cobs_transport.c
     src/test_stow_protocol_errors.c
     src/test_stow_protocol_hello.c
+    src/test_stow_protocol_vectors.c
     src/stow_storage_stub.c
     ${GENERATED_DIR}/src/stow/generated_stow_items.c
     ${GENERATED_DIR}/src/stow/generated_stow_enums.c
