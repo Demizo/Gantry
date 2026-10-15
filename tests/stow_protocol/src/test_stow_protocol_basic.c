@@ -302,10 +302,10 @@ ZTEST(stow_protocol_basic, test_error_contains_code)
 }
 
 //**********************************************************
-//* Multi-Get
+//* Get several items
 //**********************************************************
 
-ZTEST(stow_protocol_basic, test_multi_get_returns_all_values)
+ZTEST(stow_protocol_basic, test_get_returns_every_value)
 {
     open_session(STOW_ROLE_GUEST);
 
@@ -316,7 +316,7 @@ ZTEST(stow_protocol_basic, test_multi_get_returns_all_values)
 
     uint8_t req[32];
     uint32_t ids[] = { STOW_ID_TEST_INT, STOW_ID_TEST_INT };
-    int len = test_build_multi_get(req, sizeof(req), ids, 2);
+    int len = test_build_list(req, sizeof(req), STOW_MSG_GET, ids, 2);
     zassert_true(len > 0);
     zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
@@ -326,7 +326,7 @@ ZTEST(stow_protocol_basic, test_multi_get_returns_all_values)
     uint32_t cmd;
     zcbor_state_t dec[4];
     zassert_true(test_decode_response_header(cap.buf, &cmd, dec, ARRAY_SIZE(dec)));
-    zassert_equal(cmd, STOW_MSG_MULTI_GET_RESPONSE, "expected Multi-Get Response cmd 14 (got %u)", cmd);
+    zassert_equal(cmd, STOW_MSG_GET_RESPONSE, "expected Get Response (got %u)", cmd);
 
     uint32_t id0;
     zassert_true(zcbor_uint32_decode(dec, &id0));
@@ -345,27 +345,27 @@ ZTEST(stow_protocol_basic, test_multi_get_returns_all_values)
     net_buf_unref(cap.buf);
 }
 
-ZTEST(stow_protocol_basic, test_multi_get_permission_denied_returns_error)
+ZTEST(stow_protocol_basic, test_get_permission_denied_returns_error)
 {
     open_session(STOW_ROLE_GUEST);
 
     uint8_t req[32];
     uint32_t ids[] = { STOW_ID_TEST_SESSION_INT };
-    int len = test_build_multi_get(req, sizeof(req), ids, 1);
+    int len = test_build_list(req, sizeof(req), STOW_MSG_GET, ids, 1);
     uint32_t cmd = submit_and_get_cmd(req, len);
     zassert_equal(cmd, STOW_MSG_ERROR, "expected Error (got %u)", cmd);
 }
 
 //**********************************************************
-//* Multi-Set
+//* Set several items
 //**********************************************************
 
-ZTEST(stow_protocol_basic, test_multi_set_changes_both_values)
+ZTEST(stow_protocol_basic, test_set_changes_both_values)
 {
     open_session(STOW_ROLE_GUEST);
 
     uint8_t req[32];
-    int len = test_build_multi_set_ints(req, sizeof(req), STOW_ID_TEST_INT, 10, STOW_ID_TEST_INT, 20);
+    int len = test_build_set_ints(req, sizeof(req), STOW_ID_TEST_INT, 10, STOW_ID_TEST_INT, 20);
     zassert_true(len > 0);
     zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
@@ -385,13 +385,13 @@ ZTEST(stow_protocol_basic, test_multi_set_changes_both_values)
     stow_release(STOW_ID_TEST_INT, &v);
 }
 
-ZTEST(stow_protocol_basic, test_multi_set_first_error_stops)
+ZTEST(stow_protocol_basic, test_set_first_error_stops)
 {
     open_session(STOW_ROLE_GUEST);
 
     // First item: invalid value (out of range). Second item: valid but not reached.
     uint8_t req[32];
-    int len = test_build_multi_set_ints(req, sizeof(req), STOW_ID_TEST_INT, 500, STOW_ID_TEST_INT, 30);
+    int len = test_build_set_ints(req, sizeof(req), STOW_ID_TEST_INT, 500, STOW_ID_TEST_INT, 30);
     zassert_true(len > 0);
     zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
@@ -406,7 +406,7 @@ ZTEST(stow_protocol_basic, test_multi_set_first_error_stops)
 
     // No second response should arrive
     struct test_capture extra = test_await_tx(K_MSEC(100));
-    zassert_is_null(extra.buf, "unexpected second response after MSET error");
+    zassert_is_null(extra.buf, "unexpected second response after a Set error");
 }
 
 ZTEST(stow_protocol_basic, test_pipeline_two_messages)

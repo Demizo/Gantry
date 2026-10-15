@@ -168,15 +168,14 @@ int test_build_set_int(uint8_t* out_buf, size_t out_buf_size, uint32_t item_id, 
 int test_build_set_string(uint8_t* out_buf, size_t out_buf_size, uint32_t item_id, const char* value);
 
 /**
- * @brief Encode a Multi-Get request
+ * @brief Encode a request [cmd, id, ...] that names several items
  */
-int test_build_multi_get(uint8_t* out_buf, size_t out_buf_size, const uint32_t* ids, uint8_t count);
+int test_build_list(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, const uint32_t* ids, uint8_t count);
 
 /**
- * @brief Encode a Multi-Set request with two int items
+ * @brief Encode a Set request with two int items
  */
-int test_build_multi_set_ints(
-    uint8_t* out_buf, size_t out_buf_size, uint32_t id1, int32_t val1, uint32_t id2, int32_t val2);
+int test_build_set_ints(uint8_t* out_buf, size_t out_buf_size, uint32_t id1, int32_t val1, uint32_t id2, int32_t val2);
 
 /**
  * @brief Reset shared test state between tests

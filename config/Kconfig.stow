@@ -90,8 +90,4 @@ config STOW_PROTOCOL_DESCRIBE_CHUNK_SIZE
     int "Maximum describe chunk size in bytes"
     default 512
 
-config STOW_PROTOCOL_MULTI_MAX_ITEMS
-    int "Maximum number of items per Multi-Get or Multi-Set request"
-    default 10
-
 endif # STOW_PROTOCOL

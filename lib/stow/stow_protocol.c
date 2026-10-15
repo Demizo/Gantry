@@ -190,10 +190,6 @@ static void handle_subscribe(
     struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
 static void handle_unsubscribe(
     struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
-static void handle_multi_get(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
-static void handle_multi_set(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -442,6 +438,7 @@ static enum stow_error_code error_code_from_errno(int err)
         case -ENOTSUP:
             return STOW_ERR_UNKNOWN_MSG;
         case -EINVAL:
+        case -ENOENT:
             return STOW_ERR_INVALID_ITEM;
         case -ENOMEM:
             return STOW_ERR_OUT_OF_MEMORY;
@@ -617,27 +614,65 @@ static void handle_describe(const struct stow_serde_request* request, struct res
 static void handle_get(
     struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
 {
-    data_value_t value = { 0 };
-    int ret = STOW_GET_EXTERNAL(session->roles, request->item_id, &value);
-    if (ret != SUCCESS)
-    {
-        response_fail(response, ret);
-        return;
-    }
+    zcbor_state_t entries[ZCBOR_STATES];
+    stow_serde_entries_start(request, entries, ARRAY_SIZE(entries));
 
-    ret = stow_serde_encode_get_response(response->encoder, request->item_id, value);
-    STOW_RELEASE(request->item_id, &value);
+    int ret = stow_serde_encode_get_start(response->encoder, request->entry_count);
+    for (uint16_t i = 0; ret == SUCCESS && i < request->entry_count; i++)
+    {
+        uint32_t id = 0;
+        ret = stow_serde_decode_entry(entries, &id);
+        if (ret != SUCCESS)
+        {
+            response_fail(response, ret);
+            return;
+        }
+
+        data_value_t value = { 0 };
+        ret = STOW_GET_EXTERNAL(session->roles, (enum stow_item_id)id, &value);
+        if (ret != SUCCESS)
+        {
+            response_fail(response, ret);
+            return;
+        }
+
+        ret = stow_serde_encode_get_entry(response->encoder, (enum stow_item_id)id, value);
+        STOW_RELEASE((enum stow_item_id)id, &value);
+    }
     response_check(response, ret);
 }
 
 static void handle_set(
     struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
 {
-    int ret = STOW_SET_EXTERNAL(session->roles, request->item_id, request->value);
-    if (ret != SUCCESS)
+    zcbor_state_t entries[ZCBOR_STATES];
+    stow_serde_entries_start(request, entries, ARRAY_SIZE(entries));
+
+    for (uint16_t i = 0; i < request->entry_count; i++)
     {
-        response_fail(response, ret);
-        return;
+        uint32_t id = 0;
+        int ret = stow_serde_decode_entry(entries, &id);
+        if (ret != SUCCESS)
+        {
+            response_fail(response, ret);
+            return;
+        }
+
+        data_value_t value = { 0 };
+        ret = stow_decode(entries, (enum stow_item_id)id, &value);
+        if (ret != SUCCESS)
+        {
+            response_fail(response, ret);
+            return;
+        }
+
+        ret = STOW_SET_EXTERNAL(session->roles, (enum stow_item_id)id, value);
+        STOW_RELEASE((enum stow_item_id)id, &value);
+        if (ret != SUCCESS)
+        {
+            response_fail(response, ret);
+            return;
+        }
     }
     response_ok(response);
 }
@@ -680,11 +715,25 @@ static int add_subscription(struct protocol_session* session, enum stow_item_id 
 static void handle_subscribe(
     struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
 {
-    int ret = add_subscription(session, request->item_id);
-    if (ret != SUCCESS)
+    zcbor_state_t entries[ZCBOR_STATES];
+    stow_serde_entries_start(request, entries, ARRAY_SIZE(entries));
+
+    for (uint16_t i = 0; i < request->entry_count; i++)
     {
-        response_fail(response, ret);
-        return;
+        uint32_t id = 0;
+        int ret = stow_serde_decode_entry(entries, &id);
+        if (ret != SUCCESS)
+        {
+            response_fail(response, ret);
+            return;
+        }
+
+        ret = add_subscription(session, (enum stow_item_id)id);
+        if (ret != SUCCESS)
+        {
+            response_fail(response, ret);
+            return;
+        }
     }
     response_ok(response);
 }
@@ -692,55 +741,19 @@ static void handle_subscribe(
 static void handle_unsubscribe(
     struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
 {
-    remove_subscription(session, request->item_id);
-    response_ok(response);
-}
+    zcbor_state_t entries[ZCBOR_STATES];
+    stow_serde_entries_start(request, entries, ARRAY_SIZE(entries));
 
-static void handle_multi_get(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
-{
-    data_value_t values[CONFIG_STOW_PROTOCOL_MULTI_MAX_ITEMS] = { 0 };
-    uint8_t got = 0;
-    int ret = SUCCESS;
-
-    for (; got < request->multi_count; got++)
+    for (uint16_t i = 0; i < request->entry_count; i++)
     {
-        data_value_t* value_ptr = &values[got];
-        ret = STOW_GET_EXTERNAL(session->roles, request->multi_ids[got], value_ptr);
-        if (ret != SUCCESS)
-        {
-            response_fail(response, ret);
-            break;
-        }
-
-        // Values will be freed in a loop after sending the response
-        PASS_OWNERSHIP(value_ptr)
-    }
-
-    if (ret == SUCCESS)
-    {
-        ret = stow_serde_encode_multi_get_response(response->encoder, request->multi_ids, values, request->multi_count);
-        response_check(response, ret);
-    }
-
-    for (uint8_t i = 0; i < got; i++)
-    {
-        data_value_t* value_ptr = &values[i];
-        STOW_RELEASE(request->multi_ids[i], value_ptr);
-    }
-}
-
-static void handle_multi_set(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
-{
-    for (uint8_t i = 0; i < request->multi_count; i++)
-    {
-        int ret = STOW_SET_EXTERNAL(session->roles, request->multi_ids[i], request->multi_values[i]);
+        uint32_t id = 0;
+        int ret = stow_serde_decode_entry(entries, &id);
         if (ret != SUCCESS)
         {
             response_fail(response, ret);
             return;
         }
+        remove_subscription(session, (enum stow_item_id)id);
     }
     response_ok(response);
 }
@@ -767,12 +780,6 @@ static void dispatch_request(
             break;
         case STOW_MSG_UNSUBSCRIBE:
             handle_unsubscribe(session, request, response);
-            break;
-        case STOW_MSG_MULTI_GET:
-            handle_multi_get(session, request, response);
-            break;
-        case STOW_MSG_MULTI_SET:
-            handle_multi_set(session, request, response);
             break;
         default:
             ASSERT(false, "Unexpected message code");
@@ -818,7 +825,6 @@ static void handle_rx(const struct stow_protocol_event_payload* payload)
         if (open_ret != SUCCESS)
         {
             LOG_ERR("No response buffer for session %u (%d)", session->session_id, open_ret);
-            stow_serde_release_request(&request);
             return;
         }
 
@@ -832,7 +838,6 @@ static void handle_rx(const struct stow_protocol_event_payload* payload)
             response_fail(&response, ret);
         }
 
-        stow_serde_release_request(&request);
         response_send(session, &response);
         if (ret != SUCCESS)
         {

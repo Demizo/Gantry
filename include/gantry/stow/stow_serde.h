@@ -52,14 +52,11 @@ enum stow_message_code
     STOW_MSG_GET = 4,
     STOW_MSG_GET_RESPONSE = 5,
     STOW_MSG_SET = 6,
-    STOW_MSG_MULTI_GET = 7,
-    STOW_MSG_MULTI_GET_RESPONSE = 8,
-    STOW_MSG_MULTI_SET = 9,
-    STOW_MSG_SUBSCRIBE = 10,
-    STOW_MSG_UNSUBSCRIBE = 11,
-    STOW_MSG_UPDATE = 12,
-    STOW_MSG_OK = 13,
-    STOW_MSG_ERROR = 14,
+    STOW_MSG_SUBSCRIBE = 7,
+    STOW_MSG_UNSUBSCRIBE = 8,
+    STOW_MSG_UPDATE = 9,
+    STOW_MSG_OK = 10,
+    STOW_MSG_ERROR = 11,
     STOW_MSG_COUNT,
 };
 
@@ -100,23 +97,18 @@ enum stow_error_code
 };
 
 /**
- * @brief A fully decoded Stow protocol request
+ * @brief A decoded Stow protocol request
  *
- * @details For SET, @ref has_value is true and the caller owns @ref value.
- * For MULTI_SET, owned values are tracked via @ref multi_has_value.
- * All owned values must be released via @ref stow_serde_release_request.
+ * @details Entries are not kept; decode them again with @ref stow_serde_decode_entry.
  */
 struct stow_serde_request
 {
     enum stow_message_code message_code; /**< Message code */
-    enum stow_item_id item_id;           /**< Item ID (GET/SET/SUB/UNSUB) or start ID (DESCRIBE) */
-    bool has_value;                      /**< Whether @ref value is populated (SET) */
-    data_value_t value;                  /**< Decoded value (SET only) */
+    enum stow_item_id item_id;           /**< Start ID of a Describe request */
 
-    uint8_t multi_count;                                               /**< Number of items (MULTI_GET/MULTI_SET) */
-    enum stow_item_id multi_ids[CONFIG_STOW_PROTOCOL_MULTI_MAX_ITEMS]; /**< Item IDs for multi operations */
-    data_value_t multi_values[CONFIG_STOW_PROTOCOL_MULTI_MAX_ITEMS];   /**< Decoded values (MULTI_SET) */
-    bool multi_has_value[CONFIG_STOW_PROTOCOL_MULTI_MAX_ITEMS];        /**< Ownership flags for multi values */
+    const uint8_t* payload; /**< The encoded request, kept to decode its entries again */
+    size_t payload_len;     /**< Length of @ref payload */
+    uint16_t entry_count;   /**< Number of entries in a Get, Set, Subscribe or Unsubscribe request */
 };
 
 //**********************************************************
@@ -124,35 +116,42 @@ struct stow_serde_request
 //**********************************************************
 
 /**
- * @brief Decode a complete Stow protocol request message
+ * @brief Decode and check a complete Stow protocol request
  *
- * @details Attempts to decode the CBOR array as a command.
- * For SET, the value is decoded via @ref stow_decode.
- *
- * @note Regardless of return value, callers should invoke
- * @ref stow_serde_release_request on the request to release any partially
- * decoded value.
+ * @details Every entry is checked without being applied; unknown items are reported when the entries are applied.
  *
  * @param[in] decoder CBOR decoder instance positioned at the start of the request array
  * @param[out] request_out Populated with the decoded request
  *
- * @return SUCCESS when the request was fully decoded
- * @return -EBADMSG when the CBOR is malformed
- * @return -ENOTSUP when the command code is unknown
- * @return -EINVAL when the item ID is not valid
- * @return -ENOMEM when memory cannot be allocated for the decoded value
+ * @return SUCCESS when the request was decoded
+ * @return -EBADMSG when the request is malformed
+ * @return -ENOTSUP when the message code is unknown
+ * @return -EINVAL when a Describe start ID is not valid
+ * @return -ENOMEM when memory cannot be allocated to check a value
  */
 int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request* request_out);
 
 /**
- * @brief Release any owned value within a decoded request
+ * @brief Start decoding the entries of a request again
  *
- * @details Safe to call on a request that was never populated or that failed
- * to decode.
- *
- * @param[in,out] request The request to release
+ * @param request A request that @ref stow_serde_decode_request accepted
+ * @param[out] decoder Decoder positioned at the request's first entry
+ * @param states Number of states in @p decoder
  */
-void stow_serde_release_request(struct stow_serde_request* request);
+void stow_serde_entries_start(const struct stow_serde_request* request, zcbor_state_t* decoder, size_t states);
+
+/**
+ * @brief Decode the item ID of the next entry
+ *
+ * @details A Set entry's value follows the ID; decode it with @ref stow_decode.
+ *
+ * @param decoder Decoder from @ref stow_serde_entries_start
+ * @param[out] id_out Item the entry names
+ *
+ * @return SUCCESS when the entry names a known item
+ * @return -ENOENT when it names an unknown item
+ */
+int stow_serde_decode_entry(zcbor_state_t* decoder, uint32_t* id_out);
 
 /**
  * @brief Encode a Hello Response message
@@ -168,11 +167,11 @@ int stow_serde_encode_hello_response(zcbor_state_t* encoder, const struct stow_s
 /**
  * @brief Encode a Describe Response message
  *
- * @param encoder      CBOR encoder instance
+ * @param encoder CBOR encoder instance
  * @param next_item_id The item ID the client should use in its next Describe request
- * @param has_more     Whether more items remain after this chunk
- * @param chunk        Buffer holding the CBOR describe chunk
- * @param chunk_len    Length of the chunk in bytes
+ * @param has_more Whether more items remain after this chunk
+ * @param chunk Buffer holding the CBOR describe chunk
+ * @param chunk_len Length of the chunk in bytes
  *
  * @return SUCCESS when the response was encoded
  * @return -ENOMEM when the encoder lacks room
@@ -181,16 +180,29 @@ int stow_serde_encode_describe_response(
     zcbor_state_t* encoder, uint32_t next_item_id, bool has_more, const uint8_t* chunk, size_t chunk_len);
 
 /**
- * @brief Encode a Get Response message
+ * @brief Encode the start of a Get Response message
+ *
+ * @details Follow it with @p count calls to @ref stow_serde_encode_get_entry.
  *
  * @param encoder CBOR encoder instance
- * @param id The item's ID
- * @param value The item's value
+ * @param count Number of id/value pairs that follow
  *
- * @return SUCCESS when the response was encoded
+ * @return SUCCESS when the start was encoded
  * @return -ENOMEM when the encoder lacks room
  */
-int stow_serde_encode_get_response(zcbor_state_t* encoder, enum stow_item_id id, data_value_t value);
+int stow_serde_encode_get_start(zcbor_state_t* encoder, uint16_t count);
+
+/**
+ * @brief Encode one id/value pair of a Get Response message
+ *
+ * @param encoder CBOR encoder instance
+ * @param id Item ID
+ * @param value The item's value
+ *
+ * @return SUCCESS when the pair was encoded
+ * @return -ENOMEM when the encoder lacks room
+ */
+int stow_serde_encode_get_entry(zcbor_state_t* encoder, enum stow_item_id id, data_value_t value);
 
 /**
  * @brief Encode an Update message
@@ -203,20 +215,6 @@ int stow_serde_encode_get_response(zcbor_state_t* encoder, enum stow_item_id id,
  * @return -ENOMEM when the encoder lacks room
  */
 int stow_serde_encode_update(zcbor_state_t* encoder, enum stow_item_id id, data_value_t value);
-
-/**
- * @brief Encode a Multi-Get Response message
- *
- * @param encoder CBOR encoder instance
- * @param ids     Array of item IDs, length @p count
- * @param values  Array of item values, length @p count
- * @param count   Number of id/value pairs
- *
- * @return SUCCESS when the response was encoded
- * @return -ENOMEM when the encoder lacks room
- */
-int stow_serde_encode_multi_get_response(
-    zcbor_state_t* encoder, const enum stow_item_id* ids, const data_value_t* values, uint8_t count);
 
 /**
  * @brief Encode an OK response

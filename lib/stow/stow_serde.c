@@ -35,14 +35,93 @@ LOG_MODULE_REGISTER(stow_serde, CONFIG_STOW_SERDE_LOG_LEVEL);
 //**********************************************************
 
 //**********************************************************
+//* Static Function Declarations
+//**********************************************************
+
+static int check_value(zcbor_state_t* decoder, uint32_t id);
+static int check_entries(zcbor_state_t* decoder, struct stow_serde_request* request);
+
+//**********************************************************
+//* Static Function Definitions
+//**********************************************************
+
+/**
+ * @brief Check that a Set value is well formed without keeping it
+ *
+ * @param decoder CBOR decoder positioned at the value
+ * @param id Item the entry names
+ *
+ * @return SUCCESS when the value is well formed
+ * @return -EBADMSG when it is not, or does not decode as a known item's value
+ * @return -ENOMEM when memory cannot be allocated for the decoded value
+ */
+static int check_value(zcbor_state_t* decoder, uint32_t id)
+{
+    if (!stow_is_id_valid(id))
+    {
+        return zcbor_any_skip(decoder, NULL) ? SUCCESS : -EBADMSG;
+    }
+
+    data_value_t value = { 0 };
+    int ret = stow_decode(decoder, (enum stow_item_id)id, &value);
+    if (ret != SUCCESS)
+    {
+        return ret;
+    }
+    stow_release((enum stow_item_id)id, &value);
+    return SUCCESS;
+}
+
+/**
+ * @brief Check every entry of a request without applying or keeping any
+ *
+ * @param decoder CBOR decoder positioned at the first entry
+ * @param[in,out] request Request whose entries are counted
+ *
+ * @return SUCCESS when every entry is well formed
+ * @return -EBADMSG when an entry is malformed or there are none
+ * @return -ENOMEM when memory cannot be allocated for a decoded value
+ */
+static int check_entries(zcbor_state_t* decoder, struct stow_serde_request* request)
+{
+    while (!zcbor_array_at_end(decoder))
+    {
+        uint32_t id = 0;
+        if (!zcbor_uint32_decode(decoder, &id) || request->entry_count == UINT16_MAX)
+        {
+            LOG_WRN("Failed to decode item id in message %u", request->message_code);
+            return -EBADMSG;
+        }
+
+        if (request->message_code == STOW_MSG_SET)
+        {
+            int ret = check_value(decoder, id);
+            if (ret != SUCCESS)
+            {
+                LOG_WRN("Failed to decode value for item %u (%d)", id, ret);
+                return ret;
+            }
+        }
+        request->entry_count++;
+    }
+
+    if (request->entry_count == 0)
+    {
+        LOG_WRN("Message %u names no items", request->message_code);
+        return -EBADMSG;
+    }
+    return SUCCESS;
+}
+
+//**********************************************************
 //* Public Function Definitions
 //**********************************************************
 
 int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request* request_out)
 {
-    int ret = SUCCESS;
-
     memset(request_out, 0, sizeof(*request_out));
+    request_out->payload = decoder->payload;
+    request_out->payload_len = (size_t)(decoder->payload_end - decoder->payload);
 
     if (!zcbor_list_start_decode(decoder))
     {
@@ -56,14 +135,13 @@ int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request*
         LOG_WRN("Failed to decode message code");
         return -EBADMSG;
     }
+    request_out->message_code = (enum stow_message_code)message_code;
 
+    int ret = SUCCESS;
     switch (message_code)
     {
         case STOW_MSG_HELLO:
-        {
-            request_out->message_code = STOW_MSG_HELLO;
             break;
-        }
         case STOW_MSG_DESCRIBE:
         {
             uint32_t start_id = 0;
@@ -77,7 +155,6 @@ int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request*
                 LOG_WRN("Invalid start id %u for describe", start_id);
                 return -EINVAL;
             }
-            request_out->message_code = STOW_MSG_DESCRIBE;
             request_out->item_id = (enum stow_item_id)start_id;
             break;
         }
@@ -85,138 +162,39 @@ int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request*
         case STOW_MSG_SET:
         case STOW_MSG_SUBSCRIBE:
         case STOW_MSG_UNSUBSCRIBE:
-        {
-            uint32_t id = 0;
-            if (!zcbor_uint32_decode(decoder, &id))
-            {
-                LOG_WRN("Failed to decode item id for message %u", message_code);
-                return -EBADMSG;
-            }
-            if (!stow_is_id_valid(id))
-            {
-                LOG_WRN("Invalid item id %u", id);
-                return -EINVAL;
-            }
-            request_out->message_code = (enum stow_message_code)message_code;
-            request_out->item_id = (enum stow_item_id)id;
-
-            if (message_code == STOW_MSG_SET)
-            {
-                data_value_t value = { 0 };
-                ret = stow_decode(decoder, request_out->item_id, &value);
-                if (ret != SUCCESS)
-                {
-                    LOG_WRN("Failed to decode value for item id %u (%d)", id, ret);
-                    return ret;
-                }
-                request_out->value = value;
-                request_out->has_value = true;
-                PASS_OWNERSHIP(value);
-            }
+            ret = check_entries(decoder, request_out);
             break;
-        }
-
-        case STOW_MSG_MULTI_GET:
-        {
-            request_out->message_code = STOW_MSG_MULTI_GET;
-            while (!zcbor_array_at_end(decoder))
-            {
-                if (request_out->multi_count >= CONFIG_STOW_PROTOCOL_MULTI_MAX_ITEMS)
-                {
-                    LOG_WRN("Multi-Get exceeds max items (%u)", CONFIG_STOW_PROTOCOL_MULTI_MAX_ITEMS);
-                    return -EINVAL;
-                }
-                uint32_t id = 0;
-                if (!zcbor_uint32_decode(decoder, &id))
-                {
-                    LOG_WRN("Failed to decode item id in Multi-Get");
-                    return -EBADMSG;
-                }
-                if (!stow_is_id_valid(id))
-                {
-                    LOG_WRN("Invalid item id %u in Multi-Get", id);
-                    return -EINVAL;
-                }
-                request_out->multi_ids[request_out->multi_count++] = (enum stow_item_id)id;
-            }
-            break;
-        }
-
-        case STOW_MSG_MULTI_SET:
-        {
-            request_out->message_code = STOW_MSG_MULTI_SET;
-            while (!zcbor_array_at_end(decoder))
-            {
-                if (request_out->multi_count >= CONFIG_STOW_PROTOCOL_MULTI_MAX_ITEMS)
-                {
-                    LOG_WRN("Multi-Set exceeds max items (%u)", CONFIG_STOW_PROTOCOL_MULTI_MAX_ITEMS);
-                    return -EINVAL;
-                }
-                uint32_t id = 0;
-                if (!zcbor_uint32_decode(decoder, &id))
-                {
-                    LOG_WRN("Failed to decode item id in Multi-Set");
-                    return -EBADMSG;
-                }
-                if (!stow_is_id_valid(id))
-                {
-                    LOG_WRN("Invalid item id %u in Multi-Set", id);
-                    return -EINVAL;
-                }
-                uint8_t i = request_out->multi_count;
-                request_out->multi_ids[i] = (enum stow_item_id)id;
-
-                data_value_t value = { 0 };
-                ret = stow_decode(decoder, (enum stow_item_id)id, &value);
-                if (ret != SUCCESS)
-                {
-                    LOG_WRN("Failed to decode value for item %u in Multi-Set (%d)", id, ret);
-                    return ret;
-                }
-                request_out->multi_values[i] = value;
-                request_out->multi_has_value[i] = true;
-                request_out->multi_count++;
-                PASS_OWNERSHIP(value);
-            }
-            break;
-        }
-
         default:
             LOG_WRN("Unknown message code %u", message_code);
             return -ENOTSUP;
+    }
+    if (ret != SUCCESS)
+    {
+        return ret;
     }
 
     if (!zcbor_list_end_decode(decoder))
     {
         LOG_WRN("Message list not closed");
-        stow_serde_release_request(request_out);
         return -EBADMSG;
     }
 
     return SUCCESS;
 }
 
-void stow_serde_release_request(struct stow_serde_request* request)
+void stow_serde_entries_start(const struct stow_serde_request* request, zcbor_state_t* decoder, size_t states)
 {
-    if (request == NULL)
-    {
-        return;
-    }
-    if (request->has_value)
-    {
-        data_value_t value = request->value;
-        stow_release(request->item_id, &value);
-        request->has_value = false;
-    }
-    for (uint8_t i = 0; i < request->multi_count; i++)
-    {
-        if (request->multi_has_value[i])
-        {
-            data_value_t value = request->multi_values[i];
-            stow_release(request->multi_ids[i], &value);
-            request->multi_has_value[i] = false;
-        }
-    }
+    zcbor_new_decode_state(decoder, states, request->payload, request->payload_len, 1, NULL, 0);
+    uint32_t message_code = 0;
+    bool ok = zcbor_list_start_decode(decoder) && zcbor_uint32_decode(decoder, &message_code);
+    ASSERT(ok, "Request changed after it was checked");
+}
+
+int stow_serde_decode_entry(zcbor_state_t* decoder, uint32_t* id_out)
+{
+    bool ok = zcbor_uint32_decode(decoder, id_out);
+    ASSERT(ok, "Request changed after it was checked");
+    return stow_is_id_valid(*id_out) ? SUCCESS : -ENOENT;
 }
 
 int stow_serde_encode_hello_response(zcbor_state_t* encoder, const struct stow_serde_hello* hello)
@@ -260,21 +238,22 @@ int stow_serde_encode_describe_response(
     return SUCCESS;
 }
 
-int stow_serde_encode_get_response(zcbor_state_t* encoder, enum stow_item_id id, data_value_t value)
+int stow_serde_encode_get_start(zcbor_state_t* encoder, uint16_t count)
 {
-    if (!stow_cbor_list_start(encoder, 3) || !zcbor_uint32_put(encoder, STOW_MSG_GET_RESPONSE) ||
-        !zcbor_uint32_put(encoder, (uint32_t)id))
+    if (!stow_cbor_list_start(encoder, 1u + 2u * (uint32_t)count) || !zcbor_uint32_put(encoder, STOW_MSG_GET_RESPONSE))
     {
         return -ENOMEM;
     }
-
-    int ret = stow_encode(encoder, id, value);
-    if (ret != SUCCESS)
-    {
-        return ret;
-    }
-
     return SUCCESS;
+}
+
+int stow_serde_encode_get_entry(zcbor_state_t* encoder, enum stow_item_id id, data_value_t value)
+{
+    if (!zcbor_uint32_put(encoder, (uint32_t)id))
+    {
+        return -ENOMEM;
+    }
+    return stow_encode(encoder, id, value);
 }
 
 int stow_serde_encode_update(zcbor_state_t* encoder, enum stow_item_id id, data_value_t value)
@@ -291,29 +270,6 @@ int stow_serde_encode_update(zcbor_state_t* encoder, enum stow_item_id id, data_
         return ret;
     }
 
-    return SUCCESS;
-}
-
-int stow_serde_encode_multi_get_response(
-    zcbor_state_t* encoder, const enum stow_item_id* ids, const data_value_t* values, uint8_t count)
-{
-    uint32_t elem_count = 1u + 2u * (uint32_t)count;
-    if (!stow_cbor_list_start(encoder, elem_count) || !zcbor_uint32_put(encoder, STOW_MSG_MULTI_GET_RESPONSE))
-    {
-        return -ENOMEM;
-    }
-    for (uint8_t i = 0; i < count; i++)
-    {
-        if (!zcbor_uint32_put(encoder, (uint32_t)ids[i]))
-        {
-            return -ENOMEM;
-        }
-        int ret = stow_encode(encoder, ids[i], values[i]);
-        if (ret != SUCCESS)
-        {
-            return ret;
-        }
-    }
     return SUCCESS;
 }
 

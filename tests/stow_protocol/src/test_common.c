@@ -240,12 +240,12 @@ int test_build_set_string(uint8_t* out_buf, size_t out_buf_size, uint32_t item_i
     return (int)(enc[0].payload - out_buf);
 }
 
-int test_build_multi_get(uint8_t* out_buf, size_t out_buf_size, const uint32_t* ids, uint8_t count)
+int test_build_list(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, const uint32_t* ids, uint8_t count)
 {
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), out_buf, out_buf_size, 1);
     uint32_t elem_count = 1u + (uint32_t)count;
-    if (!zcbor_list_start_encode(enc, elem_count) || !zcbor_uint32_put(enc, STOW_MSG_MULTI_GET))
+    if (!zcbor_list_start_encode(enc, elem_count) || !zcbor_uint32_put(enc, cmd))
     {
         return -ENOMEM;
     }
@@ -263,12 +263,11 @@ int test_build_multi_get(uint8_t* out_buf, size_t out_buf_size, const uint32_t* 
     return (int)(enc[0].payload - out_buf);
 }
 
-int test_build_multi_set_ints(
-    uint8_t* out_buf, size_t out_buf_size, uint32_t id1, int32_t val1, uint32_t id2, int32_t val2)
+int test_build_set_ints(uint8_t* out_buf, size_t out_buf_size, uint32_t id1, int32_t val1, uint32_t id2, int32_t val2)
 {
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), out_buf, out_buf_size, 1);
-    if (!zcbor_list_start_encode(enc, 5) || !zcbor_uint32_put(enc, STOW_MSG_MULTI_SET) || !zcbor_uint32_put(enc, id1) ||
+    if (!zcbor_list_start_encode(enc, 5) || !zcbor_uint32_put(enc, STOW_MSG_SET) || !zcbor_uint32_put(enc, id1) ||
         !zcbor_int32_put(enc, val1) || !zcbor_uint32_put(enc, id2) || !zcbor_int32_put(enc, val2) ||
         !zcbor_list_end_encode(enc, 5))
     {
