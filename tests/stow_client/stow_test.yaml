@@ -1,0 +1,211 @@
+# ==============================================================================
+# Roles
+# ==============================================================================
+roles:
+  - Guest
+  - Session
+  - Dev
+
+# ==============================================================================
+# Categories
+# ==============================================================================
+categories:
+  - General
+
+# ==============================================================================
+# Enums
+# ==============================================================================
+enums:
+  Mode:
+    description: "Operating mode"
+    values:
+      - name: "OFF"
+        value: 0
+      - name: "ON"
+        value: 1
+      - name: "AUTO"
+        value: 2
+
+  Palette:
+    description: "Colours with long names"
+    values:
+      - name: "CRIMSON_RED"
+        value: 0
+      - name: "BURNT_ORANGE"
+        value: 1
+      - name: "GOLDEN_YELLOW"
+        value: 2
+      - name: "FOREST_GREEN"
+        value: 3
+      - name: "OCEAN_BLUE"
+        value: 4
+      - name: "ROYAL_PURPLE"
+        value: 5
+      - name: "CHARCOAL_GREY"
+        value: 6
+      - name: "IVORY_WHITE"
+        value: 7
+      - name: "MIDNIGHT_BLACK"
+        value: 8
+      - name: "CORAL_PINK"
+        value: 9
+
+# ==============================================================================
+# Structs
+# ==============================================================================
+structs:
+  - name: Point
+    description: "A labelled point"
+    fields:
+      - name: X
+        type: INT
+        constraints:
+          - min: -1000
+          - max: 1000
+      - name: Y
+        type: INT
+        constraints:
+          - min: -1000
+          - max: 1000
+      - name: Label
+        type: STRING
+        constraints:
+          - min_len: 0
+          - max_len: 8
+
+# ==============================================================================
+# Items
+# ==============================================================================
+items:
+  - name: Counter
+    description: "Int item"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 0
+    constraints:
+      - min: -100
+      - max: 100
+
+  - name: Ratio
+    description: "Float item"
+    categories: [General]
+    type: FLOAT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 1.5
+    constraints:
+      - min: 0.0
+      - max: 10.0
+
+  - name: Label
+    description: "String item"
+    categories: [General]
+    type: STRING
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: "hello"
+    constraints:
+      - min_len: 0
+      - max_len: 32
+
+  - name: Mode
+    description: "Enum item"
+    categories: [General]
+    type: ENUM
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: "OFF"
+    constraints:
+      - enum: Mode
+
+  - name: Code
+    description: "Byte array item"
+    categories: [General]
+    type: BYTE_ARRAY
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: [1, 2, 3, 4]
+    constraints:
+      - min_len: 4
+      - max_len: 4
+
+  - name: Blob
+    description: "Buffer item that can outgrow a message"
+    categories: [General]
+    type: BUFFER
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: []
+    constraints:
+      - min_len: 0
+      - max_len: 200
+
+  - name: Position
+    description: "Struct item"
+    categories: [General]
+    type: STRUCT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default:
+      - field: X
+        value: 0
+      - field: Y
+        value: 0
+      - field: Label
+        value: ""
+    constraints:
+      - struct: Point
+
+  - name: Locked
+    description: "Dev-writable int item"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: [Dev]
+    default: 3
+    constraints:
+      - min: 0
+      - max: 10
+
+  - name: Once
+    description: "Trust-on-first-use string item"
+    categories: [General]
+    type: STRING
+    storage: TOFU
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: ""
+    constraints:
+      - min_len: 0
+      - max_len: 16
+
+  - name: Shade
+    description: "Enum item whose description outgrows a small message"
+    categories: [General]
+    type: ENUM
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: "CRIMSON_RED"
+    constraints:
+      - enum: Palette

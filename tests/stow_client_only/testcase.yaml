@@ -1,0 +1,4 @@
+tests:
+  stow_client_only.native:
+    tags: unit_testing
+    platform_allow: native_sim

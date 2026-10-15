@@ -1,0 +1,141 @@
+# Schema a client built against other firmware expects: Gone is missing on the
+# server, Ratio's type, Label's constraints and Point's shape changed, and the
+# rest are in a different order.
+roles:
+- Guest
+- Session
+- Dev
+categories:
+- General
+enums:
+  Mode:
+    description: Operating mode
+    values:
+    - name: 'OFF'
+      value: 0
+    - name: 'ON'
+      value: 1
+    - name: AUTO
+      value: 2
+structs:
+- name: Point
+  description: A labelled point with a depth
+  fields:
+  - name: X
+    type: INT
+    constraints:
+    - min: -1000
+    - max: 1000
+  - name: Y
+    type: INT
+    constraints:
+    - min: -1000
+    - max: 1000
+  - name: Label
+    type: STRING
+    constraints:
+    - min_len: 0
+    - max_len: 8
+  - name: Z
+    type: INT
+    constraints:
+    - min: -1000
+    - max: 1000
+items:
+- name: Gone
+  description: Item the server does not have
+  categories:
+  - General
+  type: INT
+  storage: EPHEMERAL
+  permissions:
+  - read: ANY
+  - write: ANY
+  default: 0
+  constraints:
+  - min: 0
+  - max: 1
+- name: Once
+  description: Trust-on-first-use string item
+  categories:
+  - General
+  type: STRING
+  storage: TOFU
+  permissions:
+  - read: ANY
+  - write: ANY
+  default: ''
+  constraints:
+  - min_len: 0
+  - max_len: 16
+- name: Mode
+  description: Enum item
+  categories:
+  - General
+  type: ENUM
+  storage: EPHEMERAL
+  permissions:
+  - read: ANY
+  - write: ANY
+  default: 'OFF'
+  constraints:
+  - enum: Mode
+- name: Ratio
+  description: Ratio as an int
+  categories:
+  - General
+  type: INT
+  storage: EPHEMERAL
+  permissions:
+  - read: ANY
+  - write: ANY
+  default: 1
+  constraints:
+  - min: 0
+  - max: 10
+- name: Label
+  description: String item with a shorter limit
+  categories:
+  - General
+  type: STRING
+  storage: EPHEMERAL
+  permissions:
+  - read: ANY
+  - write: ANY
+  default: hello
+  constraints:
+  - min_len: 0
+  - max_len: 16
+- name: Position
+  description: Struct item
+  categories:
+  - General
+  type: STRUCT
+  storage: EPHEMERAL
+  permissions:
+  - read: ANY
+  - write: ANY
+  default:
+  - field: X
+    value: 0
+  - field: Y
+    value: 0
+  - field: Label
+    value: ''
+  - field: Z
+    value: 0
+  constraints:
+  - struct: Point
+- name: Counter
+  description: Int item
+  categories:
+  - General
+  type: INT
+  storage: EPHEMERAL
+  permissions:
+  - read: ANY
+  - write: ANY
+  default: 0
+  constraints:
+  - min: -100
+  - max: 100
