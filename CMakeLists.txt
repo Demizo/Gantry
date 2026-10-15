@@ -6,6 +6,10 @@ if(CONFIG_GANTRY_STOW)
   zephyr_linker_sources(SECTIONS cmake/stow_static_subscription.ld)
 endif()
 
+if(CONFIG_STOW_CLIENT)
+  zephyr_linker_sources(SECTIONS cmake/stow_client_cb.ld)
+endif()
+
 if(CONFIG_GANTRY_MODULE)
   zephyr_linker_sources(SECTIONS cmake/gantry_module.ld)
 endif()
@@ -44,8 +48,21 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
     )
   endif()
 
+  if(CONFIG_STOW_PROTOCOL OR CONFIG_STOW_CLIENT)
+    zephyr_library_sources(lib/stow/stow_wire.c)
+  endif()
+
   if(CONFIG_STOW_COBS_TRANSPORT)
     zephyr_library_sources(lib/stow/stow_cobs_transport.c)
+  endif()
+
+  if(CONFIG_STOW_CLIENT)
+    zephyr_library_sources(
+      lib/stow/stow_client_serde.c
+      lib/stow/stow_client.c
+      lib/stow/stow_client_slots.c
+      lib/stow/stow_client_verify.c
+    )
   endif()
 
   if(CONFIG_GANTRY_STOW)
@@ -58,7 +75,6 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
 
     if(CONFIG_STOW_PROTOCOL)
       zephyr_library_sources(
-        lib/stow/stow_wire.c
         lib/stow/stow_serde.c
         lib/stow/stow_protocol.c
       )

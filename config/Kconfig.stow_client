@@ -1,0 +1,31 @@
+config STOW_CLIENT_LOG_LEVEL
+    int "Stow client log level"
+    default 3
+
+config STOW_CLIENT_THREAD_STACK_SIZE
+    int "Stow client thread stack size"
+    default 2048
+
+config STOW_CLIENT_THREAD_PRIORITY
+    int "Stow client thread priority"
+    default 7
+
+config STOW_CLIENT_MAX_PEERS
+    int "Maximum number of Stow client peers"
+    range 1 255
+    default 2
+    help
+      A closed peer still referenced by the app or by events counts
+      against this limit.
+
+config STOW_CLIENT_MAX_PENDING
+    int "Maximum requests in flight per peer"
+    range 1 24
+    default 4
+
+config STOW_CLIENT_TIMEOUT_MS
+    int "Default Stow client request timeout, in milliseconds"
+    default 5000
+    help
+      Counted from when the transport takes a request, so it must cover
+      transfer and queueing time on the slowest expected link.

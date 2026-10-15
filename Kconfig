@@ -68,6 +68,22 @@ if GANTRY_STOW
     rsource "config/Kconfig.stow"
 endif
 
+menuconfig STOW_CLIENT
+    bool "Stow client"
+    default n
+    depends on GANTRY_MEMORY
+    depends on GANTRY_EVENTS
+    select GANTRY_STOW_TYPES
+    select NET_BUF
+    help
+      Lets firmware read, write and subscribe to the Stow of a peer
+      device, over any transport that implements the Stow transport
+      contract. Needs no local Stow.
+
+if STOW_CLIENT
+    rsource "config/Kconfig.stow_client"
+endif
+
 rsource "config/Kconfig.stow_common"
 
 menuconfig GANTRY_MODULE

@@ -16,10 +16,13 @@
 
 #pragma once
 
+#include <gantry/stow/stow_transport.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <zcbor_common.h>
 #include <zcbor_encode.h>
+#include <zephyr/net_buf.h>
 
 /**
  * @addtogroup stow_protocol
@@ -143,6 +146,46 @@ static inline bool stow_wire_put_optional_uint(zcbor_state_t* encoder, uint32_t 
  * @return -ENOMEM when the encoder lacks room
  */
 int stow_wire_encode_error(zcbor_state_t* encoder, const struct stow_serde_error* error);
+
+/**
+ * @brief Decode the start of a message: its code and tag
+ *
+ * @param decoder CBOR decoder over the whole message
+ * @param[out] code_out Message code, or @ref STOW_SERDE_ABSENT when it could not be read
+ * @param[out] tag_out Tag, or @ref STOW_TAG_NONE when it is null or could not be read
+ *
+ * @return SUCCESS when the start was decoded
+ * @return -EBADMSG when it is malformed or the tag is out of range
+ */
+int stow_wire_decode_start(zcbor_state_t* decoder, uint32_t* code_out, uint8_t* tag_out);
+
+/**
+ * @brief Allocate a message from a transport and start an encoder over it
+ *
+ * @param transport Transport the message is for
+ * @param max_message Largest message the receiver accepts, or 0 for no limit beyond the buffer
+ * @param[out] buf_out The message
+ * @param encoder Encoder states to start over the message
+ * @param states Number of states in @p encoder
+ *
+ * @return SUCCESS when the message is ready to encode
+ * @return -EBUSY when the transport has no free buffer
+ * @acquires net_buf buf_out on-success
+ */
+int stow_wire_message_alloc(
+    const struct stow_transport* transport, uint32_t max_message, struct net_buf** buf_out, zcbor_state_t* encoder,
+    size_t states);
+
+/**
+ * @brief Add what the encoder from @ref stow_wire_message_alloc wrote to the message
+ *
+ * @param buf The message
+ * @param encoder Encoder states started over it
+ */
+static inline void stow_wire_message_end(struct net_buf* buf, const zcbor_state_t* encoder)
+{
+    net_buf_add(buf, encoder[0].payload - net_buf_tail(buf));
+}
 
 /**
  * @}
