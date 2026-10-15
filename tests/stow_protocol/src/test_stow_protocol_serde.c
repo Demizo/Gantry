@@ -209,7 +209,7 @@ ZTEST(stow_protocol_serde, test_encode_error)
     struct stow_serde_error error = {
         .code = STOW_ERR_PERMISSION_DENIED, .tag = TEST_TAG, .item = 3, .index = STOW_SERDE_ABSENT
     };
-    zassert_equal(stow_serde_encode_error(enc, &error), 0);
+    zassert_equal(stow_wire_encode_error(enc, &error), 0);
 
     const uint8_t expected[] = { 0x84, 0x0B, 0x11, 0x05, 0x03 };
     zassert_equal(enc[0].payload - buf, sizeof(expected));
@@ -225,7 +225,7 @@ ZTEST(stow_protocol_serde, test_encode_error_without_tag_or_item)
     struct stow_serde_error error = {
         .code = STOW_ERR_MALFORMED_MSG, .tag = STOW_TAG_NONE, .item = STOW_SERDE_ABSENT, .index = STOW_SERDE_ABSENT
     };
-    zassert_equal(stow_serde_encode_error(enc, &error), 0);
+    zassert_equal(stow_wire_encode_error(enc, &error), 0);
 
     const uint8_t expected[] = { 0x83, 0x0B, 0xF6, 0x01 };
     zassert_equal(enc[0].payload - buf, sizeof(expected));
@@ -239,7 +239,7 @@ ZTEST(stow_protocol_serde, test_encode_error_with_index_only)
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), 1);
 
     struct stow_serde_error error = { .code = STOW_ERR_TOO_LARGE, .tag = 7, .item = STOW_SERDE_ABSENT, .index = 2 };
-    zassert_equal(stow_serde_encode_error(enc, &error), 0);
+    zassert_equal(stow_wire_encode_error(enc, &error), 0);
 
     const uint8_t expected[] = { 0x85, 0x0B, 0x07, 0x09, 0xF6, 0x02 };
     zassert_equal(enc[0].payload - buf, sizeof(expected));

@@ -6,9 +6,9 @@
 
 /**
  * @file
- * @brief Stow protocol wire constants
+ * @brief Stow protocol wire constants and the messages the server and client share
  *
- * @details Shared by the protocol server and the client, and independent of any generated schema.
+ * @details Independent of any generated schema.
  *
  * @author Demizo (demizodemazo@gmail.com)
  *
@@ -16,7 +16,10 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
+#include <zcbor_common.h>
+#include <zcbor_encode.h>
 
 /**
  * @addtogroup stow_protocol
@@ -110,6 +113,36 @@ struct stow_serde_error
     uint32_t item;             /**< Item that failed, or @ref STOW_SERDE_ABSENT */
     uint32_t index;            /**< Zero-based entry that failed as it was applied, or @ref STOW_SERDE_ABSENT */
 };
+
+//**********************************************************
+//* Functions
+//**********************************************************
+
+/**
+ * @brief Encode an unsigned integer, or null when it is absent
+ *
+ * @param encoder CBOR encoder
+ * @param value Value to encode, or @ref STOW_SERDE_ABSENT
+ *
+ * @return true when the value was encoded
+ */
+static inline bool stow_wire_put_optional_uint(zcbor_state_t* encoder, uint32_t value)
+{
+    return (value == STOW_SERDE_ABSENT) ? zcbor_nil_put(encoder, NULL) : zcbor_uint32_put(encoder, value);
+}
+
+/**
+ * @brief Encode an Error response
+ *
+ * @details The item is encoded when present, or as null when only the index is present.
+ *
+ * @param encoder CBOR encoder instance
+ * @param error Error to encode
+ *
+ * @return SUCCESS when the response was encoded
+ * @return -ENOMEM when the encoder lacks room
+ */
+int stow_wire_encode_error(zcbor_state_t* encoder, const struct stow_serde_error* error);
 
 /**
  * @}

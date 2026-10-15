@@ -58,6 +58,7 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
 
     if(CONFIG_STOW_PROTOCOL)
       zephyr_library_sources(
+        lib/stow/stow_wire.c
         lib/stow/stow_serde.c
         lib/stow/stow_protocol.c
       )

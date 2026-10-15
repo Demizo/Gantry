@@ -41,7 +41,6 @@ LOG_MODULE_REGISTER(stow_serde, CONFIG_STOW_SERDE_LOG_LEVEL);
 static int check_value(zcbor_state_t* decoder, uint32_t id);
 static int check_entries(zcbor_state_t* decoder, struct stow_serde_request* request);
 static int decode_describe_filter(zcbor_state_t* decoder, struct stow_serde_request* request_out);
-static bool put_optional_uint(zcbor_state_t* encoder, uint32_t value);
 
 //**********************************************************
 //* Static Function Definitions
@@ -158,19 +157,6 @@ static int decode_describe_filter(zcbor_state_t* decoder, struct stow_serde_requ
 
     request_out->has_filter = true;
     return SUCCESS;
-}
-
-/**
- * @brief Encode an unsigned integer, or null when it is absent
- *
- * @param encoder CBOR encoder instance
- * @param value Value to encode, or @ref STOW_SERDE_ABSENT
- *
- * @return true when the value was encoded
- */
-static bool put_optional_uint(zcbor_state_t* encoder, uint32_t value)
-{
-    return (value == STOW_SERDE_ABSENT) ? zcbor_nil_put(encoder, NULL) : zcbor_uint32_put(encoder, value);
 }
 
 //**********************************************************
@@ -308,7 +294,7 @@ int stow_serde_encode_describe_response(
     zcbor_state_t* encoder, uint8_t tag, uint32_t next_item_id, const uint8_t* chunk, size_t chunk_len)
 {
     if (!stow_cbor_list_start(encoder, 4) || !zcbor_uint32_put(encoder, STOW_MSG_DESCRIBE_RESPONSE) ||
-        !zcbor_uint32_put(encoder, tag) || !put_optional_uint(encoder, next_item_id) ||
+        !zcbor_uint32_put(encoder, tag) || !stow_wire_put_optional_uint(encoder, next_item_id) ||
         !zcbor_bstr_encode_ptr(encoder, (const char*)chunk, chunk_len))
     {
         return -ENOMEM;
@@ -349,22 +335,6 @@ int stow_serde_encode_update(zcbor_state_t* encoder, enum stow_item_id id, data_
 int stow_serde_encode_ok(zcbor_state_t* encoder, uint8_t tag)
 {
     if (!stow_cbor_list_start(encoder, 2) || !zcbor_uint32_put(encoder, STOW_MSG_OK) || !zcbor_uint32_put(encoder, tag))
-    {
-        return -ENOMEM;
-    }
-    return SUCCESS;
-}
-
-int stow_serde_encode_error(zcbor_state_t* encoder, const struct stow_serde_error* error)
-{
-    bool has_index = (error->index != STOW_SERDE_ABSENT);
-    bool has_item = has_index || (error->item != STOW_SERDE_ABSENT);
-    uint32_t elem_count = 3u + (has_item ? 1u : 0u) + (has_index ? 1u : 0u);
-
-    if (!stow_cbor_list_start(encoder, elem_count) || !zcbor_uint32_put(encoder, STOW_MSG_ERROR) ||
-        !(error->tag == STOW_TAG_NONE ? zcbor_nil_put(encoder, NULL) : zcbor_uint32_put(encoder, error->tag)) ||
-        !zcbor_uint32_put(encoder, (uint32_t)error->code) || (has_item && !put_optional_uint(encoder, error->item)) ||
-        (has_index && !zcbor_uint32_put(encoder, error->index)))
     {
         return -ENOMEM;
     }

@@ -486,7 +486,7 @@ static void response_fail(struct response* response, int err, uint32_t item, uin
     };
 
     zcbor_new_encode_state(response->encoder, ARRAY_SIZE(response->encoder), response->start, response->budget, 1);
-    if (stow_serde_encode_error(response->encoder, &error) != SUCCESS)
+    if (stow_wire_encode_error(response->encoder, &error) != SUCCESS)
     {
         LOG_ERR("Transport buffers cannot hold an Error, dropping the response");
         struct net_buf* buf = response->buf;

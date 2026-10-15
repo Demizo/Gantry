@@ -187,18 +187,5 @@ int stow_serde_encode_update(zcbor_state_t* encoder, enum stow_item_id id, data_
 int stow_serde_encode_ok(zcbor_state_t* encoder, uint8_t tag);
 
 /**
- * @brief Encode an Error response
- *
- * @details The item is encoded when present, or as null when only the index is present.
- *
- * @param encoder CBOR encoder instance
- * @param error Error to encode
- *
- * @return SUCCESS when the response was encoded
- * @return -ENOMEM when the encoder lacks room
- */
-int stow_serde_encode_error(zcbor_state_t* encoder, const struct stow_serde_error* error);
-
-/**
  * @}
  */
