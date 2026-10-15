@@ -106,3 +106,87 @@ items:
     constraints:
       - min_len: 0
       - max_len: 400
+
+  - name: TestFloat
+    description: "Float item"
+    categories: [General]
+    type: FLOAT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: 21.5
+    constraints:
+      - min: 15.0
+      - max: 30.0
+
+  - name: TestEnum
+    description: "Enum item"
+    categories: [General]
+    type: ENUM
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: "OFF"
+    constraints:
+      - enum: TestMode
+
+  - name: TestBytes
+    description: "Byte array item"
+    categories: [General]
+    type: BYTE_ARRAY
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: [1, 2, 3, 4]
+    constraints:
+      - min_len: 4
+      - max_len: 4
+
+  - name: TestRecord
+    description: "Struct item with a buffer field"
+    categories: [General]
+    type: STRUCT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default:
+      - field: Count
+        value: 0
+      - field: Data
+        value: []
+    constraints:
+      - struct: TestPair
+
+# ==============================================================================
+# Enums
+# ==============================================================================
+enums:
+  TestMode:
+    description: "Enum for the enum item"
+    values:
+      - name: "OFF"
+        value: 0
+      - name: "ON"
+        value: 1
+
+# ==============================================================================
+# Structs
+# ==============================================================================
+structs:
+  - name: TestPair
+    description: "Struct for the struct item"
+    fields:
+      - name: Count
+        type: INT
+        constraints:
+          - min: 0
+          - max: 10
+      - name: Data
+        type: BUFFER
+        constraints:
+          - min_len: 0
+          - max_len: 4

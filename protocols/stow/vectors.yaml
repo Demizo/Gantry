@@ -1,0 +1,219 @@
+# Golden vectors for the Stow protocol, recorded against tests/stow_protocol/stow_test.yaml.
+#
+# Each vector opens a session with `roles`, sends each `setup` request, which must answer OK,
+# then sends `request` and expects exactly `response`. Messages are CBOR diagnostic notation
+# (RFC 8949 section 8, RFC 8610 appendix G); `_2` pins a float to float32, as Stow sends it.
+# `request_hex` gives bytes that are not CBOR at all.
+#
+# client_sends: false   a request no correct client sends, so clients do not round-trip it
+# invalid_request: true the request breaks stow.cddl on purpose; generation checks that it does
+#
+# Edit this file, then run `just vectors` to regenerate vectors.json.
+
+cddl: stow.cddl
+request_rule: request
+response_rule: response
+
+vectors:
+  - name: hello
+    meaning: Hello reports the version, the largest message, the StowHash and the session's roles
+    roles: [Guest, Dev]
+    request: '[0 /hello/, 12]'
+    response: |
+      [1 /hello-response/, 12, 1, {
+        0: 308,
+        1: "97018508eac7573bae485b6f7733096e30e02d089a04d245335380b29276453d",
+        2: 5,
+        3: ["Guest", "Session", "Dev"]
+      }]
+
+  - name: describe_filtered
+    meaning: Describe with names returns only the known named items
+    roles: [Guest]
+    request: '[2 /describe/, 16, 0, ["TestInt", "NoSuchItem"]]'
+    response: |
+      [3 /describe-response/, 16, null, <<
+        {0: 1, 1: "TestInt", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 1, 7: 0, 8: {0: -100, 1: 100}}
+      >>]
+
+  - name: describe_last_chunk
+    meaning: Describe from a later item returns the remaining whole items in the last chunk
+    roles: [Guest]
+    request: '[2 /describe/, 20, 7]'
+    response: |
+      [3 /describe-response/, 20, null, <<
+        {0: 7, 1: "TestLongString", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 3, 7: "", 8: {0: 0, 1: 400}},
+        {0: 8, 1: "TestFloat", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 2, 7: 21.5_2, 8: {0: 15.0_2, 1: 30.0_2}},
+        {0: 9, 1: "TestEnum", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 0, 7: 0, 8: [{0: 0, 1: "OFF"}, {0: 1, 1: "ON"}]},
+        {0: 10, 1: "TestBytes", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 4, 7: h'01020304', 8: {0: 4, 1: 4}},
+        {0: 11, 1: "TestRecord", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 6, 7: [0, h''], 8: [
+          {0: "Count", 1: 1, 2: {0: 0, 1: 10}},
+          {0: "Data", 1: 5, 2: {0: 0, 1: 4}}
+        ]}
+      >>]
+
+  - name: describe_types
+    meaning: Describe of Enum, Byte Array and Struct items gives each type's default and constraints
+    roles: [Guest]
+    request: '[2 /describe/, 13, 0, ["TestEnum", "TestBytes", "TestRecord"]]'
+    response: |
+      [3 /describe-response/, 13, null, <<
+        {0: 9, 1: "TestEnum", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 0, 7: 0, 8: [{0: 0, 1: "OFF"}, {0: 1, 1: "ON"}]},
+        {0: 10, 1: "TestBytes", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 4, 7: h'01020304', 8: {0: 4, 1: 4}},
+        {0: 11, 1: "TestRecord", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 6, 7: [0, h''], 8: [
+          {0: "Count", 1: 1, 2: {0: 0, 1: 10}},
+          {0: "Data", 1: 5, 2: {0: 0, 1: 4}}
+        ]}
+      >>]
+
+  - name: describe_invalid_start
+    meaning: Describe from an item ID past the last item is INVALID_ITEM
+    roles: [Guest]
+    request: '[2 /describe/, 18, 100]'
+    response: '[11 /error/, 18, 3 /invalid-item/, 100]'
+
+  - name: get_int
+    meaning: Get returns the item's value
+    roles: [Guest]
+    request: '[4 /get/, 2, 1]'
+    response: '[5 /get-response/, 2, 1, 0]'
+
+  - name: get_float
+    meaning: Get of a Float item returns a float32 value
+    roles: [Guest]
+    request: '[4 /get/, 21, 8]'
+    response: '[5 /get-response/, 21, 8, 21.5_2]'
+
+  - name: get_several
+    meaning: Get with several items returns each item and value in order
+    roles: [Guest]
+    request: '[4 /get/, 7, 1, 2]'
+    response: '[5 /get-response/, 7, 1, 0, 2, "hello"]'
+
+  - name: get_empty
+    meaning: Get without items is malformed
+    roles: [Guest]
+    request: '[4 /get/, 16]'
+    response: '[11 /error/, 16, 1 /malformed-msg/]'
+    invalid_request: true
+
+  - name: get_permission_denied
+    meaning: Get of an item the session cannot read names the item
+    roles: [Guest]
+    request: '[4 /get/, 3, 3]'
+    response: '[11 /error/, 3, 5 /permission-denied/, 3, 0]'
+
+  - name: set_int
+    meaning: Set answers OK with the request tag
+    roles: [Guest]
+    request: '[6 /set/, 4, 1, 5]'
+    response: '[10 /ok/, 4]'
+
+  - name: set_float
+    meaning: Set of a Float item carries a float32 value
+    roles: [Guest]
+    request: '[6 /set/, 22, 8, 22.25_2]'
+    response: '[10 /ok/, 22]'
+
+  - name: set_several
+    meaning: Set with several items applies every entry and answers OK
+    roles: [Guest]
+    request: '[6 /set/, 17, 1, 5, 1, 6]'
+    response: '[10 /ok/, 17]'
+
+  - name: set_empty
+    meaning: Set without items is malformed
+    roles: [Guest]
+    request: '[6 /set/, 17]'
+    response: '[11 /error/, 17, 1 /malformed-msg/]'
+    invalid_request: true
+
+  - name: set_unknown_item
+    meaning: An unknown item ID is INVALID_ITEM and names the ID
+    roles: [Guest]
+    request: '[6 /set/, 6, 99, 1]'
+    response: '[11 /error/, 6, 3 /invalid-item/, 99, 0]'
+
+  - name: set_invalid_value
+    meaning: A value outside the item's constraints is INVALID_VALUE
+    roles: [Guest]
+    request: '[6 /set/, 5, 1, 500]'
+    response: '[11 /error/, 5, 7 /invalid-value/, 1, 0]'
+
+  - name: set_partial
+    meaning: A failing Set entry is named by item and index; the entries before it took effect
+    roles: [Guest]
+    request: '[6 /set/, 8, 1, 5, 1, 500]'
+    response: '[11 /error/, 8, 7 /invalid-value/, 1, 1]'
+
+  - name: set_already_set
+    meaning: A trust-on-first-use item that is already set is ALREADY_SET
+    roles: [Guest]
+    setup:
+      - '[6 /set/, 1, 6, "first"]'
+    request: '[6 /set/, 19, 6, "second"]'
+    response: '[11 /error/, 19, 8 /already-set/, 6, 0]'
+
+  - name: subscribe_several
+    meaning: Subscribe accepts several items
+    roles: [Session]
+    request: '[7 /subscribe/, 9, 1, 3]'
+    response: '[10 /ok/, 9]'
+
+  - name: subscribe_empty
+    meaning: Subscribe without items is malformed
+    roles: [Guest]
+    request: '[7 /subscribe/, 14]'
+    response: '[11 /error/, 14, 1 /malformed-msg/]'
+    invalid_request: true
+
+  - name: unsubscribe
+    meaning: Unsubscribe is idempotent
+    roles: [Guest]
+    request: '[8 /unsubscribe/, 10, 1]'
+    response: '[10 /ok/, 10]'
+
+  - name: unsubscribe_empty
+    meaning: Unsubscribe without items is malformed
+    roles: [Guest]
+    request: '[8 /unsubscribe/, 18]'
+    response: '[11 /error/, 18, 1 /malformed-msg/]'
+    invalid_request: true
+
+  - name: tag_max
+    meaning: The largest tag, 23, is echoed
+    roles: [Guest]
+    request: '[8 /unsubscribe/, 23, 1]'
+    response: '[10 /ok/, 23]'
+
+  - name: tag_out_of_range
+    meaning: A tag above 23 is malformed and answered with a null tag
+    roles: [Guest]
+    request: '[0 /hello/, 24]'
+    response: '[11 /error/, null, 1 /malformed-msg/]'
+    client_sends: false
+    invalid_request: true
+
+  - name: unknown_message
+    meaning: An unknown message code is UNKNOWN_MSG with the request tag
+    roles: [Guest]
+    request: '[99, 11]'
+    response: '[11 /error/, 11, 2 /unknown-msg/]'
+    client_sends: false
+    invalid_request: true
+
+  - name: trailing_bytes
+    meaning: Bytes after the message make it malformed
+    roles: [Guest]
+    request: '[0 /hello/, 15], 0'
+    response: '[11 /error/, 15, 1 /malformed-msg/]'
+    client_sends: false
+    invalid_request: true
+
+  - name: malformed
+    meaning: An undecodable request is answered with a null tag
+    roles: [Guest]
+    request_hex: ff
+    response: '[11 /error/, null, 1 /malformed-msg/]'
+    client_sends: false
+    invalid_request: true

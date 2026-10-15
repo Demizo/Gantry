@@ -61,6 +61,14 @@ analyze:
   uv run --project tools/resource_check resource-check lib/ {{sample}}/src/ --annotations include --annotations {{sample}}/inc
   cppcheck --quiet --inline-suppr --enable=warning,performance,portability --check-level=exhaustive --error-exitcode=1 --inconclusive lib/ {{sample}}/src/
 
+# Regenerate the protocol golden vectors from their specs
+vectors:
+  uv run --project tools/protocol_spec protocol-spec generate protocols/stow
+
+# Fail when a protocol's golden vectors differ from its spec
+check-vectors:
+  uv run --project tools/protocol_spec protocol-spec check protocols/stow
+
 # Format the library, sample, and test sources
 format:
   find lib include {{sample}} tests -path "*/build" -prune -o \( -iname "*.c" -o -iname "*.h" \) -print | xargs clang-format -i
@@ -70,11 +78,11 @@ build-test component:
   west build -p -b native_sim -d tests/build tests/{{component}} -- -DCONF_FILE='prj.conf;../test_prj.conf'
 
 # Run all unit tests
-test-all:
+test-all: check-vectors
   west twister -T tests/ -p native_sim --clobber-output -i -v
 
 # Run tests for a specific component (e.g. `just test memory`)
-test component:
+test component: check-vectors
   west twister -T tests/{{component}} -p native_sim --clobber-output -i -vv
 
 alias ti := test-integration

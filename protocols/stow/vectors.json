@@ -1,0 +1,264 @@
+{
+  "note": "Generated from vectors.yaml by tools/protocol_spec. Do not edit.",
+  "vectors": [
+    {
+      "name": "hello",
+      "meaning": "Hello reports the version, the largest message, the StowHash and the session's roles",
+      "roles": [
+        "Guest",
+        "Dev"
+      ],
+      "request": "82000c",
+      "response": "84010c01a40019013401784039373031383530386561633735373362616534383562366637373333303936653330653032643038396130346432343533333533383062323932373634353364020503836547756573746753657373696f6e63446576"
+    },
+    {
+      "name": "describe_filtered",
+      "meaning": "Describe with names returns only the known named items",
+      "roles": [
+        "Guest"
+      ],
+      "request": "84021000826754657374496e746a4e6f537563684974656d",
+      "response": "840310f6582ca90001016754657374496e7402816747656e6572616c03000419ffff0519ffff0601070008a2003863011864"
+    },
+    {
+      "name": "describe_last_chunk",
+      "meaning": "Describe from a later item returns the remaining whole items in the last chunk",
+      "roles": [
+        "Guest"
+      ],
+      "request": "83021407",
+      "response": "840314f659011ba90007016e546573744c6f6e67537472696e6702816747656e6572616c03000419ffff0519ffff0603076008a2000001190190a90008016954657374466c6f617402816747656e6572616c03000419ffff0519ffff060207fa41ac000008a200fa4170000001fa41f00000a90009016854657374456e756d02816747656e6572616c03000419ffff0519ffff060007000882a2000001634f4646a2000101624f4ea9000a016954657374427974657302816747656e6572616c03000419ffff0519ffff060407440102030408a200040104a9000b016a546573745265636f726402816747656e6572616c03000419ffff0519ffff0606078200400882a30065436f756e74010102a20000010aa3006444617461010502a200000104"
+    },
+    {
+      "name": "describe_types",
+      "meaning": "Describe of Enum, Byte Array and Struct items gives each type's default and constraints",
+      "roles": [
+        "Guest"
+      ],
+      "request": "84020d00836854657374456e756d695465737442797465736a546573745265636f7264",
+      "response": "84030df658b0a90009016854657374456e756d02816747656e6572616c03000419ffff0519ffff060007000882a2000001634f4646a2000101624f4ea9000a016954657374427974657302816747656e6572616c03000419ffff0519ffff060407440102030408a200040104a9000b016a546573745265636f726402816747656e6572616c03000419ffff0519ffff0606078200400882a30065436f756e74010102a20000010aa3006444617461010502a200000104"
+    },
+    {
+      "name": "describe_invalid_start",
+      "meaning": "Describe from an item ID past the last item is INVALID_ITEM",
+      "roles": [
+        "Guest"
+      ],
+      "request": "8302121864",
+      "response": "840b12031864"
+    },
+    {
+      "name": "get_int",
+      "meaning": "Get returns the item's value",
+      "roles": [
+        "Guest"
+      ],
+      "request": "83040201",
+      "response": "8405020100"
+    },
+    {
+      "name": "get_float",
+      "meaning": "Get of a Float item returns a float32 value",
+      "roles": [
+        "Guest"
+      ],
+      "request": "83041508",
+      "response": "84051508fa41ac0000"
+    },
+    {
+      "name": "get_several",
+      "meaning": "Get with several items returns each item and value in order",
+      "roles": [
+        "Guest"
+      ],
+      "request": "8404070102",
+      "response": "8605070100026568656c6c6f"
+    },
+    {
+      "name": "get_empty",
+      "meaning": "Get without items is malformed",
+      "roles": [
+        "Guest"
+      ],
+      "request": "820410",
+      "response": "830b1001",
+      "invalid_request": true
+    },
+    {
+      "name": "get_permission_denied",
+      "meaning": "Get of an item the session cannot read names the item",
+      "roles": [
+        "Guest"
+      ],
+      "request": "83040303",
+      "response": "850b03050300"
+    },
+    {
+      "name": "set_int",
+      "meaning": "Set answers OK with the request tag",
+      "roles": [
+        "Guest"
+      ],
+      "request": "8406040105",
+      "response": "820a04"
+    },
+    {
+      "name": "set_float",
+      "meaning": "Set of a Float item carries a float32 value",
+      "roles": [
+        "Guest"
+      ],
+      "request": "84061608fa41b20000",
+      "response": "820a16"
+    },
+    {
+      "name": "set_several",
+      "meaning": "Set with several items applies every entry and answers OK",
+      "roles": [
+        "Guest"
+      ],
+      "request": "86061101050106",
+      "response": "820a11"
+    },
+    {
+      "name": "set_empty",
+      "meaning": "Set without items is malformed",
+      "roles": [
+        "Guest"
+      ],
+      "request": "820611",
+      "response": "830b1101",
+      "invalid_request": true
+    },
+    {
+      "name": "set_unknown_item",
+      "meaning": "An unknown item ID is INVALID_ITEM and names the ID",
+      "roles": [
+        "Guest"
+      ],
+      "request": "840606186301",
+      "response": "850b0603186300"
+    },
+    {
+      "name": "set_invalid_value",
+      "meaning": "A value outside the item's constraints is INVALID_VALUE",
+      "roles": [
+        "Guest"
+      ],
+      "request": "840605011901f4",
+      "response": "850b05070100"
+    },
+    {
+      "name": "set_partial",
+      "meaning": "A failing Set entry is named by item and index; the entries before it took effect",
+      "roles": [
+        "Guest"
+      ],
+      "request": "8606080105011901f4",
+      "response": "850b08070101"
+    },
+    {
+      "name": "set_already_set",
+      "meaning": "A trust-on-first-use item that is already set is ALREADY_SET",
+      "roles": [
+        "Guest"
+      ],
+      "setup": [
+        "84060106656669727374"
+      ],
+      "request": "84061306667365636f6e64",
+      "response": "850b13080600"
+    },
+    {
+      "name": "subscribe_several",
+      "meaning": "Subscribe accepts several items",
+      "roles": [
+        "Session"
+      ],
+      "request": "8407090103",
+      "response": "820a09"
+    },
+    {
+      "name": "subscribe_empty",
+      "meaning": "Subscribe without items is malformed",
+      "roles": [
+        "Guest"
+      ],
+      "request": "82070e",
+      "response": "830b0e01",
+      "invalid_request": true
+    },
+    {
+      "name": "unsubscribe",
+      "meaning": "Unsubscribe is idempotent",
+      "roles": [
+        "Guest"
+      ],
+      "request": "83080a01",
+      "response": "820a0a"
+    },
+    {
+      "name": "unsubscribe_empty",
+      "meaning": "Unsubscribe without items is malformed",
+      "roles": [
+        "Guest"
+      ],
+      "request": "820812",
+      "response": "830b1201",
+      "invalid_request": true
+    },
+    {
+      "name": "tag_max",
+      "meaning": "The largest tag, 23, is echoed",
+      "roles": [
+        "Guest"
+      ],
+      "request": "83081701",
+      "response": "820a17"
+    },
+    {
+      "name": "tag_out_of_range",
+      "meaning": "A tag above 23 is malformed and answered with a null tag",
+      "roles": [
+        "Guest"
+      ],
+      "request": "82001818",
+      "response": "830bf601",
+      "client_sends": false,
+      "invalid_request": true
+    },
+    {
+      "name": "unknown_message",
+      "meaning": "An unknown message code is UNKNOWN_MSG with the request tag",
+      "roles": [
+        "Guest"
+      ],
+      "request": "8218630b",
+      "response": "830b0b02",
+      "client_sends": false,
+      "invalid_request": true
+    },
+    {
+      "name": "trailing_bytes",
+      "meaning": "Bytes after the message make it malformed",
+      "roles": [
+        "Guest"
+      ],
+      "request": "82000f00",
+      "response": "830b0f01",
+      "client_sends": false,
+      "invalid_request": true
+    },
+    {
+      "name": "malformed",
+      "meaning": "An undecodable request is answered with a null tag",
+      "roles": [
+        "Guest"
+      ],
+      "request": "ff",
+      "response": "830bf601",
+      "client_sends": false,
+      "invalid_request": true
+    }
+  ]
+}

@@ -1,0 +1,164 @@
+; Stow protocol, version 1. Every message is [code, tag, ...].
+
+message = request / response
+request = hello / describe / get / set / subscribe / unsubscribe
+response = hello-response / describe-response / get-response / update / ok / error
+
+protocol-version = 1
+
+; Chosen by the client and echoed by the response, so it encodes in one byte
+tag = 0..23
+item-id = uint
+; Bit n is the role at index n of role-names
+role-mask = uint
+int32 = -2147483648..2147483647
+; Encoded as the item's type: Enum and Int as int32, Float as float32,
+; String as tstr, Byte Array and Buffer as bstr, Struct as its field values
+value = int32 / float32 / tstr / bstr / [* value]
+; A Set may carry a Float item's value in any float width
+set-value = int32 / float / tstr / bstr / [* set-value]
+
+msg-hello = 0
+msg-hello-response = 1
+msg-describe = 2
+msg-describe-response = 3
+msg-get = 4
+msg-get-response = 5
+msg-set = 6
+msg-subscribe = 7
+msg-unsubscribe = 8
+msg-update = 9
+msg-ok = 10
+msg-error = 11
+
+hello = [msg-hello, tag]
+hello-response = [msg-hello-response, tag, version: protocol-version, hello-info]
+hello-info = {
+  hello-max-message => uint,
+  hello-stow-hash => tstr,
+  hello-roles => role-mask,
+  hello-role-names => [* tstr],
+  * uint => any,
+}
+hello-max-message = 0
+hello-stow-hash = 1
+hello-roles = 2
+hello-role-names = 3
+
+describe = [msg-describe, tag, start: item-id, ? names: [* tstr]]
+describe-response = [
+  msg-describe-response, tag,
+  next: item-id / null,
+  chunk: bstr .cborseq description-sequence,
+]
+get = [msg-get, tag, + item-id]
+get-response = [msg-get-response, tag, + (item-id, value)]
+set = [msg-set, tag, + (item-id, set-value)]
+subscribe = [msg-subscribe, tag, + item-id]
+unsubscribe = [msg-unsubscribe, tag, + item-id]
+update = [msg-update, null, item-id, value]
+ok = [msg-ok, tag]
+; The tag is null when the request's tag could not be read, and the item
+; when an index is known without one
+error = [msg-error, tag / null, error-code, ? (item: item-id / null, ? index: uint)]
+
+error-code = err-malformed-msg / err-unknown-msg / err-invalid-item /
+  err-out-of-memory / err-permission-denied / err-unknown /
+  err-invalid-value / err-already-set / err-too-large
+err-malformed-msg = 1
+err-unknown-msg = 2
+err-invalid-item = 3
+err-out-of-memory = 4
+err-permission-denied = 5
+err-unknown = 6
+err-invalid-value = 7
+err-already-set = 8
+err-too-large = 9
+
+description-sequence = [* description]
+description = enum-description / int-description / float-description /
+  string-description / bytes-description / struct-description
+item-common = (
+  desc-id => item-id,
+  desc-name => tstr,
+  desc-categories => [* tstr],
+  desc-storage => storage,
+  desc-read-perm => role-mask,
+  desc-write-perm => role-mask,
+)
+enum-description = {
+  item-common,
+  desc-type => type-enum,
+  desc-default => int32,
+  desc-constraints => enum-constraints,
+}
+int-description = {
+  item-common,
+  desc-type => type-int,
+  desc-default => int32,
+  desc-constraints => int-constraints,
+}
+float-description = {
+  item-common,
+  desc-type => type-float,
+  desc-default => float32,
+  desc-constraints => float-constraints,
+}
+string-description = {
+  item-common,
+  desc-type => type-string,
+  desc-default => tstr,
+  desc-constraints => length-constraints,
+}
+bytes-description = {
+  item-common,
+  desc-type => type-byte-array / type-buffer,
+  desc-default => bstr,
+  desc-constraints => length-constraints,
+}
+struct-description = {
+  item-common,
+  desc-type => type-struct,
+  desc-default => [* value],
+  desc-constraints => struct-constraints,
+}
+desc-id = 0
+desc-name = 1
+desc-categories = 2
+desc-storage = 3
+desc-read-perm = 4
+desc-write-perm = 5
+desc-type = 6
+desc-default = 7
+desc-constraints = 8
+
+storage = storage-ephemeral / storage-persistent / storage-tofu
+storage-ephemeral = 0
+storage-persistent = 1
+storage-tofu = 2
+
+item-type = type-enum / type-int / type-float / type-string /
+  type-byte-array / type-buffer / type-struct
+type-enum = 0
+type-int = 1
+type-float = 2
+type-string = 3
+type-byte-array = 4
+type-buffer = 5
+type-struct = 6
+
+constraints = enum-constraints / int-constraints / float-constraints /
+  length-constraints / struct-constraints
+enum-constraints = [* {enum-value => int32, enum-name => tstr}]
+enum-value = 0
+enum-name = 1
+int-constraints = {constraint-min => int32, constraint-max => int32}
+float-constraints = {constraint-min => float32, constraint-max => float32}
+length-constraints = {constraint-min => uint, constraint-max => uint}
+constraint-min = 0
+constraint-max = 1
+; Struct fields in order; a field's constraints follow its type, so structs nest
+struct-constraints = [* {field-name => tstr, field-type => item-type, field-constraints => constraints}]
+field-name = 0
+field-type = 1
+field-constraints = 2
