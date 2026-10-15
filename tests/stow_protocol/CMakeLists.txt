@@ -39,6 +39,7 @@ target_sources(app PRIVATE
     src/test_stow_protocol_subscribe.c
     src/test_stow_protocol_sessions.c
     src/test_stow_protocol_netbuf.c
+    src/test_stow_protocol_transport.c
     src/stow_storage_stub.c
     ${GENERATED_DIR}/src/stow/generated_stow_items.c
     ${GENERATED_DIR}/src/stow/generated_stow_enums.c

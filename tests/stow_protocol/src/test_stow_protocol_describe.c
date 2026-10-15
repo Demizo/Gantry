@@ -18,8 +18,8 @@ static void before_each(void* fixture)
 static void after_each(void* fixture)
 {
     (void)fixture;
-    (void)stow_protocol_session_closed(SESSION_A);
-    (void)stow_protocol_session_closed(SESSION_B);
+    test_endpoint_close(SESSION_A);
+    test_endpoint_close(SESSION_B);
     test_sync();
     test_drain_captures();
 }
@@ -45,7 +45,7 @@ static int request_describe_chunk(
     uint8_t req[16];
     int len = test_build_with_id(req, sizeof(req), STOW_MSG_DESCRIBE, start_id);
     zassert_true(len > 0);
-    zassert_equal(test_submit_rx(session_id, STOW_ROLE_GUEST, req, len), 0);
+    zassert_equal(test_submit_rx(session_id, req, len), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);
@@ -81,7 +81,7 @@ static int request_describe_chunk(
 
 ZTEST(stow_protocol_describe, test_describe_runs_to_completion)
 {
-    int ret = stow_protocol_session_open(SESSION_A, STOW_ROLE_GUEST);
+    int ret = test_endpoint_open(SESSION_A, STOW_ROLE_GUEST, &test_transport);
     zassert_equal(ret, 0);
 
     uint8_t reassembled[2048] = { 0 };
@@ -132,7 +132,7 @@ ZTEST(stow_protocol_describe, test_describe_runs_to_completion)
 
 ZTEST(stow_protocol_describe, test_describe_returns_no_more_when_done)
 {
-    zassert_equal(stow_protocol_session_open(SESSION_A, STOW_ROLE_GUEST), 0);
+    test_open_session(SESSION_A, STOW_ROLE_GUEST);
 
     uint8_t chunk[CONFIG_STOW_PROTOCOL_DESCRIBE_CHUNK_SIZE];
     uint32_t next_id = 0;
@@ -153,8 +153,8 @@ ZTEST(stow_protocol_describe, test_describe_returns_no_more_when_done)
 
 ZTEST(stow_protocol_describe, test_describe_two_sessions_independent)
 {
-    zassert_equal(stow_protocol_session_open(SESSION_A, STOW_ROLE_GUEST), 0);
-    zassert_equal(stow_protocol_session_open(SESSION_B, STOW_ROLE_GUEST), 0);
+    test_open_session(SESSION_A, STOW_ROLE_GUEST);
+    test_open_session(SESSION_B, STOW_ROLE_GUEST);
 
     uint8_t chunk_a[CONFIG_STOW_PROTOCOL_DESCRIBE_CHUNK_SIZE];
     uint8_t chunk_b[CONFIG_STOW_PROTOCOL_DESCRIBE_CHUNK_SIZE];

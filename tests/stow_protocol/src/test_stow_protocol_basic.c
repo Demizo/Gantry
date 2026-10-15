@@ -18,25 +18,21 @@ static void before_each(void* fixture)
 static void after_each(void* fixture)
 {
     (void)fixture;
-    (void)stow_protocol_session_closed(SESSION_ID);
+    test_endpoint_close(SESSION_ID);
     test_sync();
     test_drain_captures();
 }
 
 ZTEST_SUITE(stow_protocol_basic, NULL, NULL, before_each, after_each, NULL);
 
-static void open_session(stow_role_t roles)
-{
-    int ret = stow_protocol_session_open(SESSION_ID, roles);
-    zassert_equal(ret, 0, "session_open failed: %d", ret);
-}
+static void open_session(stow_role_t roles) { test_open_session(SESSION_ID, roles); }
 
 /**
  * @brief Submit a request and return the decoded outer cmd of the response
  */
-static uint32_t submit_and_get_cmd(const uint8_t* data, size_t len, stow_role_t roles)
+static uint32_t submit_and_get_cmd(const uint8_t* data, size_t len)
 {
-    int ret = test_submit_rx(SESSION_ID, roles, data, len);
+    int ret = test_submit_rx(SESSION_ID, data, len);
     zassert_equal(ret, 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
@@ -60,7 +56,7 @@ ZTEST(stow_protocol_basic, test_version_request)
 
     uint8_t buf[8];
     int len = test_build_simple(buf, sizeof(buf), STOW_MSG_VERSION);
-    int ret = test_submit_rx(SESSION_ID, STOW_ROLE_GUEST, buf, len);
+    int ret = test_submit_rx(SESSION_ID, buf, len);
     zassert_equal(ret, 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
@@ -94,7 +90,7 @@ ZTEST(stow_protocol_basic, test_get_int_returns_current_value)
 
     uint8_t req[16];
     int len = test_build_with_id(req, sizeof(req), STOW_MSG_GET, STOW_ID_TEST_INT);
-    int ret = test_submit_rx(SESSION_ID, STOW_ROLE_GUEST, req, len);
+    int ret = test_submit_rx(SESSION_ID, req, len);
     zassert_equal(ret, 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
@@ -119,7 +115,7 @@ ZTEST(stow_protocol_basic, test_get_permission_denied)
 
     uint8_t req[16];
     int len = test_build_with_id(req, sizeof(req), STOW_MSG_GET, STOW_ID_TEST_SESSION_INT);
-    uint32_t cmd = submit_and_get_cmd(req, len, STOW_ROLE_GUEST);
+    uint32_t cmd = submit_and_get_cmd(req, len);
     zassert_equal(cmd, STOW_MSG_ERROR, "expected Error (got %u)", cmd);
 }
 
@@ -133,7 +129,7 @@ ZTEST(stow_protocol_basic, test_set_int_changes_value)
 
     uint8_t req[16];
     int len = test_build_set_int(req, sizeof(req), STOW_ID_TEST_INT, -42);
-    uint32_t cmd = submit_and_get_cmd(req, len, STOW_ROLE_GUEST);
+    uint32_t cmd = submit_and_get_cmd(req, len);
     zassert_equal(cmd, STOW_MSG_OK, "expected OK (got %u)", cmd);
 
     data_value_t v = { 0 };
@@ -148,7 +144,7 @@ ZTEST(stow_protocol_basic, test_set_string_changes_value)
 
     uint8_t req[64];
     int len = test_build_set_string(req, sizeof(req), STOW_ID_TEST_STRING, "newval");
-    uint32_t cmd = submit_and_get_cmd(req, len, STOW_ROLE_SESSION);
+    uint32_t cmd = submit_and_get_cmd(req, len);
     zassert_equal(cmd, STOW_MSG_OK);
 
     data_value_t v = { 0 };
@@ -164,7 +160,7 @@ ZTEST(stow_protocol_basic, test_set_permission_denied)
     // TestString requires SESSION write; STOW_ROLE_GUEST should be rejected.
     uint8_t req[64];
     int len = test_build_set_string(req, sizeof(req), STOW_ID_TEST_STRING, "denied");
-    uint32_t cmd = submit_and_get_cmd(req, len, STOW_ROLE_GUEST);
+    uint32_t cmd = submit_and_get_cmd(req, len);
     zassert_equal(cmd, STOW_MSG_ERROR, "expected Error (got %u)", cmd);
 }
 
@@ -175,7 +171,7 @@ ZTEST(stow_protocol_basic, test_set_invalid_value_returns_error)
     // TestInt constraints: min=-100, max=100. 500 is out of range.
     uint8_t req[16];
     int len = test_build_set_int(req, sizeof(req), STOW_ID_TEST_INT, 500);
-    uint32_t cmd = submit_and_get_cmd(req, len, STOW_ROLE_GUEST);
+    uint32_t cmd = submit_and_get_cmd(req, len);
     zassert_equal(cmd, STOW_MSG_ERROR);
 }
 
@@ -204,7 +200,7 @@ ZTEST(stow_protocol_basic, test_set_allocation_failure_returns_out_of_memory)
     mem_unref(&blocks[--block_count]);
     mem_unref(&blocks[--block_count]);
 
-    zassert_equal(test_submit_rx(SESSION_ID, STOW_ROLE_GUEST, req, len), 0);
+    zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
     struct test_capture cap = test_await_tx(K_SECONDS(1));
 
     for (size_t i = 0; i < block_count; i++)
@@ -233,7 +229,7 @@ ZTEST(stow_protocol_basic, test_unknown_command_returns_error)
 
     uint8_t req[8];
     int len = test_build_simple(req, sizeof(req), 250);
-    uint32_t cmd = submit_and_get_cmd(req, len, STOW_ROLE_GUEST);
+    uint32_t cmd = submit_and_get_cmd(req, len);
     zassert_equal(cmd, STOW_MSG_ERROR);
 }
 
@@ -242,7 +238,7 @@ ZTEST(stow_protocol_basic, test_malformed_request_returns_error)
     open_session(STOW_ROLE_GUEST);
 
     uint8_t bogus[] = { 0xFF, 0xFE, 0xFD };
-    uint32_t cmd = submit_and_get_cmd(bogus, sizeof(bogus), STOW_ROLE_GUEST);
+    uint32_t cmd = submit_and_get_cmd(bogus, sizeof(bogus));
     zassert_equal(cmd, STOW_MSG_ERROR);
 }
 
@@ -253,7 +249,7 @@ ZTEST(stow_protocol_basic, test_malformed_request_returns_error)
 ZTEST(stow_protocol_basic, test_session_open_duplicate_returns_ealready)
 {
     open_session(STOW_ROLE_GUEST);
-    int ret = stow_protocol_session_open(SESSION_ID, STOW_ROLE_GUEST);
+    int ret = test_endpoint_open(SESSION_ID, STOW_ROLE_GUEST, &test_transport);
     zassert_equal(ret, -EALREADY);
 }
 
@@ -267,7 +263,7 @@ ZTEST(stow_protocol_basic, test_ok_response)
 
     uint8_t req[16];
     int len = test_build_set_int(req, sizeof(req), STOW_ID_TEST_INT, 5);
-    zassert_equal(test_submit_rx(SESSION_ID, STOW_ROLE_GUEST, req, len), 0);
+    zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);
@@ -290,7 +286,7 @@ ZTEST(stow_protocol_basic, test_error_contains_code)
 
     uint8_t req[16];
     int len = test_build_with_id(req, sizeof(req), STOW_MSG_GET, STOW_ID_TEST_SESSION_INT);
-    zassert_equal(test_submit_rx(SESSION_ID, STOW_ROLE_GUEST, req, len), 0);
+    zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);
@@ -322,7 +318,7 @@ ZTEST(stow_protocol_basic, test_multi_get_returns_all_values)
     uint32_t ids[] = { STOW_ID_TEST_INT, STOW_ID_TEST_INT };
     int len = test_build_multi_get(req, sizeof(req), ids, 2);
     zassert_true(len > 0);
-    zassert_equal(test_submit_rx(SESSION_ID, STOW_ROLE_GUEST, req, len), 0);
+    zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);
@@ -356,7 +352,7 @@ ZTEST(stow_protocol_basic, test_multi_get_permission_denied_returns_error)
     uint8_t req[32];
     uint32_t ids[] = { STOW_ID_TEST_SESSION_INT };
     int len = test_build_multi_get(req, sizeof(req), ids, 1);
-    uint32_t cmd = submit_and_get_cmd(req, len, STOW_ROLE_GUEST);
+    uint32_t cmd = submit_and_get_cmd(req, len);
     zassert_equal(cmd, STOW_MSG_ERROR, "expected Error (got %u)", cmd);
 }
 
@@ -371,7 +367,7 @@ ZTEST(stow_protocol_basic, test_multi_set_changes_both_values)
     uint8_t req[32];
     int len = test_build_multi_set_ints(req, sizeof(req), STOW_ID_TEST_INT, 10, STOW_ID_TEST_INT, 20);
     zassert_true(len > 0);
-    zassert_equal(test_submit_rx(SESSION_ID, STOW_ROLE_GUEST, req, len), 0);
+    zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
     // Expect a single OK response
     struct test_capture cap = test_await_tx(K_SECONDS(1));
@@ -397,7 +393,7 @@ ZTEST(stow_protocol_basic, test_multi_set_first_error_stops)
     uint8_t req[32];
     int len = test_build_multi_set_ints(req, sizeof(req), STOW_ID_TEST_INT, 500, STOW_ID_TEST_INT, 30);
     zassert_true(len > 0);
-    zassert_equal(test_submit_rx(SESSION_ID, STOW_ROLE_GUEST, req, len), 0);
+    zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
     // Expect a single Error response
     struct test_capture cap = test_await_tx(K_SECONDS(1));
@@ -421,7 +417,7 @@ ZTEST(stow_protocol_basic, test_pipeline_two_messages)
     int l1 = test_build_simple(combined, sizeof(combined), STOW_MSG_VERSION);
     int l2 = test_build_simple(combined + l1, sizeof(combined) - l1, STOW_MSG_VERSION);
     zassert_true(l1 > 0 && l2 > 0);
-    zassert_equal(test_submit_rx(SESSION_ID, STOW_ROLE_GUEST, combined, (size_t)(l1 + l2)), 0);
+    zassert_equal(test_submit_rx(SESSION_ID, combined, (size_t)(l1 + l2)), 0);
 
     struct test_capture cap1 = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap1.buf);

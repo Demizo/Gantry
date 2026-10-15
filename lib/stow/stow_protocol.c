@@ -60,6 +60,41 @@ LOG_MODULE_REGISTER(stow_protocol, CONFIG_STOW_PROTOCOL_LOG_LEVEL);
 //**********************************************************
 
 /**
+ * @brief Stow protocol event declaration
+ */
+DECLARE_EVENT_TYPE(stow_protocol_event);
+
+/**
+ * @brief Type of stow protocol event
+ */
+enum stow_protocol_event_type
+{
+    STOW_PROTOCOL_RX,          /**< Incoming CBOR payload from a session */
+    STOW_PROTOCOL_SESSION_AUTH /**< Update a session's authentication roles */
+};
+
+/**
+ * @brief Payload for stow protocol events
+ */
+struct stow_protocol_event_payload
+{
+    enum stow_protocol_event_type type; /**< Protocol event type */
+    union
+    {
+        struct
+        {
+            uint32_t session_id; /**< Current session ID */
+            struct net_buf* buf; /**< Inner Stow CBOR payload (released by on_free) */
+        } rx;
+        struct
+        {
+            uint32_t session_id; /**< Session ID to update */
+            stow_role_t roles;   /**< New role bitmask for the session */
+        } session_roles;
+    };
+};
+
+/**
  * @brief Cleanup for stow protocol events
  *
  * @param event Event being freed
@@ -72,14 +107,25 @@ static void protocol_event_on_free(event_t* event);
 DEFINE_EVENT_TYPE(EVENT_ID_STOW_PROTOCOL, stow_protocol_event, protocol_event_on_free);
 
 /**
+ * @brief Signals raised on a session, handled by the protocol thread
+ */
+enum session_signal
+{
+    SESSION_SIGNAL_CLOSE, /**< The peer disconnected */
+    SESSION_SIGNAL_COUNT,
+};
+
+/**
  * @brief Per-session state
  */
 struct protocol_session
 {
-    bool in_use;                                 /**< Slot is allocated to a session */
-    uint32_t session_id;                         /**< Externally provided session ID */
-    stow_role_t roles;                           /**< Current role bitmask */
-    ATOMIC_DEFINE(subscriptions, STOW_ID_COUNT); /**< Bitfield of item subscriptions */
+    bool in_use;                                  /**< Slot is allocated to a session */
+    uint32_t session_id;                          /**< Externally provided session ID */
+    stow_role_t roles;                            /**< Current role bitmask */
+    struct stow_transport* transport;             /**< Transport that carries the session's messages */
+    ATOMIC_DEFINE(signals, SESSION_SIGNAL_COUNT); /**< Pending @ref session_signal bits */
+    ATOMIC_DEFINE(subscriptions, STOW_ID_COUNT);  /**< Bitfield of item subscriptions */
 };
 
 /**
@@ -126,17 +172,28 @@ struct encode_multi_get_context
 
 static void on_stow_update(event_t* event);
 static void protocol_thread(void* a, void* b, void* c);
+static void handle_event(event_t* event);
 
 static int push_event(event_t* event);
 static int alloc_protocol_event(
     enum stow_protocol_event_type type, event_t** out_event, struct stow_protocol_event_payload** out_payload);
 
 static struct protocol_session* get_session(uint32_t session_id);
+static struct protocol_session* get_open_session(uint32_t session_id);
+static int signal_session(uint32_t session_id, enum session_signal signal);
+static int alloc_response_buf(const struct stow_transport* transport, struct net_buf** out_buf, size_t* out_budget);
+static int send_message(struct protocol_session* session, struct net_buf* buf);
 
 static void handle_rx(const struct stow_protocol_event_payload* rx_payload);
 static void handle_update(event_t* event);
 static void handle_session_roles(const struct stow_protocol_event_payload* auth_payload);
-static void handle_session_close(const struct stow_protocol_event_payload* close_payload);
+static void close_session(struct protocol_session* session);
+static void handle_signals(void);
+
+static int endpoint_session_opened(
+    const struct stow_endpoint* endpoint, uint32_t session_id, stow_role_t roles, struct stow_transport* transport);
+static void endpoint_session_closed(const struct stow_endpoint* endpoint, uint32_t session_id);
+static void endpoint_receive(const struct stow_endpoint* endpoint, uint32_t session_id, struct net_buf* buf);
 
 static void dispatch_request(
     uint32_t session_id, struct protocol_session* session, const struct stow_serde_request* request);
@@ -168,6 +225,7 @@ static void emit_get_response(uint32_t session_id, enum stow_item_id id, data_va
 static void emit_update(uint32_t session_id, enum stow_item_id id, data_value_t value);
 static void emit_multi_get_response(
     uint32_t session_id, const enum stow_item_id* ids, const data_value_t* values, uint8_t count);
+static void remove_subscription(struct protocol_session* session, enum stow_item_id id);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -182,6 +240,11 @@ FLAGS_DEFINE(stow_protocol_flags, (INITIALIZED), NO_FLAG_RULES);
  * @brief Message queue for module
  */
 K_MSGQ_DEFINE(stow_protocol_queue, sizeof(event_t*), CONFIG_STOW_PROTOCOL_QUEUE_SIZE, sizeof(void*));
+
+/**
+ * @brief Wakes the protocol thread when events or session signals are pending
+ */
+K_SEM_DEFINE(stow_protocol_wake, 0, 1);
 
 /**
  * @brief Stow protocol thread stack
@@ -206,11 +269,6 @@ static struct stow_subscription stow_protocol_subscription = {
     .mode = STOW_SUBSCRIPTION_COPY,
     .cb = on_stow_update,
 };
-
-/**
- * @brief Stow protocol module configuration
- */
-static struct stow_protocol_config g_protocol_config;
 
 /**
  * @brief Stow session slots
@@ -254,6 +312,7 @@ static void on_stow_update(event_t* event)
         EVENT_UNREF(&event);
         return;
     }
+    k_sem_give(&stow_protocol_wake);
     PASS_OWNERSHIP(event);
 }
 
@@ -264,6 +323,7 @@ static int push_event(event_t* event)
         EVENT_UNREF(&event);
         return -ENOBUFS;
     }
+    k_sem_give(&stow_protocol_wake);
     PASS_OWNERSHIP(event);
     return SUCCESS;
 }
@@ -301,8 +361,58 @@ static struct protocol_session* get_session(uint32_t session_id)
 }
 
 /**
+ * @brief Find a session that is open and not closing
+ *
+ * @note Call with interrupts locked. Only the protocol thread frees sessions, so it may keep using the result after
+ * unlocking.
+ *
+ * @param session_id The session to find
+ *
+ * @return The session, or NULL
+ */
+static struct protocol_session* get_open_session(uint32_t session_id)
+{
+    struct protocol_session* session = get_session(session_id);
+    if (session == NULL || atomic_test_bit(session->signals, SESSION_SIGNAL_CLOSE))
+    {
+        return NULL;
+    }
+    return session;
+}
+
+/**
+ * @brief Raise a signal on a session and wake the protocol thread
+ *
+ * @details Signals are flags rather than queued events, so they cannot be lost when the queue is full.
+ *
+ * @param session_id The session to signal
+ * @param signal The signal to raise
+ *
+ * @return SUCCESS when the signal is raised
+ * @return -ENOTCONN when the session is not open
+ */
+static int signal_session(uint32_t session_id, enum session_signal signal)
+{
+    uint32_t key = irq_lock();
+    struct protocol_session* session = get_open_session(session_id);
+    if (session != NULL)
+    {
+        atomic_set_bit(session->signals, signal);
+    }
+    irq_unlock(key);
+
+    if (session == NULL)
+    {
+        return -ENOTCONN;
+    }
+    k_sem_give(&stow_protocol_wake);
+    return SUCCESS;
+}
+
+/**
  * @brief Allocate a response net_buf and compute the encoder budget
  *
+ * @param transport Transport whose pool, headroom, and tailroom apply
  * @param[out] out_buf Populated with the allocated buf on success
  * @param[out] out_budget Populated with the number of bytes the encoder
  *                        may safely consume
@@ -310,36 +420,61 @@ static struct protocol_session* get_session(uint32_t session_id)
  * @return SUCCESS on success
  * @return -ENOMEM when no buf is available
  */
-static int alloc_response_buf(struct net_buf** out_buf, size_t* out_budget)
+static int alloc_response_buf(const struct stow_transport* transport, struct net_buf** out_buf, size_t* out_budget)
 {
-    struct net_buf* buf = net_buf_alloc(g_protocol_config.response_pool, K_NO_WAIT);
+    struct net_buf* buf = net_buf_alloc(transport->pool, K_NO_WAIT);
     if (buf == NULL)
     {
         return -ENOMEM;
     }
-    net_buf_reserve(buf, g_protocol_config.headroom);
+    net_buf_reserve(buf, transport->headroom);
 
     size_t tail = net_buf_tailroom(buf);
-    ASSERT(tail >= g_protocol_config.tailroom, "Provided buffers are too small")
+    ASSERT(tail >= transport->tailroom, "Provided buffers are too small")
 
     *out_buf = buf;
-    *out_budget = tail - g_protocol_config.tailroom;
+    *out_budget = tail - transport->tailroom;
     PASS_OWNERSHIP(buf);
     return SUCCESS;
+}
+
+/**
+ * @brief Hand a message to the session's transport
+ *
+ * @param session Session the message belongs to
+ * @param buf The message, ownership is always taken
+ *
+ * @return SUCCESS when the transport took the message
+ * @return the transport's error when it did not, the message is dropped
+ */
+static int send_message(struct protocol_session* session, struct net_buf* buf)
+{
+    int ret = session->transport->send(session->transport, session->session_id, buf);
+    if (ret != SUCCESS)
+    {
+        net_buf_unref(buf);
+    }
+    return ret;
 }
 
 /**
  * @brief Allocate, encode, and emit a response
  *
  * @details Calls the supplied encoding function to populate the buf, then hands
- * the buf to the configured response callback.
+ * the buf to the session's transport.
  */
 static int emit_response(uint32_t session_id, int (*encode_fn)(zcbor_state_t*, void*), void* encode_context)
 {
+    struct protocol_session* session = get_session(session_id);
+    if (session == NULL)
+    {
+        return -ENOTCONN;
+    }
+
     struct net_buf* buf = NULL;
     size_t budget = 0;
 
-    int ret = alloc_response_buf(&buf, &budget);
+    int ret = alloc_response_buf(session->transport, &buf, &budget);
     if (ret != SUCCESS)
     {
         return ret;
@@ -359,8 +494,7 @@ static int emit_response(uint32_t session_id, int (*encode_fn)(zcbor_state_t*, v
     size_t encoded = enc[0].payload - start;
     net_buf_add(buf, encoded);
 
-    g_protocol_config.response_cb(session_id, buf);
-    return SUCCESS;
+    return send_message(session, buf);
 }
 
 static int encode_ok(zcbor_state_t* enc, void* ctx)
@@ -707,17 +841,18 @@ static void dispatch_request(
 
 static void handle_rx(const struct stow_protocol_event_payload* payload)
 {
-    struct protocol_session* session = get_session(payload->rx.session_id);
+    uint32_t key = irq_lock();
+    struct protocol_session* session = get_open_session(payload->rx.session_id);
+    irq_unlock(key);
     if (session == NULL)
     {
-        LOG_WRN("RX for unknown session %u", payload->rx.session_id);
+        LOG_WRN("RX for closed session %u", payload->rx.session_id);
         return;
     }
-    session->roles = payload->rx.roles;
 
     if (payload->rx.buf == NULL || payload->rx.buf->len == 0)
     {
-        emit_error(payload->rx.session_id, STOW_ERR_MALFORMED_MSG);
+        emit_error(session->session_id, STOW_ERR_MALFORMED_MSG);
         return;
     }
 
@@ -734,12 +869,12 @@ static void handle_rx(const struct stow_protocol_event_payload* payload)
         if (ret != SUCCESS)
         {
             LOG_WRN("Request decode failed for session %u (%d)", payload->rx.session_id, ret);
-            emit_error_code(payload->rx.session_id, ret);
+            emit_error_code(session->session_id, ret);
             stow_serde_release_request(&request);
             break;
         }
 
-        dispatch_request(payload->rx.session_id, session, &request);
+        dispatch_request(session->session_id, session, &request);
         stow_serde_release_request(&request);
         cursor = dec[0].payload;
     }
@@ -753,7 +888,7 @@ static void handle_update(event_t* event)
     for (size_t i = 0; i < ARRAY_SIZE(sessions); i++)
     {
         struct protocol_session* session = &sessions[i];
-        if (!session->in_use)
+        if (!session->in_use || atomic_test_bit(session->signals, SESSION_SIGNAL_CLOSE))
         {
             continue;
         }
@@ -776,7 +911,9 @@ static void handle_update(event_t* event)
 
 static void handle_session_roles(const struct stow_protocol_event_payload* payload)
 {
+    uint32_t key = irq_lock();
     struct protocol_session* session = get_session(payload->session_roles.session_id);
+    irq_unlock(key);
     if (session == NULL)
     {
         LOG_WRN("session_set_roles for unknown session %u", payload->session_roles.session_id);
@@ -798,15 +935,8 @@ static void handle_session_roles(const struct stow_protocol_event_payload* paylo
     }
 }
 
-static void handle_session_close(const struct stow_protocol_event_payload* payload)
+static void close_session(struct protocol_session* session)
 {
-    struct protocol_session* session = get_session(payload->session_close.session_id);
-    if (session == NULL)
-    {
-        LOG_WRN("session_closed for unknown session %u", payload->session_close.session_id);
-        return;
-    }
-
     for (size_t id = 0; id < STOW_ID_COUNT; id++)
     {
         if (atomic_test_bit(session->subscriptions, (int)id))
@@ -815,8 +945,32 @@ static void handle_session_close(const struct stow_protocol_event_payload* paylo
         }
     }
 
+    uint32_t key = irq_lock();
     session->in_use = false;
     session->session_id = 0;
+    session->transport = NULL;
+    atomic_clear_bit(session->signals, SESSION_SIGNAL_CLOSE);
+    irq_unlock(key);
+}
+
+/**
+ * @brief Act on the signals raised on every session
+ */
+static void handle_signals(void)
+{
+    for (size_t i = 0; i < ARRAY_SIZE(sessions); i++)
+    {
+        struct protocol_session* session = &sessions[i];
+        if (!session->in_use)
+        {
+            continue;
+        }
+
+        if (atomic_test_bit(session->signals, SESSION_SIGNAL_CLOSE))
+        {
+            close_session(session);
+        }
+    }
 }
 
 static void protocol_thread(void* p1, void* p2, void* p3)
@@ -827,71 +981,60 @@ static void protocol_thread(void* p1, void* p2, void* p3)
 
     while (true)
     {
+        (void)k_sem_take(&stow_protocol_wake, K_FOREVER);
+
         event_t* event = NULL;
-        k_msgq_get(&stow_protocol_queue, (void*)&event, K_FOREVER);
-
-        if (event->type->id == EVENT_ID_STOW_UPDATE)
+        while (k_msgq_get(&stow_protocol_queue, (void*)&event, K_NO_WAIT) == 0)
         {
-            handle_update(event);
-        }
-        else if (event->type->id == EVENT_ID_STOW_PROTOCOL)
-        {
-            struct stow_protocol_event_payload* p = (struct stow_protocol_event_payload*)event->data.buf;
-            switch (p->type)
-            {
-                case STOW_PROTOCOL_RX:
-                    handle_rx(p);
-                    break;
-                case STOW_PROTOCOL_SESSION_AUTH:
-                    handle_session_roles(p);
-                    break;
-                case STOW_PROTOCOL_SESSION_CLOSE:
-                    handle_session_close(p);
-                    break;
-            }
-        }
-        else
-        {
-            LOG_WRN("Unexpected event id %u", event->type->id);
+            handle_event(event);
+            EVENT_UNREF(&event);
         }
 
-        EVENT_UNREF(&event);
+        handle_signals();
     }
 }
 
-//**********************************************************
-//* Public Function Definitions
-//**********************************************************
-
-int stow_protocol_init(const struct stow_protocol_config* config)
+/**
+ * @brief Process one event from the protocol queue
+ *
+ * @param event The event
+ */
+static void handle_event(event_t* event)
 {
-    if (config == NULL || config->response_cb == NULL || config->response_pool == NULL)
+    if (event->type->id == EVENT_ID_STOW_UPDATE)
+    {
+        handle_update(event);
+    }
+    else if (event->type->id == EVENT_ID_STOW_PROTOCOL)
+    {
+        struct stow_protocol_event_payload* p = (struct stow_protocol_event_payload*)event->data.buf;
+        switch (p->type)
+        {
+            case STOW_PROTOCOL_RX:
+                handle_rx(p);
+                break;
+            case STOW_PROTOCOL_SESSION_AUTH:
+                handle_session_roles(p);
+                break;
+        }
+    }
+    else
+    {
+        LOG_WRN("Unexpected event id %u", event->type->id);
+    }
+}
+
+static int endpoint_session_opened(
+    const struct stow_endpoint* endpoint, uint32_t session_id, stow_role_t roles, struct stow_transport* transport)
+{
+    ARG_UNUSED(endpoint);
+    ASSERT(CHECK_FLAG(stow_protocol_flags, INITIALIZED), "Not initialized");
+
+    if (transport == NULL || transport->send == NULL || transport->pool == NULL ||
+        transport->pool->alloc->cb != &net_buf_fixed_cb)
     {
         return -EINVAL;
     }
-
-    if (CHECK_FLAG(stow_protocol_flags, INITIALIZED))
-    {
-        return -EALREADY;
-    }
-
-    g_protocol_config = *config;
-    SET_FLAG(stow_protocol_flags, INITIALIZED);
-
-    memset(sessions, 0, sizeof(sessions));
-    memset(item_subscription_counts, 0, sizeof(item_subscription_counts));
-
-    stow_protocol_thread_id = k_thread_create(
-        &stow_protocol_thread, stow_protocol_stack, K_THREAD_STACK_SIZEOF(stow_protocol_stack), protocol_thread, NULL,
-        NULL, NULL, CONFIG_STOW_PROTOCOL_THREAD_PRIORITY, 0, K_NO_WAIT);
-    k_thread_name_set(stow_protocol_thread_id, "stow_protocol");
-
-    return SUCCESS;
-}
-
-int stow_protocol_session_open(uint32_t session_id, stow_role_t roles)
-{
-    ASSERT(CHECK_FLAG(stow_protocol_flags, INITIALIZED), "Not initialized");
 
     struct protocol_session* free_slot = NULL;
 
@@ -921,6 +1064,8 @@ int stow_protocol_session_open(uint32_t session_id, stow_role_t roles)
 
     free_slot->session_id = session_id;
     free_slot->roles = roles;
+    free_slot->transport = transport;
+    atomic_clear_bit(free_slot->signals, SESSION_SIGNAL_CLOSE);
     for (int bit = 0; bit < STOW_ID_COUNT; bit++)
     {
         atomic_clear_bit(free_slot->subscriptions, bit);
@@ -928,6 +1073,82 @@ int stow_protocol_session_open(uint32_t session_id, stow_role_t roles)
     free_slot->in_use = true;
 
     irq_unlock(key);
+    return SUCCESS;
+}
+
+static void endpoint_session_closed(const struct stow_endpoint* endpoint, uint32_t session_id)
+{
+    ARG_UNUSED(endpoint);
+    ASSERT(CHECK_FLAG(stow_protocol_flags, INITIALIZED), "Not initialized");
+
+    if (signal_session(session_id, SESSION_SIGNAL_CLOSE) != SUCCESS)
+    {
+        LOG_WRN("Close for session %u that is not open", session_id);
+    }
+}
+
+static void endpoint_receive(const struct stow_endpoint* endpoint, uint32_t session_id, struct net_buf* buf)
+{
+    ARG_UNUSED(endpoint);
+    ASSERT(CHECK_FLAG(stow_protocol_flags, INITIALIZED), "Not initialized");
+
+    if (buf == NULL)
+    {
+        LOG_WRN("Dropping NULL message for session %u", session_id);
+        return;
+    }
+
+    uint32_t key = irq_lock();
+    bool open = (get_open_session(session_id) != NULL);
+    irq_unlock(key);
+    if (!open)
+    {
+        LOG_WRN("Dropping message for session %u that is not open", session_id);
+        return;
+    }
+
+    event_t* event = NULL;
+    struct stow_protocol_event_payload* payload = NULL;
+    int ret = alloc_protocol_event(STOW_PROTOCOL_RX, &event, &payload);
+    if (ret != SUCCESS)
+    {
+        LOG_WRN("Dropping message for session %u, no event (%d)", session_id, ret);
+        return;
+    }
+
+    payload->rx.session_id = session_id;
+    struct net_buf* rx_buf = net_buf_ref(buf);
+    payload->rx.buf = rx_buf;
+    PASS_OWNERSHIP(rx_buf);
+
+    ret = push_event(event);
+    if (ret != SUCCESS)
+    {
+        LOG_WRN("Dropping message for session %u, queue full", session_id);
+    }
+}
+
+//**********************************************************
+//* Public Function Definitions
+//**********************************************************
+
+int stow_protocol_init(void)
+{
+    if (CHECK_FLAG(stow_protocol_flags, INITIALIZED))
+    {
+        return -EALREADY;
+    }
+
+    SET_FLAG(stow_protocol_flags, INITIALIZED);
+
+    memset(sessions, 0, sizeof(sessions));
+    memset(item_subscription_counts, 0, sizeof(item_subscription_counts));
+
+    stow_protocol_thread_id = k_thread_create(
+        &stow_protocol_thread, stow_protocol_stack, K_THREAD_STACK_SIZEOF(stow_protocol_stack), protocol_thread, NULL,
+        NULL, NULL, CONFIG_STOW_PROTOCOL_THREAD_PRIORITY, 0, K_NO_WAIT);
+    k_thread_name_set(stow_protocol_thread_id, "stow_protocol");
+
     return SUCCESS;
 }
 
@@ -949,45 +1170,8 @@ int stow_protocol_session_set_roles(uint32_t session_id, stow_role_t roles)
     return push_event(event);
 }
 
-int stow_protocol_session_closed(uint32_t session_id)
-{
-    ASSERT(CHECK_FLAG(stow_protocol_flags, INITIALIZED), "Not initialized");
-
-    event_t* event = NULL;
-    struct stow_protocol_event_payload* payload = NULL;
-    int ret = alloc_protocol_event(STOW_PROTOCOL_SESSION_CLOSE, &event, &payload);
-    if (ret != SUCCESS)
-    {
-        return ret;
-    }
-
-    payload->session_close.session_id = session_id;
-
-    return push_event(event);
-}
-
-int stow_protocol_handle_rx(uint32_t session_id, stow_role_t roles, struct net_buf* buf)
-{
-    ASSERT(CHECK_FLAG(stow_protocol_flags, INITIALIZED), "Not initialized");
-
-    if (buf == NULL)
-    {
-        return -EINVAL;
-    }
-
-    event_t* event = NULL;
-    struct stow_protocol_event_payload* payload = NULL;
-    int ret = alloc_protocol_event(STOW_PROTOCOL_RX, &event, &payload);
-    if (ret != SUCCESS)
-    {
-        return ret;
-    }
-
-    payload->rx.session_id = session_id;
-    payload->rx.roles = roles;
-    struct net_buf* rx_buf = net_buf_ref(buf);
-    payload->rx.buf = rx_buf;
-    PASS_OWNERSHIP(rx_buf);
-
-    return push_event(event);
-}
+const struct stow_endpoint stow_protocol_endpoint = {
+    .session_opened = endpoint_session_opened,
+    .session_closed = endpoint_session_closed,
+    .receive = endpoint_receive,
+};

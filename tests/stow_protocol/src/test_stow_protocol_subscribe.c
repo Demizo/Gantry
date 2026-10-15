@@ -19,8 +19,8 @@ static void before_each(void* fixture)
 static void after_each(void* fixture)
 {
     (void)fixture;
-    (void)stow_protocol_session_closed(SESSION_A);
-    (void)stow_protocol_session_closed(SESSION_B);
+    test_endpoint_close(SESSION_A);
+    test_endpoint_close(SESSION_B);
     test_sync();
     test_drain_captures();
 }
@@ -30,11 +30,11 @@ ZTEST_SUITE(stow_protocol_subscribe, NULL, NULL, before_each, after_each, NULL);
 /**
  * @brief Submit a subscribe/unsubscribe request and verify it returns OK
  */
-static void subscribe_ok(uint32_t session_id, stow_role_t roles, uint32_t cmd, uint32_t item_id)
+static void subscribe_ok(uint32_t session_id, uint32_t cmd, uint32_t item_id)
 {
     uint8_t req[16];
     int len = test_build_with_id(req, sizeof(req), cmd, item_id);
-    zassert_equal(test_submit_rx(session_id, roles, req, len), 0);
+    zassert_equal(test_submit_rx(session_id, req, len), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);
@@ -49,9 +49,9 @@ static void subscribe_ok(uint32_t session_id, stow_role_t roles, uint32_t cmd, u
 
 ZTEST(stow_protocol_subscribe, test_subscribe_then_set_delivers_update)
 {
-    zassert_equal(stow_protocol_session_open(SESSION_A, STOW_ROLE_GUEST), 0);
+    test_open_session(SESSION_A, STOW_ROLE_GUEST);
 
-    subscribe_ok(SESSION_A, STOW_ROLE_GUEST, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
+    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
 
     // Change the value from elsewhere, protocol should send out an Update
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 13 };
@@ -76,10 +76,10 @@ ZTEST(stow_protocol_subscribe, test_subscribe_then_set_delivers_update)
 
 ZTEST(stow_protocol_subscribe, test_resubscribe_is_idempotent)
 {
-    zassert_equal(stow_protocol_session_open(SESSION_A, STOW_ROLE_GUEST), 0);
-    subscribe_ok(SESSION_A, STOW_ROLE_GUEST, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
+    test_open_session(SESSION_A, STOW_ROLE_GUEST);
+    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
     // Re-subscribing should also return OK
-    subscribe_ok(SESSION_A, STOW_ROLE_GUEST, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
+    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
 
     // Only one update should fire on a single set
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 4 };
@@ -95,9 +95,9 @@ ZTEST(stow_protocol_subscribe, test_resubscribe_is_idempotent)
 
 ZTEST(stow_protocol_subscribe, test_unsubscribe_stops_updates)
 {
-    zassert_equal(stow_protocol_session_open(SESSION_A, STOW_ROLE_GUEST), 0);
-    subscribe_ok(SESSION_A, STOW_ROLE_GUEST, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
-    subscribe_ok(SESSION_A, STOW_ROLE_GUEST, STOW_MSG_UNSUBSCRIBE, STOW_ID_TEST_INT);
+    test_open_session(SESSION_A, STOW_ROLE_GUEST);
+    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
+    subscribe_ok(SESSION_A, STOW_MSG_UNSUBSCRIBE, STOW_ID_TEST_INT);
 
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 8 };
     zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
@@ -108,17 +108,17 @@ ZTEST(stow_protocol_subscribe, test_unsubscribe_stops_updates)
 
 ZTEST(stow_protocol_subscribe, test_unsubscribe_without_subscribe_returns_ok)
 {
-    zassert_equal(stow_protocol_session_open(SESSION_A, STOW_ROLE_GUEST), 0);
-    subscribe_ok(SESSION_A, STOW_ROLE_GUEST, STOW_MSG_UNSUBSCRIBE, STOW_ID_TEST_INT);
+    test_open_session(SESSION_A, STOW_ROLE_GUEST);
+    subscribe_ok(SESSION_A, STOW_MSG_UNSUBSCRIBE, STOW_ID_TEST_INT);
 }
 
 ZTEST(stow_protocol_subscribe, test_subscribe_permission_denied)
 {
-    zassert_equal(stow_protocol_session_open(SESSION_A, STOW_ROLE_GUEST), 0);
+    test_open_session(SESSION_A, STOW_ROLE_GUEST);
 
     uint8_t req[16];
     int len = test_build_with_id(req, sizeof(req), STOW_MSG_SUBSCRIBE, STOW_ID_TEST_SESSION_INT);
-    zassert_equal(test_submit_rx(SESSION_A, STOW_ROLE_GUEST, req, len), 0);
+    zassert_equal(test_submit_rx(SESSION_A, req, len), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);
@@ -132,10 +132,10 @@ ZTEST(stow_protocol_subscribe, test_subscribe_permission_denied)
 
 ZTEST(stow_protocol_subscribe, test_multi_session_subscribe_fans_out_to_both)
 {
-    zassert_equal(stow_protocol_session_open(SESSION_A, STOW_ROLE_GUEST), 0);
-    zassert_equal(stow_protocol_session_open(SESSION_B, STOW_ROLE_GUEST), 0);
-    subscribe_ok(SESSION_A, STOW_ROLE_GUEST, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
-    subscribe_ok(SESSION_B, STOW_ROLE_GUEST, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
+    test_open_session(SESSION_A, STOW_ROLE_GUEST);
+    test_open_session(SESSION_B, STOW_ROLE_GUEST);
+    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
+    subscribe_ok(SESSION_B, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
 
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 99 };
     zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
@@ -162,13 +162,13 @@ ZTEST(stow_protocol_subscribe, test_multi_session_subscribe_fans_out_to_both)
 
 ZTEST(stow_protocol_subscribe, test_session_close_removes_subscription)
 {
-    zassert_equal(stow_protocol_session_open(SESSION_A, STOW_ROLE_GUEST), 0);
-    zassert_equal(stow_protocol_session_open(SESSION_B, STOW_ROLE_GUEST), 0);
-    subscribe_ok(SESSION_A, STOW_ROLE_GUEST, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
-    subscribe_ok(SESSION_B, STOW_ROLE_GUEST, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
+    test_open_session(SESSION_A, STOW_ROLE_GUEST);
+    test_open_session(SESSION_B, STOW_ROLE_GUEST);
+    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
+    subscribe_ok(SESSION_B, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
 
     // Close A
-    zassert_equal(stow_protocol_session_closed(SESSION_A), 0);
+    test_endpoint_close(SESSION_A);
     test_sync();
     test_drain_captures();
 
@@ -188,8 +188,8 @@ ZTEST(stow_protocol_subscribe, test_session_close_removes_subscription)
 ZTEST(stow_protocol_subscribe, test_auth_drop_auto_revokes_subscription)
 {
     // Start with SESSION role so we can subscribe to TestSessionInt
-    zassert_equal(stow_protocol_session_open(SESSION_A, STOW_ROLE_SESSION), 0);
-    subscribe_ok(SESSION_A, STOW_ROLE_SESSION, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_SESSION_INT);
+    test_open_session(SESSION_A, STOW_ROLE_SESSION);
+    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_SESSION_INT);
 
     // Switch role to GUEST
     zassert_equal(stow_protocol_session_set_roles(SESSION_A, STOW_ROLE_GUEST), 0);
@@ -207,8 +207,8 @@ ZTEST(stow_protocol_subscribe, test_auth_drop_auto_revokes_subscription)
 
 ZTEST(stow_protocol_subscribe, test_auth_raise_does_not_resubscribe)
 {
-    zassert_equal(stow_protocol_session_open(SESSION_A, STOW_ROLE_SESSION), 0);
-    subscribe_ok(SESSION_A, STOW_ROLE_SESSION, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_SESSION_INT);
+    test_open_session(SESSION_A, STOW_ROLE_SESSION);
+    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_SESSION_INT);
 
     // Drop then raise back, subscription should remain revoked
     zassert_equal(stow_protocol_session_set_roles(SESSION_A, STOW_ROLE_GUEST), 0);

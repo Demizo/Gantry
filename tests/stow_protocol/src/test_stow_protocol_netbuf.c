@@ -17,7 +17,7 @@ static void before_each(void* fixture)
 static void after_each(void* fixture)
 {
     (void)fixture;
-    (void)stow_protocol_session_closed(SESSION_ID);
+    test_endpoint_close(SESSION_ID);
     test_sync();
     test_drain_captures();
 }
@@ -26,11 +26,11 @@ ZTEST_SUITE(stow_protocol_netbuf, NULL, NULL, before_each, after_each, NULL);
 
 ZTEST(stow_protocol_netbuf, test_response_has_reserved_headroom_and_tailroom)
 {
-    zassert_equal(stow_protocol_session_open(SESSION_ID, STOW_ROLE_GUEST), 0);
+    test_open_session(SESSION_ID, STOW_ROLE_GUEST);
 
     uint8_t req[8];
     int len = test_build_simple(req, sizeof(req), STOW_MSG_VERSION);
-    zassert_equal(test_submit_rx(SESSION_ID, STOW_ROLE_GUEST, req, len), 0);
+    zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);
@@ -51,11 +51,11 @@ ZTEST(stow_protocol_netbuf, test_response_has_reserved_headroom_and_tailroom)
 
 ZTEST(stow_protocol_netbuf, test_app_can_prepend_headers_and_append_footers)
 {
-    zassert_equal(stow_protocol_session_open(SESSION_ID, STOW_ROLE_GUEST), 0);
+    test_open_session(SESSION_ID, STOW_ROLE_GUEST);
 
     uint8_t req[8];
     int len = test_build_simple(req, sizeof(req), STOW_MSG_VERSION);
-    zassert_equal(test_submit_rx(SESSION_ID, STOW_ROLE_GUEST, req, len), 0);
+    zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);

@@ -16,29 +16,55 @@ LOG_MODULE_REGISTER(test_common, 3);
 //* Pools
 //**********************************************************
 
-#define TEST_BUF_DATA_SIZE 320
 #define TEST_BUF_USER_DATA 0
+
+#define TEST_SYNC_SESSION 0xDEADBEEFu
 
 NET_BUF_POOL_DEFINE(test_tx_pool, 16, TEST_BUF_DATA_SIZE, TEST_BUF_USER_DATA, NULL);
 NET_BUF_POOL_DEFINE(test_rx_pool, 16, TEST_BUF_DATA_SIZE, TEST_BUF_USER_DATA, NULL);
 
 K_MSGQ_DEFINE(test_capture_msgq, sizeof(struct test_capture), TEST_MAX_PENDING_TX, sizeof(void*));
+K_MSGQ_DEFINE(test_sync_msgq, sizeof(struct net_buf*), 1, sizeof(void*));
 
 static bool g_protocol_initialized;
 
+static atomic_t g_refuse_sends;
+
 //**********************************************************
-//* TX Callback
+//* Fake Transport
 //**********************************************************
 
-static void test_tx_cb(uint32_t session_id, struct net_buf* buf)
+static int test_send(struct stow_transport* transport, uint32_t session_id, struct net_buf* buf)
 {
+    ARG_UNUSED(transport);
+
+    if (session_id == TEST_SYNC_SESSION)
+    {
+        return k_msgq_put(&test_sync_msgq, &buf, K_NO_WAIT) == 0 ? 0 : -EIO;
+    }
+
+    if (atomic_get(&g_refuse_sends) != 0)
+    {
+        return -ENOBUFS;
+    }
+
     struct test_capture cap = { .session_id = session_id, .buf = buf };
     if (k_msgq_put(&test_capture_msgq, &cap, K_NO_WAIT) != 0)
     {
-        LOG_WRN("Test capture queue full — dropping TX for session %u", session_id);
-        net_buf_unref(buf);
+        LOG_WRN("Test capture queue full, refusing TX for session %u", session_id);
+        return -ENOBUFS;
     }
+    return 0;
 }
+
+struct stow_transport test_transport = {
+    .send = test_send,
+    .pool = &test_tx_pool,
+    .headroom = TEST_TX_HEADROOM,
+    .tailroom = TEST_TX_TAILROOM,
+};
+
+void test_refuse_sends(bool refuse) { atomic_set(&g_refuse_sends, refuse ? 1 : 0); }
 
 //**********************************************************
 //* Lifecycle
@@ -51,14 +77,10 @@ static void ensure_protocol_init(void)
         return;
     }
     stow_init();
-    struct stow_protocol_config cfg = {
-        .response_cb = test_tx_cb,
-        .response_pool = &test_tx_pool,
-        .headroom = TEST_TX_HEADROOM,
-        .tailroom = TEST_TX_TAILROOM,
-    };
-    int ret = stow_protocol_init(&cfg);
+    int ret = stow_protocol_init();
     zassert_equal(ret, 0, "stow_protocol_init failed: %d", ret);
+    ret = test_endpoint_open(TEST_SYNC_SESSION, STOW_ROLE_GUEST, &test_transport);
+    zassert_equal(ret, 0, "sync session open failed: %d", ret);
     g_protocol_initialized = true;
 }
 
@@ -76,27 +98,45 @@ void test_drain_captures(void)
 
 void test_sync(void)
 {
-    // Issue a Version request against an unknown session. The protocol thread
-    // produces an Error response; once we observe it, every event that was
-    // queued ahead of our request has been processed.
     uint8_t buf[8];
     int len = test_build_simple(buf, sizeof(buf), STOW_MSG_VERSION);
     zassert_true(len > 0);
 
-    int ret = test_submit_rx(0xDEADBEEFu, STOW_ROLE_GUEST, buf, (size_t)len);
-    zassert_equal(ret, 0);
+    k_tid_t self = k_current_get();
+    int priority = k_thread_priority_get(self);
+    k_thread_priority_set(self, CONFIG_STOW_PROTOCOL_THREAD_PRIORITY + 1);
 
-    struct test_capture cap = test_await_tx(K_SECONDS(1));
-    if (cap.buf != NULL)
-    {
-        net_buf_unref(cap.buf);
-    }
+    int ret = test_submit_rx(TEST_SYNC_SESSION, buf, (size_t)len);
+    struct net_buf* response = NULL;
+    int got = k_msgq_get(&test_sync_msgq, &response, K_SECONDS(1));
+    k_thread_priority_set(self, priority);
+
+    zassert_equal(ret, 0);
+    zassert_equal(got, 0, "sync response missing");
+    net_buf_unref(response);
 }
 
 void test_reset(void)
 {
     ensure_protocol_init();
+    test_refuse_sends(false);
     test_drain_captures();
+}
+
+int test_endpoint_open(uint32_t session_id, stow_role_t roles, struct stow_transport* transport)
+{
+    return stow_protocol_endpoint.session_opened(&stow_protocol_endpoint, session_id, roles, transport);
+}
+
+void test_endpoint_close(uint32_t session_id)
+{
+    stow_protocol_endpoint.session_closed(&stow_protocol_endpoint, session_id);
+}
+
+void test_open_session(uint32_t session_id, stow_role_t roles)
+{
+    int ret = test_endpoint_open(session_id, roles, &test_transport);
+    zassert_equal(ret, 0, "session_open(%u) failed: %d", session_id, ret);
 }
 
 //**********************************************************
@@ -105,7 +145,7 @@ void test_reset(void)
 
 struct net_buf* test_alloc_rx(void) { return net_buf_alloc(&test_rx_pool, K_NO_WAIT); }
 
-int test_submit_rx(uint32_t session_id, stow_role_t roles, const uint8_t* data, size_t len)
+int test_submit_rx(uint32_t session_id, const uint8_t* data, size_t len)
 {
     struct net_buf* buf = test_alloc_rx();
     if (buf == NULL)
@@ -115,9 +155,9 @@ int test_submit_rx(uint32_t session_id, stow_role_t roles, const uint8_t* data, 
     void* dest = net_buf_add(buf, len);
     memcpy(dest, data, len);
 
-    int ret = stow_protocol_handle_rx(session_id, roles, buf);
+    stow_protocol_endpoint.receive(&stow_protocol_endpoint, session_id, buf);
     net_buf_unref(buf);
-    return ret;
+    return SUCCESS;
 }
 
 //**********************************************************

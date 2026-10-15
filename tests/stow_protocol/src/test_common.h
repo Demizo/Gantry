@@ -10,6 +10,7 @@
 #include <gantry/stow/stow.h>
 #include <gantry/stow/stow_protocol.h>
 #include <gantry/stow/stow_serde.h>
+#include <gantry/stow/stow_transport.h>
 #include <generated_stow_items.h>
 #include <stdint.h>
 #include <string.h>
@@ -19,6 +20,16 @@
 #include <zephyr/net_buf.h>
 #include <zephyr/ztest.h>
 #include <zephyr/ztest_assert.h>
+
+/**
+ * @brief Sessions available to tests; one slot is reserved for @ref test_sync
+ */
+#define TEST_FREE_SESSIONS (CONFIG_STOW_PROTOCOL_MAX_SESSIONS - 1)
+
+/**
+ * @brief Size of each buffer in the shared test pools
+ */
+#define TEST_BUF_DATA_SIZE 320
 
 /**
  * @brief Maximum number of TX responses buffered during a single test
@@ -45,10 +56,48 @@ struct test_capture
 };
 
 /**
+ * @brief Fake transport that captures every response
+ */
+extern struct stow_transport test_transport;
+
+/**
+ * @brief Make the fake transport refuse sends
+ *
+ * @param refuse Whether sends are refused
+ */
+void test_refuse_sends(bool refuse);
+
+/**
+ * @brief Open a session through the protocol endpoint
+ *
+ * @param session_id Session to open
+ * @param roles Roles granted to the session
+ * @param transport Transport that carries the session's messages
+ *
+ * @return The endpoint's result
+ */
+int test_endpoint_open(uint32_t session_id, stow_role_t roles, struct stow_transport* transport);
+
+/**
+ * @brief Close a session through the protocol endpoint
+ *
+ * @param session_id Session to close
+ */
+void test_endpoint_close(uint32_t session_id);
+
+/**
+ * @brief Open a session on the fake transport
+ *
+ * @param session_id Session to open
+ * @param roles Roles granted to the session
+ */
+void test_open_session(uint32_t session_id, stow_role_t roles);
+
+/**
  * @brief Allocate an RX net_buf from the shared test pool
  *
  * @details The caller writes CBOR bytes into the buf using net_buf_add and
- * passes it to stow_protocol_handle_rx. The protocol takes its own
+ * passes it to the protocol endpoint. The protocol takes its own
  * reference; the caller should net_buf_unref after submitting.
  */
 struct net_buf* test_alloc_rx(void);
@@ -57,11 +106,12 @@ struct net_buf* test_alloc_rx(void);
  * @brief Submit a hand-crafted CBOR request to the protocol
  *
  * @param session_id The session that owns the request
- * @param roles Role bitmask reported with the request
  * @param data Encoded CBOR bytes
  * @param len Length of the encoded payload
+ *
+ * @return 0 when the request was handed to the endpoint, -ENOMEM when no RX buffer was free
  */
-int test_submit_rx(uint32_t session_id, stow_role_t roles, const uint8_t* data, size_t len);
+int test_submit_rx(uint32_t session_id, const uint8_t* data, size_t len);
 
 /**
  * @brief Wait for and return the next captured TX response
@@ -78,9 +128,8 @@ void test_drain_captures(void);
 /**
  * @brief Force the protocol thread to flush pending events
  *
- * @details Sends a Version request to a dedicated synchronization session
- * and waits for the response. By the time we receive it, the worker
- * thread has drained every event queued before our request.
+ * @details Sends a Version request on a dedicated session and waits for its
+ * response below the protocol thread's priority, so the thread is idle on return.
  */
 void test_sync(void);
 
