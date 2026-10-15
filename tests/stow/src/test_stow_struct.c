@@ -181,3 +181,31 @@ ZTEST(stow_struct, test_encode_decode)
 
     stow_release(STOW_ID_TEST_STRUCT_ITEM, &decoded);
 }
+
+ZTEST(stow_struct, test_a_referenced_value_outlives_the_original)
+{
+    data_value_t value;
+    zassert_equal(stow_get(STOW_ID_TEST_STRUCT_ITEM, &value), 0);
+    data_value_t kept = value;
+    stow_ref(STOW_ID_TEST_STRUCT_ITEM, &kept);
+    stow_release(STOW_ID_TEST_STRUCT_ITEM, &value);
+
+    uint8_t field_buf_storage[sizeof(buffer_t) + 1];
+    buffer_t* field_buf = (buffer_t*)field_buf_storage;
+    field_buf->len = 1;
+    field_buf->buf[0] = 0x5A;
+    TestStruct_t src = {
+        .int_field = 42,
+        .enum_field = Color_BLUE,
+        .string_field = "Hello",
+        .buf_field = field_buf,
+    };
+    data_value_t other = { .type = STOW_ITEM_TYPE_STRUCT, .data.raw_value = &src };
+    zassert_equal(stow_set(STOW_ID_TEST_STRUCT_ITEM, other), 0);
+
+    TestStruct_t* s = (TestStruct_t*)kept.data.raw_value;
+    zassert_equal(s->int_field, 7);
+    zassert_equal(s->buf_field->len, 0);
+    zassert_equal(mem_get_ref_count(s), 1, "the kept value is not its block's last reference");
+    stow_release(STOW_ID_TEST_STRUCT_ITEM, &kept);
+}

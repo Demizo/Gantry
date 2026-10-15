@@ -225,6 +225,22 @@ void stow_release(enum stow_item_id id, data_value_t* value);
 #define STOW_RELEASE(id, value) TRACE_WRAP_VOID(stow_release(id, value))
 
 /**
+ * @brief Add a reference to a retrieved data item value; release it with @ref stow_release
+ *
+ * @param[in] id Item ID, used to determine the data type
+ * @param[in] value Pointer to the value to keep
+ * @acquires memory value
+ */
+void stow_ref(enum stow_item_id id, data_value_t* value);
+
+/**
+ * @brief Convenience macro for @ref stow_ref with debug tracing
+ *
+ * @acquires memory value
+ */
+#define STOW_REF(id, value) TRACE_WRAP_VOID(stow_ref(id, value))
+
+/**
  * @brief Encode a data item value as CBOR
  *
  * @param encoder CBOR encoder instance

@@ -31,7 +31,7 @@ The Stow does not provide any complex migration mechanisms, but the automatic va
 Get Items
 =========
 
-Use :any:`STOW_GET` to read an item's current value. **Always** call :any:`STOW_RELEASE` when finished with the value retrieved by :any:`STOW_GET`. This allows types that are reference-counted to be released, it is a noop for other types. The :doc:`Resource Checker </resource_checker/index>` will verify that values are released. The same applies to :any:`STOW_GET_EXTERNAL` and :any:`STOW_DECODE`. If the call fails nothing was retrieved and there is nothing to release.
+Use :any:`STOW_GET` to read an item's current value. **Always** call :any:`STOW_RELEASE` when finished with the value retrieved by :any:`STOW_GET`. This allows types that are reference-counted to be released, it is a noop for other types. The :doc:`Resource Checker </resource_checker/index>` will verify that values are released. The same applies to :any:`STOW_GET_EXTERNAL` and :any:`STOW_DECODE`. If the call fails nothing was retrieved and there is nothing to release. To keep a value beyond its release, take another reference with :any:`STOW_REF` and release it with :any:`STOW_RELEASE`.
 
 .. code-block:: c
 

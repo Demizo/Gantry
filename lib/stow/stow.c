@@ -531,6 +531,12 @@ void stow_release(enum stow_item_id id, data_value_t* value)
     item->interface->release(value);
 }
 
+void stow_ref(enum stow_item_id id, data_value_t* value)
+{
+    const struct stow_item_const_metadata* item = &g_stow_const_metadata[id];
+    item->interface->ref(value);
+}
+
 int stow_encode(zcbor_state_t* encoder, enum stow_item_id id, data_value_t value)
 {
     const struct stow_item_const_metadata* item = &g_stow_const_metadata[id];

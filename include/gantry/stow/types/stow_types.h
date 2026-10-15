@@ -16,6 +16,7 @@
 #pragma once
 
 #include <gantry/buffer.h>
+#include <gantry/memory.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <zcbor_decode.h>
@@ -242,6 +243,7 @@ struct stow_item_interface
     bool (*is_equal)(data_value_t a, data_value_t b); /**< Function to check if two values of the same type are equal */
     int (*set)(void* dest, data_value_t value);     /**< Function to copy a value's data to the provided destination */
     int (*get)(void* src, data_value_t* out_value); /**< Function to get an item value from the provided source */
+    void (*ref)(data_value_t* value);     /**< Function to add a reference to an item value, kept until released */
     void (*release)(data_value_t* value); /**< Function to release an item value. Note: the inner value may be NULL in
                                              which case release should do nothing. */
     int (*decode)(zcbor_state_t* decoder, data_value_t* out_value); /**< Function to decode an item value from CBOR */
@@ -274,6 +276,28 @@ struct stow_item_const_metadata
 //**********************************************************
 //* Functions
 //**********************************************************
+
+/**
+ * @brief The @ref stow_item_interface ref of values held in a memory block, such as strings, buffers and structs
+ *
+ * @param value Value whose block gains a reference, or that holds NULL
+ */
+static inline void stow_value_ref_block(data_value_t* value)
+{
+    void* block = value->data.raw_value;
+    if (block != NULL)
+    {
+        MEM_REF(block);
+    }
+    PASS_OWNERSHIP(block);
+}
+
+/**
+ * @brief The @ref stow_item_interface ref of values held inline, such as ints, floats and enums
+ *
+ * @param value Unused
+ */
+static inline void stow_value_ref_none(data_value_t* value) { ARG_UNUSED(value); }
 
 /**
  * @}

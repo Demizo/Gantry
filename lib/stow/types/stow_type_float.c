@@ -133,6 +133,7 @@ const struct stow_item_interface stow_float_interface = {
     .is_equal = is_equal,
     .set = set,
     .get = get,
+    .ref = stow_value_ref_none,
     .release = release,
     .decode = decode,
     .encode = encode,
