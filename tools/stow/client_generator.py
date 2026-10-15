@@ -4,6 +4,7 @@ from pathlib import Path
 from preprocess import (
     BUILTIN_STRINGS,
     builtin_item,
+    flatten,
     preprocess_items,
     preprocess_structs,
     template_environment,
@@ -49,8 +50,55 @@ def _used_enums(items: list, structs: dict, enums: dict) -> dict:
     return {name: enum for name, enum in enums.items() if name in names}
 
 
+def _shape(schema: dict, kind: str, name: str):
+    """A comparable form of an enum or struct, with nested types expanded, or None if undefined."""
+    if kind == "enum":
+        enum = (schema.get("enums") or {}).get(name)
+        if enum is None:
+            return None
+        return tuple((v["name"], v["value"]) for v in enum["values"])
+
+    struct = next((s for s in schema.get("structs") or [] if s["name"] == name), None)
+    if struct is None:
+        return None
+    fields = []
+    for field in struct["fields"]:
+        constraints = flatten(field["constraints"])
+        if field["type"] == "ENUM":
+            nested = (
+                "enum",
+                constraints["enum"],
+                _shape(schema, "enum", constraints["enum"]),
+            )
+        elif field["type"] == "STRUCT":
+            nested = (
+                "struct",
+                constraints["struct"],
+                _shape(schema, "struct", constraints["struct"]),
+            )
+        else:
+            nested = tuple(sorted(constraints.items()))
+        fields.append((field["name"], field["type"], nested))
+    return tuple(fields)
+
+
+def _shared(data: dict, local: dict | None, kind: str, names) -> set:
+    if local is None:
+        return set()
+    shared = set()
+    for name in names:
+        shape = _shape(local, kind, name)
+        if shape is not None and shape == _shape(data, kind, name):
+            shared.add(name)
+    return shared
+
+
 def generate_client(
-    data: dict, output_dir: Path, prefix: str, names: list[str] | None = None
+    data: dict,
+    output_dir: Path,
+    prefix: str,
+    names: list[str] | None = None,
+    local: dict | None = None,
 ) -> None:
     if not PREFIX_RE.match(prefix) or "_struct" in prefix or "_stow" in prefix:
         raise ValueError(
@@ -76,13 +124,16 @@ def generate_client(
 
     used_structs = _used_structs(items, structs)
     used_enums = _used_enums(items, used_structs, enums)
+    shared_structs = _shared(data, local, "struct", used_structs)
+    shared_enums = _shared(data, local, "enum", used_enums)
 
     env = template_environment(p)
     context = {
         "peer": prefix,
         "items": items,
         "roles": roles,
-        "enums": used_enums,
+        "enums": {n: e for n, e in used_enums.items() if n not in shared_enums},
+        "aliased_enums": {n: e for n, e in used_enums.items() if n in shared_enums},
         "structs": used_structs,
     }
 
@@ -103,6 +154,12 @@ def generate_client(
     }
     for name, struct in used_structs.items():
         struct_context = {"struct": struct, "enums": enums, "structs": structs}
+        if name in shared_structs:
+            outputs[inc / f"generated_{p}struct_{name}.h"] = (
+                "generated_struct_alias.h.j2",
+                struct_context,
+            )
+            continue
         outputs[inc / f"generated_{p}struct_{name}.h"] = (
             "generated_struct_header.h.j2",
             struct_context,

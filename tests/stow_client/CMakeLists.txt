@@ -19,8 +19,8 @@ file(MAKE_DIRECTORY ${GENERATED_DIR}/src/stow)
 
 foreach(_gen
     "generate_stow.py;--yaml;${TEST_STOW_YAML}"
-    "generate_stow_client.py;--yaml;${TEST_STOW_YAML};--prefix;peer"
-    "generate_stow_client.py;--yaml;${VARIANT_STOW_YAML};--prefix;variant")
+    "generate_stow_client.py;--yaml;${TEST_STOW_YAML};--prefix;peer;--local-yaml;${GENERATED_DIR}/merged.stow.yaml"
+    "generate_stow_client.py;--yaml;${VARIANT_STOW_YAML};--prefix;variant;--local-yaml;${GENERATED_DIR}/merged.stow.yaml")
   list(POP_FRONT _gen _script)
   execute_process(
       COMMAND ${UV_CMD} run ${GANTRY_ROOT}/tools/stow/${_script} ${_gen} --output-dir ${GENERATED_DIR}

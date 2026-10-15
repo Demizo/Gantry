@@ -138,6 +138,23 @@ ZTEST(stow_client_loopback, test_struct_round_trip)
     zassert_equal(test_blocks_in_use(), blocks, "values leaked");
 }
 
+ZTEST(stow_client_loopback, test_a_local_struct_value_is_set_on_the_peer_as_is)
+{
+    Point_t local = { .x = 9, .y = 8, .label = "same" };
+    peer_Point_t* shared = &local;
+    zassert_equal(
+        stow_client_set_one(
+            peer, PEER_ID_POSITION, (data_value_t){ .type = STOW_ITEM_TYPE_STRUCT, .data.raw_value = shared }),
+        0);
+
+    data_value_t value;
+    zassert_equal(stow_get(STOW_ID_POSITION, &value), 0);
+    const Point_t* stored = value.data.raw_value;
+    zassert_equal(stored->x, 9);
+    zassert_str_equal(stored->label, "same");
+    stow_release(STOW_ID_POSITION, &value);
+}
+
 ZTEST(stow_client_loopback, test_an_item_too_large_to_describe_is_incompatible)
 {
     test_disconnect(&link, &peer);

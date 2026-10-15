@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 from client_generator import generate_client
 
@@ -66,8 +68,8 @@ SCHEMA = {
 }
 
 
-def generated(tmp_path, names=None):
-    generate_client(SCHEMA, tmp_path, "peer", names)
+def generated(tmp_path, names=None, local=None):
+    generate_client(SCHEMA, tmp_path, "peer", names, local=local)
     return {
         path.name: path.read_text() for path in tmp_path.rglob("*") if path.is_file()
     }
@@ -134,3 +136,35 @@ def test_an_unknown_item_name_fails(tmp_path):
 def test_a_prefix_must_be_a_lowercase_identifier(tmp_path, prefix):
     with pytest.raises(ValueError, match="prefix"):
         generate_client(SCHEMA, tmp_path, prefix)
+
+
+def test_identical_local_types_are_reused(tmp_path):
+    files = generated(tmp_path, ["Shape"], local=SCHEMA)
+
+    assert "typedef Outer_t peer_Outer_t;" in files["generated_peer_struct_Outer.h"]
+    assert "typedef Inner_t peer_Inner_t;" in files["generated_peer_struct_Inner.h"]
+    assert "generated_peer_struct_Outer.c" not in files
+    assert "#define peer_Mode_ON Mode_ON" in files["generated_peer_stow_enums.h"]
+    assert "#define peer_Mode Mode" in files["generated_peer_stow_enums.h"]
+    assert "peer_Mode_enum_values[" not in files["generated_peer_stow_enums.c"]
+
+
+def test_a_local_type_that_differs_anywhere_is_not_reused(tmp_path):
+    local = copy.deepcopy(SCHEMA)
+    local["enums"]["Mode"]["values"].append({"name": "AUTO", "value": 2})
+    files = generated(tmp_path, ["Shape"], local=local)
+
+    assert "} peer_Outer_t;" in files["generated_peer_struct_Outer.h"]
+    assert "} peer_Inner_t;" in files["generated_peer_struct_Inner.h"]
+    assert "peer_Mode_enum_values[" in files["generated_peer_stow_enums.c"]
+
+
+def test_an_identical_nested_struct_is_reused_inside_a_differing_struct(tmp_path):
+    local = copy.deepcopy(SCHEMA)
+    local["structs"][1]["fields"].append(
+        {"name": "Extra", "type": "INT", "constraints": [{"min": 0}, {"max": 1}]}
+    )
+    files = generated(tmp_path, ["Shape"], local=local)
+
+    assert "} peer_Outer_t;" in files["generated_peer_struct_Outer.h"]
+    assert "typedef Inner_t peer_Inner_t;" in files["generated_peer_struct_Inner.h"]

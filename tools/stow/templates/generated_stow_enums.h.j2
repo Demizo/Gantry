@@ -14,12 +14,24 @@
 #pragma once
 
 #include <gantry/stow/types/stow_types.h>
+{% if aliased_enums %}
+#include "generated_stow_enums.h"
+{% endif %}
 
 /**
  * @addtogroup stow
  * @{
  */
 
+{% for enum_name, enum_def in (aliased_enums or {}).items() %}
+#define {{ prefix }}{{ enum_name }} {{ enum_name }} /**< The local enum {{ enum_name }} */
+{% for val in enum_def['values'] %}
+#define {{ prefix }}{{ enum_name }}_{{ val.name }} {{ enum_name }}_{{ val.name }} /**< The local {{ enum_name }}_{{ val.name }} */
+{% endfor %}
+#define {{ prefix }}{{ enum_name }}_COUNT {{ enum_name }}_COUNT /**< The local {{ enum_name }}_COUNT */
+#define {{ prefix }}{{ enum_name }}_enum_values {{ enum_name }}_enum_values /**< The local {{ enum_name }} values */
+
+{% endfor %}
 {% for enum_name, enum_def in enums.items() %}
 /**
  * @brief {{ enum_def.description }}

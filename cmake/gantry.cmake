@@ -98,6 +98,8 @@ function(gantry_stow_generate)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_board_yaml})
   endif()
 
+  set_property(GLOBAL PROPERTY GANTRY_STOW_MERGED_YAML ${ARG_OUTPUT_DIR}/merged.stow.yaml)
+
   message(STATUS "Gantry: generating stow from ${ARG_YAML} (${_fragments})")
   _gantry_stow_run(
     WHAT       stow
@@ -124,10 +126,13 @@ endfunction()
 # Generates Stow client bindings for a peer: the peer's stow.yaml is composed
 # with its FRAGMENTS and validated as in the peer's own build, then the named
 # ITEMS (every schema item when omitted) are bound under PREFIX, so several
-# peers and the local Stow can share one image. The generated sources are
-# attached to the `app` target.
+# peers and the local Stow can share one image. When the build has a local
+# Stow, peer enums and structs identical to local ones reuse the local types.
+# The generated sources are attached to the `app` target.
 #
 # OUTPUT_DIR defaults to ${CMAKE_BINARY_DIR}/gantry_generated.
+#
+# NOTE: Generation is deferred until after the local Stow is generated.
 function(gantry_stow_client_generate)
   cmake_parse_arguments(ARG "" "PREFIX;YAML;OUTPUT_DIR" "FRAGMENTS;ITEMS" ${ARGN})
 
@@ -150,18 +155,37 @@ function(gantry_stow_client_generate)
   endforeach()
   list(POP_FRONT _inputs _yaml)
 
+  set(_call "cmake_language(DEFER DIRECTORY [==[${CMAKE_SOURCE_DIR}]==] CALL _gantry_stow_client_run")
+  foreach(_arg PREFIX ${ARG_PREFIX} OUTPUT_DIR ${ARG_OUTPUT_DIR} YAML ${_yaml} FRAGMENTS ${_inputs} ITEMS ${ARG_ITEMS})
+    string(APPEND _call " [==[${_arg}]==]")
+  endforeach()
+  cmake_language(EVAL CODE "${_call})")
+endfunction()
+
+# _gantry_stow_client_run(PREFIX <prefix> OUTPUT_DIR <dir> YAML <path>
+#                         [FRAGMENTS <path>...] [ITEMS <name>...])
+#
+# Generates the bindings gantry_stow_client_generate() deferred, once the
+# local Stow's merged schema is known.
+function(_gantry_stow_client_run)
+  cmake_parse_arguments(ARG "" "PREFIX;OUTPUT_DIR;YAML" "FRAGMENTS;ITEMS" ${ARGN})
+
   set(_args --prefix ${ARG_PREFIX})
   foreach(_item ${ARG_ITEMS})
     list(APPEND _args --item ${_item})
   endforeach()
+  get_property(_local_yaml GLOBAL PROPERTY GANTRY_STOW_MERGED_YAML)
+  if(_local_yaml AND EXISTS "${_local_yaml}")
+    list(APPEND _args --local-yaml ${_local_yaml})
+  endif()
 
-  message(STATUS "Gantry: generating Stow client bindings '${ARG_PREFIX}' from ${_yaml}")
+  message(STATUS "Gantry: generating Stow client bindings '${ARG_PREFIX}'")
   _gantry_stow_run(
     WHAT       "Stow client"
     SCRIPT     generate_stow_client.py
     OUTPUT_DIR ${ARG_OUTPUT_DIR}
-    YAML       ${_yaml}
-    FRAGMENTS  ${_inputs}
+    YAML       ${ARG_YAML}
+    FRAGMENTS  ${ARG_FRAGMENTS}
     ARGS       ${_args}
   )
 

@@ -2,6 +2,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).parent))
 from client_generator import generate_client
 from merger import compose
@@ -34,6 +36,12 @@ def main() -> None:
         help="Name of a peer item the client uses, repeatable; every schema item when omitted",
     )
     parser.add_argument(
+        "--local-yaml",
+        type=Path,
+        default=None,
+        help="This build's merged local stow.yaml; identical enums and structs reuse the local types",
+    )
+    parser.add_argument(
         "--output-dir", required=True, type=Path, help="Generated output directory"
     )
     args = parser.parse_args()
@@ -41,7 +49,8 @@ def main() -> None:
     try:
         data, _ = compose(args.fragment, args.yaml, None)
         validate(data)
-        generate_client(data, args.output_dir, args.prefix, args.item)
+        local = yaml.safe_load(args.local_yaml.read_text()) if args.local_yaml else None
+        generate_client(data, args.output_dir, args.prefix, args.item, local)
     except (ValueError, FileNotFoundError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
