@@ -24,8 +24,7 @@ async def _snapshot_persistent(port: str, baud: int) -> dict:
             if item.storage is Storage.EPHEMERAL:
                 continue
             try:
-                resp = await client.get_sync(item.name, timeout=2.0)
-                saved[item.name] = resp.value
+                saved[item.name] = await client.get(item.name, timeout=2.0)
             except Exception:
                 log.warning("Could not snapshot %s", item.name)
     return saved
@@ -37,7 +36,7 @@ async def _restore_persistent(port: str, baud: int, saved: dict) -> None:
     async with client:
         for name, value in saved.items():
             try:
-                await client.set_sync(name, value, timeout=2.0)
+                await client.set(name, value, timeout=2.0)
             except Exception:
                 log.warning("Could not restore %s", name)
 

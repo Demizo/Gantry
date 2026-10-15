@@ -3,105 +3,127 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
-from collections import deque
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from .messages import Message, Update, decode
+from .messages import Message, Response, Update, decode
 from .transport import StowTransport
 
 log = logging.getLogger(__name__)
 
-ResponseCallback = Callable[[Message], Awaitable[None] | None]
+UpdateHandler = Callable[[Update], None]
 
 
 class Receiver:
-    """Owns the background task that consumes frames from a StowTransport."""
+    """Owns the background task that consumes frames from a StowTransport.
 
-    def __init__(self, transport: StowTransport) -> None:
+    Responses resolve the future registered for their tag, and Updates go to
+    *on_update*. A tag stays in use until its requester calls finish().
+
+    A tag whose request ended without a response is quarantined until that
+    response arrives, *quarantine_grace* seconds pass or the receiver
+    restarts, so a late response never resolves a newer request that reused
+    the tag. The grace period lets the tag of a request the server dropped,
+    which is never answered, be reused. A response for a tag that is no
+    longer outstanding is ignored.
+    """
+
+    def __init__(
+        self,
+        transport: StowTransport,
+        on_update: UpdateHandler,
+        *,
+        quarantine_grace: float,
+    ) -> None:
         self._transport = transport
+        self._on_update = on_update
+        self._quarantine_grace = quarantine_grace
         self._task: asyncio.Task | None = None
-        self._callbacks: list[ResponseCallback] = []
-        self._response_future: asyncio.Future[Message] | None = None
-        self._expected_types: tuple[type[Message], ...] | None = None
-        self._pending: deque[Message] = deque()
-        self._stopping = False
+        self._pending: dict[int, asyncio.Future[Message]] = {}
+        self._quarantined: dict[int, asyncio.TimerHandle] = {}
+        self._tag_waiters: list[asyncio.Future[None]] = []
 
     def start(self) -> None:
         if self._task is not None:
             return
-        self._stopping = False
+        self._clear_quarantine()
         self._task = asyncio.create_task(self._run(), name="stow-client-receiver")
 
     async def stop(self) -> None:
-        self._stopping = True
         task = self._task
         self._task = None
-        if task is None:
-            return
-        task.cancel()
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+        for fut in self._pending.values():
+            if not fut.done():
+                fut.cancel()
+        self._pending.clear()
+        self._clear_quarantine()
+        self._wake_tag_waiters()
+
+    def tag_in_use(self, tag: int) -> bool:
+        """Return True while *tag* awaits a response or is quarantined."""
+        return tag in self._pending or tag in self._quarantined
+
+    async def wait_for_free_tag(self) -> None:
+        """Wait until a tag is released."""
+        waiter: asyncio.Future[None] = asyncio.get_running_loop().create_future()
+        self._tag_waiters.append(waiter)
         try:
-            await task
-        except (asyncio.CancelledError, Exception):
-            pass
-        if self._response_future is not None and not self._response_future.done():
-            self._response_future.cancel()
+            await waiter
+        finally:
+            if waiter in self._tag_waiters:
+                self._tag_waiters.remove(waiter)
 
-    def add_callback(self, cb: ResponseCallback) -> None:
-        if cb not in self._callbacks:
-            self._callbacks.append(cb)
+    def _quarantine(self, tag: int) -> None:
+        handle = asyncio.get_running_loop().call_later(
+            self._quarantine_grace, self._release, tag
+        )
+        self._quarantined[tag] = handle
 
-    def remove_callback(self, cb: ResponseCallback) -> None:
-        try:
-            self._callbacks.remove(cb)
-        except ValueError:
-            pass
+    def _release(self, tag: int) -> None:
+        handle = self._quarantined.pop(tag, None)
+        if handle is not None:
+            handle.cancel()
+            self._wake_tag_waiters()
 
-    def expect_response(
-        self,
-        expected_types: tuple[type[Message], ...] | None = None,
-    ) -> asyncio.Future[Message]:
-        """Register a single-shot future for the next matching non-Update message.
+    def _clear_quarantine(self) -> None:
+        for handle in self._quarantined.values():
+            handle.cancel()
+        self._quarantined.clear()
 
-        Messages that don't match *expected_types* are forwarded to callbacks
-        and skipped; they belong to a concurrent fire-and-forget request.
-        If *expected_types* is None any non-Update message matches.
-        """
-        if self._response_future is not None and not self._response_future.done():
-            raise RuntimeError("A response is already being awaited")
-        loop = asyncio.get_running_loop()
-        fut: asyncio.Future[Message] = loop.create_future()
-        # Drain pending messages: skip non-matching ones to callbacks.
-        while self._pending:
-            msg = self._pending.popleft()
-            if expected_types is None or isinstance(msg, expected_types):
-                fut.set_result(msg)
-                return fut
-            self._fire_callbacks(msg)
-        self._expected_types = expected_types
-        self._response_future = fut
+    def _wake_tag_waiters(self) -> None:
+        waiters, self._tag_waiters = self._tag_waiters, []
+        for waiter in waiters:
+            if not waiter.done():
+                waiter.set_result(None)
+
+    def expect(self, tag: int) -> asyncio.Future[Message]:
+        """Register a future resolved by the response carrying *tag*."""
+        if tag in self._pending:
+            raise RuntimeError(f"Tag {tag} is already awaiting a response")
+        fut: asyncio.Future[Message] = asyncio.get_running_loop().create_future()
+        self._pending[tag] = fut
         return fut
 
-    def clear_expected(self) -> None:
-        """Cancel the pending waiter and drop any buffered responses."""
-        if self._response_future is not None and not self._response_future.done():
-            self._response_future.cancel()
-        self._response_future = None
-        self._expected_types = None
-        self._pending.clear()
-
-    def _fire_callbacks(self, msg: Message) -> None:
-        for cb in list(self._callbacks):
-            try:
-                result = cb(msg)
-                if inspect.isawaitable(result):
-                    asyncio.create_task(_run_async_callback(result))
-            except Exception:
-                log.exception("Response callback raised")
+    def finish(self, tag: int, sent: bool) -> None:
+        """Release *tag*, quarantining it when it was sent and its response has not arrived."""
+        fut = self._pending.pop(tag, None)
+        answered = fut is not None and fut.done() and not fut.cancelled()
+        if fut is not None and not fut.done():
+            fut.cancel()
+        if sent and not answered:
+            self._quarantine(tag)
+            return
+        self._wake_tag_waiters()
 
     async def _run(self) -> None:
         try:
-            while not self._stopping:
+            while True:
                 try:
                     frame = await self._transport.receive()
                 except asyncio.CancelledError:
@@ -116,29 +138,47 @@ class Receiver:
                     log.exception("Failed to decode frame: %r", frame)
                     continue
 
-                await self._dispatch(msg)
+                self._dispatch(msg)
         except asyncio.CancelledError:
             return
 
-    async def _dispatch(self, msg: Message) -> None:
-        if not isinstance(msg, Update):
-            fut = self._response_future
-            if fut is not None and not fut.done():
-                expected = self._expected_types
-                if expected is None or isinstance(msg, expected):
-                    fut.set_result(msg)
-                    self._response_future = None
-                    self._expected_types = None
-                    # Callbacks still run below, fall through.
-                # else: wrong type for the sync waiter, callbacks handle it below.
-            else:
-                self._pending.append(msg)
+    def _dispatch(self, msg: Message) -> None:
+        if isinstance(msg, Update):
+            try:
+                self._on_update(msg)
+            except Exception:
+                log.exception("Failed to handle update for item %d", msg.item_id)
+            return
 
-        self._fire_callbacks(msg)
+        if isinstance(msg, Response):
+            if msg.tag is None:
+                log.warning("Server could not decode a request: %r", msg)
+            elif msg.tag in self._quarantined:
+                self._release(msg.tag)
+            else:
+                fut = self._pending.get(msg.tag)
+                if fut is not None and not fut.done():
+                    fut.set_result(msg)
+
+
+_callback_tasks: set[asyncio.Task] = set()
+
+
+def invoke_callback(cb: Callable[[Any], Awaitable[None] | None], msg: Message) -> None:
+    """Call *cb* with *msg*, running it as a task when it is a coroutine, and log what it raises."""
+    try:
+        result = cb(msg)
+    except Exception:
+        log.exception("Callback raised")
+        return
+    if inspect.isawaitable(result):
+        task = asyncio.ensure_future(_run_async_callback(result))
+        _callback_tasks.add(task)
+        task.add_done_callback(_callback_tasks.discard)
 
 
 async def _run_async_callback(coro: Awaitable[Any]) -> None:
     try:
         await coro
     except Exception:
-        log.exception("Async response callback raised")
+        log.exception("Async callback raised")

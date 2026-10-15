@@ -17,11 +17,11 @@ from stow_client.descriptions import (
     parse_description,
 )
 
-from .conftest import sample_description_blob
+from .conftest import ROLE_NAMES, sample_description_blob
 
 
 def test_parse_description_returns_all_items():
-    items = parse_description(sample_description_blob())
+    items = parse_description(sample_description_blob(), ROLE_NAMES)
     assert [i.name for i in items] == [
         "StowHash",
         "DeviceName",
@@ -55,13 +55,18 @@ def test_parse_description_returns_all_items():
     struct = by_name["SpiTxBuffer"]
     assert struct.type is ItemType.STRUCT
     assert isinstance(struct.constraints, StructConstraints)
-    assert [f.name for f in struct.constraints.fields] == ["CS", "Bytes", "Text", "Buffer"]
+    assert [f.name for f in struct.constraints.fields] == [
+        "CS",
+        "Bytes",
+        "Text",
+        "Buffer",
+    ]
     nested_enum = struct.constraints.fields[0].constraints
     assert isinstance(nested_enum, EnumConstraints)
 
 
 def test_can_write_specific_role():
-    items = parse_description(sample_description_blob())
+    items = parse_description(sample_description_blob(), ROLE_NAMES)
     by_name = {i.name: i for i in items}
 
     # DeviceName writable by Session only
@@ -89,7 +94,7 @@ def test_value_codec_roundtrip_primitives():
 
 
 def test_value_codec_struct_roundtrip():
-    items = parse_description(sample_description_blob())
+    items = parse_description(sample_description_blob(), ROLE_NAMES)
     struct = next(i for i in items if i.name == "SpiTxBuffer")
 
     value = {
@@ -112,7 +117,7 @@ def test_encode_byte_array_accepts_list_of_ints():
 
 
 def test_decode_struct_field_count_mismatch_raises():
-    items = parse_description(sample_description_blob())
+    items = parse_description(sample_description_blob(), ROLE_NAMES)
     struct = next(i for i in items if i.name == "SpiTxBuffer")
     with pytest.raises(ValueError):
         decode_value(struct.type, struct.constraints, [0, b""])
@@ -123,3 +128,8 @@ def test_float_values_round_trip_exactly():
     device_value = unpack("<f", pack("<f", 21.123456))[0]
     assert decode_value(ItemType.FLOAT, c, device_value) == device_value
     assert encode_value(ItemType.FLOAT, c, device_value) == device_value
+
+
+def test_float_outside_float32_range_is_a_value_error():
+    with pytest.raises(ValueError):
+        encode_value(ItemType.FLOAT, FloatConstraints(min=-1e40, max=1e40), 1e40)

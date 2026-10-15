@@ -1,26 +1,65 @@
 from __future__ import annotations
 
+import io
+import struct
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import IntEnum
 from typing import Any
 
 import cbor2
 
 
-class ItemType(str, Enum):
-    ENUM = "Enum"
-    INT = "Int"
-    FLOAT = "Float"
-    STRING = "String"
-    BYTE_ARRAY = "Byte Array"
-    BUFFER = "Buffer"
-    STRUCT = "Struct"
+class ItemType(IntEnum):
+    ENUM = 0
+    INT = 1
+    FLOAT = 2
+    STRING = 3
+    BYTE_ARRAY = 4
+    BUFFER = 5
+    STRUCT = 6
 
 
-class Storage(str, Enum):
-    EPHEMERAL = "Ephemeral"
-    PERSISTENT = "Persistent"
-    TOFU = "TOFU"
+class Storage(IntEnum):
+    EPHEMERAL = 0
+    PERSISTENT = 1
+    TOFU = 2
+
+
+class ConstraintKey(IntEnum):
+    """Keys of the map that bounds a value or a length."""
+
+    MIN = 0
+    MAX = 1
+
+
+class EnumConstraintKey(IntEnum):
+    """Keys of the map that describes one value of an Enum."""
+
+    VALUE = 0
+    NAME = 1
+
+
+class FieldConstraintKey(IntEnum):
+    """Keys of the map that describes one field of a Struct."""
+
+    NAME = 0
+    TYPE = 1
+    CONSTRAINTS = 2
+
+
+class DescribeKey(IntEnum):
+    """Keys of the map that describes one item."""
+
+    ID = 0
+    NAME = 1
+    CATEGORIES = 2
+    STORAGE = 3
+    READ_PERM = 4
+    WRITE_PERM = 5
+    TYPE = 6
+    DEFAULT = 7
+    CONSTRAINTS = 8
 
 
 @dataclass(frozen=True)
@@ -104,53 +143,89 @@ def _parse_constraints(item_type: ItemType, raw: Any) -> Constraints:
         if not isinstance(raw, list):
             raise ValueError("Enum constraints must be a list")
         return EnumConstraints(
-            values=[EnumValue(value=int(e["value"]), name=str(e["name"])) for e in raw]
+            values=[
+                EnumValue(
+                    value=int(e[EnumConstraintKey.VALUE]),
+                    name=str(e[EnumConstraintKey.NAME]),
+                )
+                for e in raw
+            ]
         )
     if item_type is ItemType.INT:
-        return IntConstraints(min=int(raw["min"]), max=int(raw["max"]))
+        return IntConstraints(
+            min=int(raw[ConstraintKey.MIN]), max=int(raw[ConstraintKey.MAX])
+        )
     if item_type is ItemType.FLOAT:
-        return FloatConstraints(min=float(raw["min"]), max=float(raw["max"]))
+        return FloatConstraints(
+            min=float(raw[ConstraintKey.MIN]), max=float(raw[ConstraintKey.MAX])
+        )
     if item_type in (ItemType.STRING, ItemType.BYTE_ARRAY, ItemType.BUFFER):
-        return LengthConstraints(min_len=int(raw["min_len"]), max_len=int(raw["max_len"]))
+        return LengthConstraints(
+            min_len=int(raw[ConstraintKey.MIN]), max_len=int(raw[ConstraintKey.MAX])
+        )
     if item_type is ItemType.STRUCT:
         if not isinstance(raw, list):
             raise ValueError("Struct constraints must be a list of fields")
         fields_out: list[StructField] = []
         for f in raw:
-            ftype = ItemType(f["type"])
+            ftype = ItemType(f[FieldConstraintKey.TYPE])
             fields_out.append(
                 StructField(
-                    name=str(f["name"]),
+                    name=str(f[FieldConstraintKey.NAME]),
                     type=ftype,
-                    constraints=_parse_constraints(ftype, f["constraints"]),
+                    constraints=_parse_constraints(
+                        ftype, f[FieldConstraintKey.CONSTRAINTS]
+                    ),
                 )
             )
         return StructConstraints(fields=fields_out)
     raise ValueError(f"Unknown item type: {item_type}")
 
 
-def _parse_item(raw: dict[str, Any]) -> ItemDescription:
-    item_type = ItemType(raw["type"])
-    constraints = _parse_constraints(item_type, raw["constraints"])
+def role_names_from_mask(mask: int, role_names: Sequence[str]) -> list[str]:
+    """Name the roles set in *mask*, using the server's role table."""
+    return [name for bit, name in enumerate(role_names) if mask & (1 << bit)]
+
+
+def _parse_item(raw: dict[int, Any], role_names: Sequence[str]) -> ItemDescription:
+    item_type = ItemType(raw[DescribeKey.TYPE])
+    constraints = _parse_constraints(item_type, raw[DescribeKey.CONSTRAINTS])
     return ItemDescription(
-        id=int(raw["id"]),
-        name=str(raw["name"]),
-        categories=[str(c) for c in raw.get("categories", [])],
-        storage=Storage(raw["storage"]),
-        read_perm=list(raw.get("read_perm", [])),
-        write_perm=list(raw.get("write_perm", [])),
+        id=int(raw[DescribeKey.ID]),
+        name=str(raw[DescribeKey.NAME]),
+        categories=[str(c) for c in raw.get(DescribeKey.CATEGORIES, [])],
+        storage=Storage(raw[DescribeKey.STORAGE]),
+        read_perm=role_names_from_mask(raw.get(DescribeKey.READ_PERM, 0), role_names),
+        write_perm=role_names_from_mask(raw.get(DescribeKey.WRITE_PERM, 0), role_names),
         type=item_type,
-        default=raw.get("default"),
+        default=raw.get(DescribeKey.DEFAULT),
         constraints=constraints,
     )
 
 
-def parse_description(blob: bytes) -> list[ItemDescription]:
-    """Parse the joined CBOR Describe payload into ItemDescriptions."""
-    decoded = cbor2.loads(blob)
-    if not isinstance(decoded, list):
-        raise ValueError("Description blob must decode to a CBOR list")
-    return [_parse_item(entry) for entry in decoded]
+def _decode_sequence(blob: bytes) -> list[Any]:
+    stream = io.BytesIO(blob)
+    decoder = cbor2.CBORDecoder(stream)
+    entries: list[Any] = []
+    while stream.tell() < len(blob):
+        entries.append(decoder.decode())
+    return entries
+
+
+def parse_description(
+    blob: bytes, role_names: Sequence[str] = ()
+) -> list[ItemDescription]:
+    """Parse joined Describe chunks, a CBOR sequence of item maps, into ItemDescriptions.
+
+    *role_names* is the server's role table from Hello, used to name the roles
+    in each item's permission bitmasks.
+    """
+    items = []
+    for entry in _decode_sequence(blob):
+        if not isinstance(entry, dict):
+            raise ValueError("A description entry must be a CBOR map")
+        items.append(_parse_item(entry, role_names))
+    return items
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +239,9 @@ def parse_description(blob: bytes) -> list[ItemDescription]:
 # ---------------------------------------------------------------------------
 
 
-def decode_value(item_type: ItemType, constraints: Constraints | None, value: Any) -> Any:
+def decode_value(
+    item_type: ItemType, constraints: Constraints | None, value: Any
+) -> Any:
     if item_type is ItemType.STRUCT:
         if not isinstance(constraints, StructConstraints):
             raise ValueError("STRUCT decode requires StructConstraints")
@@ -191,7 +268,9 @@ def decode_value(item_type: ItemType, constraints: Constraints | None, value: An
     raise ValueError(f"Unknown item type {item_type}")
 
 
-def encode_value(item_type: ItemType, constraints: Constraints | None, value: Any) -> Any:
+def encode_value(
+    item_type: ItemType, constraints: Constraints | None, value: Any
+) -> Any:
     if item_type is ItemType.STRUCT:
         if not isinstance(constraints, StructConstraints):
             raise ValueError("STRUCT encode requires StructConstraints")
@@ -216,7 +295,10 @@ def encode_value(item_type: ItemType, constraints: Constraints | None, value: An
     if item_type is ItemType.STRING:
         return str(value)
     if item_type is ItemType.FLOAT:
-        return float(value)
+        try:
+            return struct.unpack("<f", struct.pack("<f", float(value)))[0]
+        except OverflowError as exc:
+            raise ValueError(f"{value} is outside the float32 range") from exc
     if item_type in (ItemType.INT, ItemType.ENUM):
         return int(value)
     raise ValueError(f"Unknown item type {item_type}")

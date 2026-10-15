@@ -40,6 +40,13 @@ class DescriptionCache:
             pass
         return data
 
+    def discard(self, digest: str) -> None:
+        """Remove the entry for *digest*, if any."""
+        try:
+            self._path_for(digest).unlink()
+        except OSError:
+            pass
+
     def store(self, digest: str, blob: bytes) -> None:
         self._ensure_dir()
         path = self._path_for(digest)
@@ -53,7 +60,9 @@ class DescriptionCache:
 
     def _prune(self) -> None:
         try:
-            entries = [p for p in self._dir.iterdir() if p.is_file() and p.suffix == ".cbor"]
+            entries = [
+                p for p in self._dir.iterdir() if p.is_file() and p.suffix == ".cbor"
+            ]
         except FileNotFoundError:
             return
         if len(entries) <= MAX_ENTRIES:

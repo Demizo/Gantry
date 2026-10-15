@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
-from . import messages as msg_mod
-from ._receiver import Receiver, ResponseCallback
+from ._receiver import Receiver, invoke_callback
 from .cache import DescriptionCache
 from .descriptions import (
     ItemDescription,
@@ -15,44 +16,52 @@ from .descriptions import (
     parse_description,
 )
 from .messages import (
+    TAG_MAX,
     DescribeRequest,
     DescribeResponse,
     Error,
+    ErrorCode,
     GetRequest,
     GetResponse,
-    Message,
-    MultiGetRequest,
-    MultiGetResponse,
-    MultiSetRequest,
+    HelloRequest,
+    HelloResponse,
     Ok,
+    Request,
+    Response,
     SetRequest,
     SubscribeRequest,
     UnsubscribeRequest,
-    VersionRequest,
-    VersionResponse,
+    Update,
 )
 from .transport import StowTransport
 
 log = logging.getLogger(__name__)
 
 PROTOCOL_VERSION = 1
+DEFAULT_RESPONSE_TIMEOUT = 5.0
+QUARANTINE_GRACE_FACTOR = 3
 
-_EXPECTED_RESPONSE: dict[type[msg_mod.Message], tuple[type[msg_mod.Message], ...]] = {
-    VersionRequest: (VersionResponse,),
-    DescribeRequest: (DescribeResponse,),
-    GetRequest: (GetResponse, Error),
-    SetRequest: (Ok, Error),
-    SubscribeRequest: (Ok, Error),
-    UnsubscribeRequest: (Ok, Error),
-    MultiGetRequest: (MultiGetResponse, Error),
-    MultiSetRequest: (Ok, Error),
-}
-STOW_HASH_ITEM_ID = 0
-_DEFAULT_HANDSHAKE_TIMEOUT = 3.0
+ItemListener = Callable[[Update], Awaitable[None] | None]
 
 
 class StowError(RuntimeError):
-    """Raised when the device returns an Error response to a sync request."""
+    """Raised when the device returns an Error response to a request."""
+
+    def __init__(self, error: Error) -> None:
+        try:
+            name = ErrorCode(error.code).name
+        except ValueError:
+            name = "UNRECOGNIZED"
+        details = f"Error code {error.code} ({name})"
+        if error.item is not None:
+            details += f", item {error.item}"
+        if error.index is not None:
+            details += f", entry {error.index}"
+        super().__init__(details)
+        self.code = error.code
+        self.tag = error.tag
+        self.item = error.item
+        self.index = error.index
 
 
 class StowNotLoadedError(RuntimeError):
@@ -63,24 +72,49 @@ class StowVersionMismatch(RuntimeError):
     """Raised when the device protocol version does not match."""
 
 
+class StowRequestTooLargeError(ValueError):
+    """Raised before sending a request larger than the server's ``max_message``."""
+
+
 class UnexpectedResponseError(RuntimeError):
-    """Raised when a sync request receives an unexpected response type."""
+    """Raised when the device answers a request with a response that does not fit it."""
 
 
 class StowClient:
+    """Async Stow client that matches responses to requests by tag.
+
+    Every request waits for its response, up to ``response_timeout`` seconds
+    unless the call passes its own timeout. Up to 24 requests can be in flight
+    at once, one per tag. The tag of a request that timed out stays
+    quarantined until its late response arrives or ``quarantine_grace``
+    seconds pass, by default ``QUARANTINE_GRACE_FACTOR`` times
+    ``response_timeout``. The server drops requests it cannot take and never
+    answers them, so the grace period returns their tags. A late response for
+    a released tag is ignored.
+    """
+
     def __init__(
         self,
         transport: StowTransport,
         *,
         cache_dir: Path | None = None,
+        response_timeout: float = DEFAULT_RESPONSE_TIMEOUT,
+        quarantine_grace: float | None = None,
     ) -> None:
+        if quarantine_grace is None:
+            quarantine_grace = QUARANTINE_GRACE_FACTOR * response_timeout
         self._transport = transport
         self._cache = DescriptionCache(cache_dir)
-        self._receiver = Receiver(transport)
-        self._cmd_lock = asyncio.Lock()
+        self._receiver = Receiver(
+            transport, self._on_update, quarantine_grace=quarantine_grace
+        )
+        self._listeners: dict[int, list[ItemListener]] = {}
+        self._response_timeout = response_timeout
+        self._next_tag = 0
         self._items: list[ItemDescription] = []
         self._items_by_name: dict[str, ItemDescription] = {}
         self._items_by_id: dict[int, ItemDescription] = {}
+        self._hello: HelloResponse | None = None
         self._loaded = False
 
     async def __aenter__(self) -> "StowClient":
@@ -91,14 +125,25 @@ class StowClient:
         await self.close()
 
     async def load(self) -> None:
+        """Send Hello, then read the description from the cache or the device."""
         self._receiver.start()
-        await self._handshake_version()
-        digest = await self._fetch_hash()
+        hello = await self.hello()
+        digest = hello.stow_hash
+        if not isinstance(digest, str):
+            raise UnexpectedResponseError("Hello does not report a StowHash")
+        items = None
         blob = self._cache.lookup(digest)
-        if blob is None:
-            blob = await self._fetch_description()
+        if blob is not None:
+            try:
+                items = parse_description(blob, hello.role_names)
+            except (KeyError, TypeError, ValueError):
+                log.warning("Discarding a cached description that does not parse")
+                self._cache.discard(digest)
+        if items is None:
+            blob = await self._fetch_description(None, None)
+            items = parse_description(blob, hello.role_names)
             self._cache.store(digest, blob)
-        self._items = parse_description(blob)
+        self._items = items
         self._items_by_name = {it.name: it for it in self._items}
         self._items_by_id = {it.id: it for it in self._items}
         self._loaded = True
@@ -109,6 +154,11 @@ class StowClient:
             await self._transport.close()
         except Exception:
             log.exception("Transport close raised")
+
+    @property
+    def hello_response(self) -> HelloResponse | None:
+        """The Hello response read by load(), or None before it completes."""
+        return self._hello
 
     def get_all_items(self) -> list[ItemDescription]:
         self._require_loaded()
@@ -125,215 +175,210 @@ class StowClient:
     # Core Stow API
     # ------------------------------------------------------------------
 
-    async def get(self, item_name: str) -> None:
-        self._require_loaded()
-        item = self.get_item_description(item_name)
-        await self._send(GetRequest(item_id=item.id))
-
-    async def set(self, item_name: str, value: Any) -> None:
-        self._require_loaded()
-        item = self.get_item_description(item_name)
-        wire_value = encode_value(item.type, item.constraints, value)
-        await self._send(SetRequest(item_id=item.id, value=wire_value))
-
-    async def subscribe(self, item_name: str) -> None:
-        self._require_loaded()
-        item = self.get_item_description(item_name)
-        await self._send(SubscribeRequest(item_id=item.id))
-
-    async def unsubscribe(self, item_name: str) -> None:
-        self._require_loaded()
-        item = self.get_item_description(item_name)
-        await self._send(UnsubscribeRequest(item_id=item.id))
-
-    async def multi_get(self, item_names: list[str]) -> None:
-        self._require_loaded()
-        ids = tuple(self.get_item_description(n).id for n in item_names)
-        await self._send(MultiGetRequest(item_ids=ids))
-
-    async def multi_set(self, items: dict[str, Any]) -> None:
-        self._require_loaded()
-        pairs: list[tuple[int, Any]] = []
-        for name, value in items.items():
-            desc = self.get_item_description(name)
-            pairs.append((desc.id, encode_value(desc.type, desc.constraints, value)))
-        await self._send(MultiSetRequest(items=tuple(pairs)))
-
-    # ------------------------------------------------------------------
-    # Synchronous operations (wait for response)
-    # ------------------------------------------------------------------
-
-    async def get_sync(self, item_name: str, timeout: float) -> GetResponse:
-        self._require_loaded()
-        item = self.get_item_description(item_name)
-        async with self._cmd_lock:
-            response = await self._request_response(
-                GetRequest(item_id=item.id), timeout
-            )
-        if isinstance(response, Error):
-            raise StowError(f"Error code {response.code}")
-        if not isinstance(response, GetResponse):
-            raise UnexpectedResponseError(
-                f"Expected GetResponse, got {type(response).__name__}"
-            )
-        decoded = decode_value(item.type, item.constraints, response.value)
-        return GetResponse(item_id=response.item_id, value=decoded)
-
-    async def set_sync(self, item_name: str, value: Any, timeout: float) -> Ok:
-        self._require_loaded()
-        item = self.get_item_description(item_name)
-        wire_value = encode_value(item.type, item.constraints, value)
-        async with self._cmd_lock:
-            response = await self._request_response(
-                SetRequest(item_id=item.id, value=wire_value), timeout
-            )
-        return self._expect_ok(response)
-
-    async def subscribe_sync(self, item_name: str, timeout: float) -> Ok:
-        self._require_loaded()
-        item = self.get_item_description(item_name)
-        async with self._cmd_lock:
-            response = await self._request_response(
-                SubscribeRequest(item_id=item.id), timeout
-            )
-        return self._expect_ok(response)
-
-    async def unsubscribe_sync(self, item_name: str, timeout: float) -> Ok:
-        self._require_loaded()
-        item = self.get_item_description(item_name)
-        async with self._cmd_lock:
-            response = await self._request_response(
-                UnsubscribeRequest(item_id=item.id), timeout
-            )
-        return self._expect_ok(response)
-
-    async def multi_get_sync(
-        self, item_names: list[str], timeout: float
-    ) -> MultiGetResponse:
-        self._require_loaded()
-        descs = [self.get_item_description(n) for n in item_names]
-        ids = tuple(d.id for d in descs)
-        async with self._cmd_lock:
-            response = await self._request_response(
-                MultiGetRequest(item_ids=ids), timeout
-            )
-        if isinstance(response, Error):
-            raise StowError(f"Error code {response.code}")
-        if not isinstance(response, MultiGetResponse):
-            raise UnexpectedResponseError(
-                f"Expected MultiGetResponse, got {type(response).__name__}"
-            )
-        desc_by_id = {d.id: d for d in descs}
-        decoded_items = tuple(
-            (
-                item_id,
-                decode_value(
-                    desc_by_id[item_id].type, desc_by_id[item_id].constraints, val
-                ),
-            )
-            for item_id, val in response.items
-            if item_id in desc_by_id
-        )
-        return MultiGetResponse(items=decoded_items)
-
-    async def multi_set_sync(self, items: dict[str, Any], timeout: float) -> Ok:
-        self._require_loaded()
-        pairs: list[tuple[int, Any]] = []
-        for name, value in items.items():
-            desc = self.get_item_description(name)
-            pairs.append((desc.id, encode_value(desc.type, desc.constraints, value)))
-        async with self._cmd_lock:
-            response = await self._request_response(
-                MultiSetRequest(items=tuple(pairs)), timeout
-            )
-        return self._expect_ok(response)
-
-    # ------------------------------------------------------------------
-    # Callbacks
-    # ------------------------------------------------------------------
-
-    def add_response_callback(self, callback: ResponseCallback) -> None:
-        self._receiver.add_callback(callback)
-
-    def remove_response_callback(self, callback: ResponseCallback) -> None:
-        self._receiver.remove_callback(callback)
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
-    def _require_loaded(self) -> None:
-        if not self._loaded:
-            raise StowNotLoadedError("StowClient.load() must complete first")
-
-    async def _send(self, message: Message) -> None:
-        await self._transport.send(message.encode())
-
-    async def _request_response(self, request: Message, timeout: float) -> Message:
-        expected = _EXPECTED_RESPONSE.get(type(request))
-        future = self._receiver.expect_response(expected)
-        try:
-            await self._send(request)
-            return await asyncio.wait_for(future, timeout=timeout)
-        except (asyncio.TimeoutError, asyncio.CancelledError):
-            self._receiver.clear_expected()
-            raise
-
-    @staticmethod
-    def _expect_ok(response: Message) -> Ok:
-        if isinstance(response, Error):
-            raise StowError(f"Error code {response.code}")
-        if not isinstance(response, Ok):
-            raise UnexpectedResponseError(f"Expected Ok, got {type(response).__name__}")
-        return response
-
-    async def _handshake_version(self) -> None:
-        async with self._cmd_lock:
-            response = await self._request_response(
-                VersionRequest(), _DEFAULT_HANDSHAKE_TIMEOUT
-            )
-        if not isinstance(response, VersionResponse):
-            raise UnexpectedResponseError(
-                f"Expected VersionResponse, got {type(response).__name__}"
-            )
+    async def hello(self, timeout: float | None = None) -> HelloResponse:
+        """Exchange Hello and check the protocol version."""
+        response = await self._request_typed(HelloRequest(), HelloResponse, timeout)
         if response.version != PROTOCOL_VERSION:
             raise StowVersionMismatch(
                 f"Device reports protocol version {response.version}, "
                 f"client supports {PROTOCOL_VERSION}"
             )
+        self._hello = response
+        return response
 
-    async def _fetch_hash(self) -> str:
-        async with self._cmd_lock:
-            response = await self._request_response(
-                GetRequest(item_id=STOW_HASH_ITEM_ID), _DEFAULT_HANDSHAKE_TIMEOUT
-            )
-        if isinstance(response, Error):
-            raise StowError(f"Error code {response.code}")
-        if (
-            not isinstance(response, GetResponse)
-            or response.item_id != STOW_HASH_ITEM_ID
-        ):
+    async def get(
+        self, item_names: str | Sequence[str], timeout: float | None = None
+    ) -> Any:
+        """Get one item's value, or a dict of values when given a list of names."""
+        self._require_loaded()
+        names = [item_names] if isinstance(item_names, str) else list(item_names)
+        descs = [self.get_item_description(n) for n in names]
+        response = await self._request_typed(
+            GetRequest(item_ids=tuple(d.id for d in descs)), GetResponse, timeout
+        )
+        if [item_id for item_id, _ in response.items] != [d.id for d in descs]:
             raise UnexpectedResponseError(
-                f"Expected GetResponse for item 0, got {type(response).__name__}"
+                f"Expected items {[d.id for d in descs]}, got {response.items}"
             )
-        if not isinstance(response.value, str):
-            raise UnexpectedResponseError("StowHash value must be a text string")
-        return response.value
+        values = {
+            d.name: decode_value(d.type, d.constraints, value)
+            for d, (_, value) in zip(descs, response.items)
+        }
+        return values[item_names] if isinstance(item_names, str) else values
 
-    async def _fetch_description(self) -> bytes:
+    async def set(
+        self,
+        items: str | dict[str, Any],
+        value: Any = None,
+        timeout: float | None = None,
+    ) -> None:
+        """Set one item, ``set(name, value)``, or several, ``set({name: value, ...})``."""
+        self._require_loaded()
+        if isinstance(items, str):
+            items = {items: value}
+        pairs = []
+        for name, item_value in items.items():
+            desc = self.get_item_description(name)
+            pairs.append(
+                (desc.id, encode_value(desc.type, desc.constraints, item_value))
+            )
+        await self._request_typed(SetRequest(items=tuple(pairs)), Ok, timeout)
+
+    async def subscribe(
+        self,
+        item_names: str | Sequence[str],
+        timeout: float | None = None,
+        listener: ItemListener | None = None,
+    ) -> None:
+        """Subscribe to items; *listener* gets their Updates until they are unsubscribed."""
+        self._require_loaded()
+        item_ids = self._ids(item_names)
+        added = self._add_listener(item_ids, listener)
+        try:
+            await self._request_typed(SubscribeRequest(item_ids=item_ids), Ok, timeout)
+        except StowError as error:
+            start = error.index if error.index is not None else 0
+            kept = set(item_ids[:start])
+            self._remove_listener(
+                [i for i in item_ids[start:] if i in added and i not in kept], listener
+            )
+            raise
+        except BaseException:
+            self._remove_listener(added, listener)
+            raise
+
+    async def unsubscribe(
+        self, item_names: str | Sequence[str], timeout: float | None = None
+    ) -> None:
+        self._require_loaded()
+        item_ids = self._ids(item_names)
+        await self._request_typed(UnsubscribeRequest(item_ids=item_ids), Ok, timeout)
+        for item_id in item_ids:
+            self._listeners.pop(item_id, None)
+
+    async def describe_items(
+        self, item_names: Sequence[str], timeout: float | None = None
+    ) -> list[ItemDescription]:
+        """Describe only the named items. Names the device does not know are absent."""
+        self._require_loaded()
+        blob = await self._fetch_description(tuple(item_names), timeout)
+        return parse_description(blob, self._hello.role_names)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _on_update(self, update: Update) -> None:
+        item = self._items_by_id.get(update.item_id)
+        if item is not None:
+            update = Update(
+                item_id=update.item_id,
+                value=decode_value(item.type, item.constraints, update.value),
+            )
+        for listener in list(self._listeners.get(update.item_id, [])):
+            invoke_callback(listener, update)
+
+    def _add_listener(
+        self, item_ids: Sequence[int], listener: ItemListener | None
+    ) -> set[int]:
+        added: set[int] = set()
+        if listener is None:
+            return added
+        for item_id in item_ids:
+            listeners = self._listeners.setdefault(item_id, [])
+            if listener not in listeners:
+                listeners.append(listener)
+                added.add(item_id)
+        return added
+
+    def _remove_listener(
+        self, item_ids: Iterable[int], listener: ItemListener | None
+    ) -> None:
+        if listener is None:
+            return
+        for item_id in item_ids:
+            listeners = self._listeners.get(item_id, [])
+            if listener in listeners:
+                listeners.remove(listener)
+            if not listeners:
+                self._listeners.pop(item_id, None)
+
+    def _require_loaded(self) -> None:
+        if not self._loaded:
+            raise StowNotLoadedError("StowClient.load() must complete first")
+
+    def _ids(self, item_names: str | Sequence[str]) -> tuple[int, ...]:
+        if isinstance(item_names, str):
+            item_names = [item_names]
+        return tuple(self.get_item_description(n).id for n in item_names)
+
+    async def _allocate_tag(self) -> int:
+        while True:
+            for offset in range(TAG_MAX + 1):
+                tag = (self._next_tag + offset) % (TAG_MAX + 1)
+                if not self._receiver.tag_in_use(tag):
+                    self._next_tag = (tag + 1) % (TAG_MAX + 1)
+                    return tag
+            await self._receiver.wait_for_free_tag()
+
+    def _encode(self, request: Request, tag: int) -> bytes:
+        frame = dataclasses.replace(request, tag=tag).encode()
+        limit = self._hello.max_message if self._hello is not None else None
+        if limit is not None and len(frame) > limit:
+            raise StowRequestTooLargeError(
+                f"{type(request).__name__} is {len(frame)} bytes; "
+                f"the server's max_message is {limit}"
+            )
+        return frame
+
+    async def _request(self, request: Request, timeout: float | None) -> Response:
+        async with asyncio.timeout(
+            self._response_timeout if timeout is None else timeout
+        ):
+            tag = await self._allocate_tag()
+            future = self._receiver.expect(tag)
+            sent = False
+            try:
+                frame = self._encode(request, tag)
+                sent = True
+                try:
+                    await self._transport.send(frame)
+                except Exception:
+                    sent = False
+                    raise
+                return await future
+            finally:
+                self._receiver.finish(tag, sent)
+
+    async def _request_typed(
+        self, request: Request, expected: type, timeout: float | None
+    ):
+        response = await self._request(request, timeout)
+        if isinstance(response, Error):
+            raise StowError(response)
+        if not isinstance(response, expected):
+            raise UnexpectedResponseError(
+                f"Expected {expected.__name__}, got {type(response).__name__}"
+            )
+        return response
+
+    async def _fetch_description(
+        self, names: tuple[str, ...] | None, timeout: float | None
+    ) -> bytes:
         parts: list[bytes] = []
-        async with self._cmd_lock:
-            start_id = 0
-            while True:
-                response = await self._request_response(
-                    DescribeRequest(start_item_id=start_id), _DEFAULT_HANDSHAKE_TIMEOUT
+        start_id = 0
+        while True:
+            response = await self._request_typed(
+                DescribeRequest(start_item_id=start_id, names=names),
+                DescribeResponse,
+                timeout,
+            )
+            parts.append(response.chunk)
+            if response.next_item_id is None:
+                break
+            if response.next_item_id <= start_id:
+                raise UnexpectedResponseError(
+                    f"Describe made no progress at item {start_id}"
                 )
-                if not isinstance(response, DescribeResponse):
-                    raise UnexpectedResponseError(
-                        f"Expected DescribeResponse, got {type(response).__name__}"
-                    )
-                parts.append(response.chunk)
-                if not response.has_more:
-                    break
-                start_id = response.next_item_id
+            start_id = response.next_item_id
         return b"".join(parts)
