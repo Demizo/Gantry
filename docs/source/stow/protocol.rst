@@ -14,220 +14,130 @@ Key Features
 
 Notably, the Stow Protocol implementation supports:
 
-- Set, Get, & Subscribe to Stow items
-- Retrieving a full description of the Stow (so that client need not be aware of the ``stow.yaml`` in use by the firmware)
-- Multiple concurrent external client sessions
-- Set and get item values in bulk
+- Set, Get, & Subscribe to Stow items, one or several per request
+- Retrieving a full description of the Stow, or of selected items (so that client need not be aware of the ``stow.yaml`` in use by the firmware)
+- Multiple concurrent external client sessions, with several requests in flight per session
 - Role-based access controls at the item level
 - Easy integration with arbitrary transport mediums and protocols
 
-Use With Other Protocols
-------------------------
+Transports
+----------
 
-Stow Protocol messages are encoded with `CBOR <https://cbor.io/>`_. The Stow Protocol uses Zephyr network buffers with user-defined head/tail room. This allows the Stow Protocol to be easily embedded into any arbitrary high-level protocols.
+Stow Protocol messages are encoded with `CBOR <https://cbor.io/>`_. Stow does not handle framing or delivery; a transport does, through the contract in ``gantry/stow/stow_transport.h``. The transport opens a session on ``stow_protocol_endpoint`` when a peer connects, with the roles that peer holds, passes each complete message to ``receive`` and closes the session when the peer leaves. Stow sends messages back through the transport's ``send``.
+
+Each transport message carries exactly one Stow message. A transport must deliver any message up to the size of its pool's buffers, which ``hello-max-message`` relies on.
+
+``CONFIG_STOW_COBS_TRANSPORT`` provides ``stow_cobs_transport``, which carries Stow messages as COBS frames over a byte stream such as UART, with one session per link. It is the framing used by the Python client's serial transport and a good starting point for writing a new transport.
+
+An application that authenticates a peer in-band can change a session's roles with ``stow_protocol_session_set_roles``. Subscriptions the new roles can no longer read are revoked.
 
 Messages
 ========
 
-The Stow Protocol mostly follows a request-response pattern. However, some messages may arrive asynchronously (e.g. Update messages).
+Every message is an array ``[CODE, TAG, ...]``. Hello (code ``0``) and the version at the start of its response are fixed across protocol versions; everything else may change.
 
-**Summary:**
+The Stow Protocol mostly follows a request-response pattern. However, Update messages arrive unsolicited.
+
+The :ref:`definition <stow-cddl>` at the end of this page gives every message, error code and item description exactly, in `CDDL <https://www.rfc-editor.org/rfc/rfc8610>`_; the sections below explain how they behave. Examples use CBOR diagnostic notation, which reads like JSON; use `cbor.me <https://cbor.me/>`_ to view the CBOR representation.
 
 .. list-table::
    :header-rows: 1
-   :widths: 10 20 70
+   :widths: 25 75
 
-   * - Code
-     - Name
+   * - Message
      - Description
-   * - ``0``
-     - Version
-     - Request the protocol version.
-   * - ``1``
-     - Version Response
-     - Returns the current protocol version (currently ``1``).
-   * - ``2``
-     - Describe
-     - Request a chunk of the Stow description starting at a given item ID.
-   * - ``3``
-     - Describe Response
-     - A chunk of the CBOR-encoded item description with continuation info.
-   * - ``4``
-     - Get
-     - Get the current value of an item by ID.
-   * - ``5``
-     - Get Response
-     - Returns the item ID and its current value.
-   * - ``6``
-     - Set
-     - Set the value of an item by ID.
-   * - ``7``
-     - Multi-Get
-     - Get the values of multiple items in a single request.
-   * - ``8``
-     - Multi-Get Response
-     - Returns a flat sequence of ID/value pairs for all requested items.
-   * - ``9``
-     - Multi-Set
-     - Set the values of multiple items in a single request.
-   * - ``10``
-     - Subscribe
-     - Subscribe to value change notifications for an item.
-   * - ``11``
-     - Unsubscribe
-     - Unsubscribe from notifications for an item.
-   * - ``12``
-     - Update
-     - Sent to the client when a subscribed item's value changes.
-   * - ``13``
-     - OK
+   * - Hello
+     - Request the protocol version, the server's limits and the session's roles.
+   * - Hello Response
+     - Returns the protocol version (currently ``1``), the server's limits, the ``StowHash``, the session's roles and the role names.
+   * - Describe
+     - Request a chunk of the Stow description starting at a given item ID, optionally for named items only.
+   * - Describe Response
+     - A chunk of CBOR-encoded item descriptions and the item to continue from.
+   * - Get
+     - Get the current values of one or more items.
+   * - Get Response
+     - Returns the ID and current value of each requested item.
+   * - Set
+     - Set the values of one or more items.
+   * - Subscribe
+     - Subscribe to value notifications for one or more items.
+   * - Unsubscribe
+     - Unsubscribe from notifications for one or more items.
+   * - Update
+     - Sent to the client when a subscribed item is set.
+   * - OK
      - Success response for operations without a dedicated response.
-   * - ``14``
-     - Error
-     - Failure response with a numeric error code.
+   * - Error
+     - Failure response with an error code, and the failing item when known.
 
-The message examples are shown using JSON array notation. All messages are CBOR-encoded in practice; use `cbor.me <https://cbor.me/>`_ to view the CBOR representation. Variable values are represented using fully capitalized snake case.
+Tags
+----
 
-Version
--------
+Every request carries a tag as its second element: an unsigned integer from ``0`` to ``23`` chosen by the client. Every response echoes the tag of the request it answers, so a client can have several requests in flight and match each response to its request. A client should not reuse a tag while a response to it may still arrive.
 
-Request the protocol version. The client should send this to ensure a compatible protocol version prior to further communications.
+Update is unsolicited and its tag is ``null``.
 
-.. code-block:: text
+Delivery
+--------
 
-  [0]
+Every request the server handles gets exactly one response, either its dedicated response, ``OK`` or ``Error``.
 
-Version Response
-----------------
+The server does not acknowledge delivery or retry anything. A request is dropped without a response when the server is too busy to take it, for example when its queue or the transport's buffers are full, so clients should apply a timeout to every request. A response or Update the transport cannot send is dropped as well.
 
-Sent in response to the Version request. It returns the protocol version (currently ``1``).
+Updates are best effort. A client that relies on an item's value should Subscribe and then Get it, Get it again after a reconnect, and poll items where a stale value would matter.
 
-.. code-block:: text
+Hello
+-----
 
-  [1, VERSION]
+Request the protocol version, the server's limits and the roles of the session. The client sends it once when the session starts, before any other request.
+
+The response starts with the protocol version, currently ``1``; a client that does not support it should stop. The map that follows holds:
+
+- ``hello-max-message``: the largest message, in bytes, the server can send on this session. Clients keep every request within it.
+- ``hello-stow-hash``: the ``StowHash`` item's value, used to cache the Stow description.
+- ``hello-roles``: the bitmask of the roles the session holds.
+- ``hello-role-names``: the name of every role, indexed by its bit.
+
+Clients should ignore keys they do not recognize.
 
 Describe
 --------
 
-Request a chunk of the Stow description starting at ``START_ITEM_ID``. Pass ``0`` to start from the beginning. Use the ``NEXT_ITEM_ID`` from each Describe Response as the ``START_ITEM_ID`` for the following request. The description is complete when ``HAS_MORE`` is ``false``.
+Request a chunk of the Stow description starting at item ``start``. Pass ``0`` to start from the beginning, then the ``next`` from each Describe Response. The description is complete when ``next`` is ``null``.
 
-.. code-block:: text
+The optional ``names`` list restricts the description to the named items. Unknown names are ignored, and a list that matches no item returns an empty chunk.
 
-  [2, START_ITEM_ID]
+Any session can describe every item; permissions are enforced when an item is accessed.
 
-Describe Response
------------------
-
-Sent in response to a Describe request. Each response contains a byte string with a fragment of a larger CBOR-encoded description list. Reassemble all chunks in order before decoding. ``HAS_MORE`` indicates whether additional chunks remain.
-
-The maximum size of the CBOR chunk is determined by the ``STOW_PROTOCOL_DESCRIBE_CHUNK_SIZE`` Kconfig option.
-
-.. code-block:: text
-
-   [3, NEXT_ITEM_ID, HAS_MORE, CBOR_CHUNK]
+The response's ``chunk`` holds whole item descriptions as a `CBOR sequence <https://www.rfc-editor.org/rfc/rfc8742>`_, so each chunk can be decoded on its own. The number of items per chunk depends on the size of the session's buffers. When the next item cannot fit an otherwise empty response, the server answers ``err-too-large`` naming that item.
 
 Get
 ---
 
-Request the current value of an item. Will return ``Get Response`` or ``Error``.
-
-.. code-block:: text
-
-   [4, ITEM_ID]
-
-Get Response
-------------
-
-Sent in response to a successful Get request. Contains the current value of the associated item ID.
-
-.. code-block:: text
-
-   [5, ITEM_ID, VALUE]
+Request the current values of one or more items. Returns a Get Response with each item and its value, in the order requested, or an ``Error`` for the first item that could not be read.
 
 Set
 ---
 
-Set the value of an item. Returns ``OK`` on success or ``Error`` on failure.
-
-.. code-block:: text
-
-   [6, ITEM_ID, VALUE]
-
-Multi-Get
----------
-
-Get the current values of multiple items in a single request. Returns a ``Multi-Get Response`` on success, or an ``Error`` if any item could not be retrieved. 
-
-The maximum number of items in a single request is determined by the ``STOW_PROTOCOL_MULTI_MAX_ITEMS`` Kconfig option.
-
-.. code-block:: text
-
-   [7, FIRST_ITEM_ID, SECOND_ITEM_ID, ...]
-
-Multi-Get Response
-------------------
-
-Sent in response to a valid Multi-Get request. The response is a flat sequence of alternating ID/value pairs.
-
-.. code-block:: text
-
-   [8, FIRST_ITEM_ID, FIRST_VALUE, SECOND_ITEM_ID, SECOND_VALUE, ...]
-
-Multi-Set
----------
-
-Set multiple items in one request. Returns ``OK`` if all items were set successfully. On the first failure an ``Error`` is returned; subsequent items are not set. The client can read the Stow to determine which items were applied.
-
-The maximum number of items in a single request is determined by the ``STOW_PROTOCOL_MULTI_MAX_ITEMS`` Kconfig option.
-
-.. code-block:: text
-
-   [9, FIRST_ITEM_ID, FIRST_VALUE, SECOND_ITEM_ID, SECOND_VALUE, ...]
+Set the values of one or more items. Returns ``OK`` if every item was set. Items are set in order and the first failure stops processing with an ``Error``; every item before the failing one was set and the rest were not.
 
 Subscribe
 ---------
 
-Subscribe to receive ``Update`` messages when the associated item is set.Returns ``OK`` or ``Error``.
-
-.. code-block:: text
-
-   [10, ITEM_ID]
+Subscribe to receive Update messages when one or more items are set. Returns ``OK``, or an ``Error`` for the first item that could not be subscribed; the subscriptions before it are active. Subscribing to an item twice is harmless.
 
 Unsubscribe
 -----------
 
-Unsubscribe to stop receiving ``Update`` messages for the associated item. Returns ``OK`` or ``Error``.
-
-.. code-block:: text
-
-   [11, ITEM_ID]
-
-Update
-------
-
-Sent to the client when a subscribed item's value is set.
-
-.. code-block:: text
-
-   [12, ITEM_ID, VALUE]
-
-OK
---
-
-Sent in response to successful operations that do no have a dedicated response.
-
-.. code-block:: text
-
-   [13]
+Unsubscribe to stop receiving Update messages for one or more items. Returns ``OK`` or ``Error``. Unsubscribing from an item that is not subscribed is harmless.
 
 Error
 -----
 
 Sent in response to failed operations. See :ref:`error-codes` for possible errors.
 
-.. code-block:: text
-
-   [14, ERROR_CODE]
+``item`` names the item that failed, when there is one. ``index`` is the zero-based position of an entry that failed as it was applied; the entries before it took effect and the rest did not. A request that fails before anything is applied, for example because it is malformed, carries no ``index`` and took no effect. Optional elements that do not apply are omitted. The tag is ``null`` when the server could not read the request's tag.
 
 .. _error-codes:
 
@@ -236,29 +146,28 @@ Error Codes
 
 .. list-table::
    :header-rows: 1
-   :widths: 10 30 60
+   :widths: 30 70
 
-   * - Code
-     - Name
+   * - Name
      - Description
-   * - ``1``
-     - ``MALFORMED_MSG``
+   * - ``err-malformed-msg``
      - The message was malformed.
-   * - ``2``
-     - ``UNKNOWN_MSG``
+   * - ``err-unknown-msg``
      - The message code was not recognized.
-   * - ``3``
-     - ``INVALID_ITEM``
+   * - ``err-invalid-item``
      - The item ID was invalid.
-   * - ``4``
-     - ``OUT_OF_MEMORY``
+   * - ``err-out-of-memory``
      - Not enough memory to handle the message.
-   * - ``5``
-     - ``PERMISSION_DENIED``
+   * - ``err-permission-denied``
      - The client's role(s) were insufficient.
-   * - ``6``
-     - ``UNKNOWN``
+   * - ``err-unknown``
      - An unknown error occurred (should never occur).
+   * - ``err-invalid-value``
+     - The value broke the item's constraints or custom validator.
+   * - ``err-already-set``
+     - The trust-on-first-use item has already been set.
+   * - ``err-too-large``
+     - The response does not fit the server's buffers.
 
 Client Interaction
 ==================
@@ -266,7 +175,7 @@ Client Interaction
 Connecting to the Stow
 ----------------------
 
-External clients should verify the protocol version then check the Stow hash to see if they have the Stow description cached. The Stow hash is always the first item (with an ID of ``0``). The Python Stow client provides and example of caching descriptions.
+External clients send Hello to verify the protocol version and learn the server's limits, the session's roles and the ``StowHash``. The hash tells the client whether it already has the Stow description cached. The Python Stow client provides an example of caching descriptions.
 
 .. mermaid::
 
@@ -275,11 +184,9 @@ External clients should verify the protocol version then check the Stow hash to 
         participant C as Client
         participant S as Stow Server
 
-        C->>S: Version [0]
-        S->>C: Version Response [1, 1]
+        C->>S: Hello [0, 1]
+        S->>C: Hello Response [1, 1, 1, {..., 1: hash, ...}]
         C->>C: Verify the version is 1
-        C->>S: Get [4, 0]
-        S->>C: Get Response [5, <hash>]
         C->>C: Check if the Stow is cached based on the hash
 
 If the description is not yet cached, the client should retrieve the Stow description.
@@ -287,7 +194,7 @@ If the description is not yet cached, the client should retrieve the Stow descri
 Describing the Stow
 -------------------
 
-The client pages through the Stow description by repeatedly sending ``Describe`` with the ``NEXT_ITEM_ID`` returned by each response. The loop ends when ``HAS_MORE`` is ``false``.
+The client pages through the Stow description by repeatedly sending ``Describe`` with the ``next`` returned by each response. The loop ends when ``next`` is ``null``.
 
 .. mermaid::
 
@@ -296,11 +203,11 @@ The client pages through the Stow description by repeatedly sending ``Describe``
         participant C as Client
         participant S as Stow Server
 
-        C->>S: Describe [2, 0]
-        S->>C: Describe Response [3, next_id, true, chunk_1]
-        C->>S: Describe [2, next_id]
-        S->>C: Describe Response [3, _, false, chunk_N]
-        Note over C: Concatenate chunks and decode the CBOR list
+        C->>S: Describe [2, 2, 0]
+        S->>C: Describe Response [3, 2, next_id, chunk_1]
+        C->>S: Describe [2, 3, next_id]
+        S->>C: Describe Response [3, 3, null, chunk_N]
+        Note over C: Decode the item descriptions in each chunk
 
 Getting and Setting Items
 -------------------------
@@ -312,22 +219,19 @@ Getting and Setting Items
        participant C as Client
        participant S as Stow Server
 
-       C->>S: Get [4, item_id]
-       S->>C: Get Response [5, item_id, value]
+       C->>S: Get [4, 4, id_1, id_2]
+       S->>C: Get Response [5, 4, id_1, value_1, id_2, value_2]
 
-       C->>S: Set [6, item_id, new_value]
-       S->>C: OK [13]
+       C->>S: Set [6, 5, id_1, new_value]
+       S->>C: OK [10, 5]
 
-       C->>S: Multi-Get [7, id_1, id_2]
-       S->>C: Multi-Get Response [8, id_1, value_1, id_2, value_2]
-
-       C->>S: Multi-Set [9, id_1, value_1, id_2, value_2]
-       S->>C: OK [13]
+       C->>S: Set [6, 6, id_1, value_1, id_2, bad_value]
+       S->>C: Error [11, 6, err-invalid-value, id_2, 1]
 
 Subscribing and Receiving Updates
-----------------------------------
+---------------------------------
 
-Once subscribed, the server pushes ``Update`` messages to the client whenever the item's value changes. The client must unsubscribe explicitly.
+Once subscribed, the server pushes ``Update`` messages to the client whenever the item is set. The client must unsubscribe explicitly, or close the session.
 
 .. mermaid::
 
@@ -336,81 +240,37 @@ Once subscribed, the server pushes ``Update`` messages to the client whenever th
        participant C as Client
        participant S as Stow Server
 
-       C->>S: Subscribe [10, item_id]
-       S->>C: OK [13]
+       C->>S: Subscribe [7, 7, id_1, id_2]
+       S->>C: OK [10, 7]
 
-       Note over S: Item value changes
-       S-->>C: Update [12, item_id, new_value]
-       
-       C->>S: Unsubscribe [11, item_id]
-       S->>C: OK [13]
+       Note over S: Item value is set
+       S-->>C: Update [9, null, id_1, new_value]
 
-       Note over S: Item value changes again, no update sent
+       C->>S: Unsubscribe [8, 8, id_1, id_2]
+       S->>C: OK [10, 8]
 
+       Note over S: Item value is set again, no update sent
+
+Golden Vectors
+--------------
+
+``protocols/stow/vectors.yaml`` holds request and response pairs, written in CBOR diagnostic notation, that both the firmware and the Python client are tested against. ``just vectors`` checks every message against the CDDL and regenerates ``vectors.json``, the hex-encoded bytes the tests read, and ``just check-vectors`` fails when it is out of date. Client authors can use them to check their encoding and add the interactions their client relies on.
 
 Stow Description
 ================
 
-Once all ``Describe Response`` chunks are concatenated and decoded, the result is a CBOR list of item descriptions.
+Each Describe Response chunk holds a sequence of item description maps. An item's ``desc-type`` sets how its ``desc-default`` and its values are encoded and the shape of its ``desc-constraints``.
 
-Description Format
-------------------
+``desc-id`` is the item ID used in Get, Set, Subscribe and Update messages. IDs may change across firmware versions; use ``desc-name`` as the stable identifier.
 
-.. code-block:: text
+Bit ``n`` of ``desc-read-perm`` and ``desc-write-perm`` is the role at index ``n`` of the Hello Response's ``hello-role-names``. A client whose session holds any role in the mask is granted access. A mask of ``0`` means the item is firmware-only and cannot be accessed by any external client.
 
-   {
-     "id":          ITEM_ID,
-     "name":        "item_name",
-     "categories":  ["category", ...],
-     "storage":     "Ephemeral" | "Persistent" | "TOFU",
-     "read_perm":   ["RoleName", ...],
-     "write_perm":  ["RoleName", ...],
-     "type":        "Enum" | "Int" | "Float" | "String" | "Byte Array" | "Buffer" | "Struct",
-     "default":     DEFAULT_VALUE,
-     "constraints": TYPE_SPECIFIC_CONSTRAINTS
-   }
+.. _stow-cddl:
 
-The ``id`` corresponds to the ``ITEM_ID`` used in Get, Set, Subscribe, and Update messages. IDs may change across firmware versions; use the ``name`` field as the stable, human-readable identifier.
+Definition
+==========
 
-An empty ``read_perm`` or ``write_perm`` array means the item is firmware-only and cannot be accessed by any external client. Otherwise, a client whose session includes any of the listed role names is granted access.
+``protocols/stow/stow.cddl`` is the normative definition of the protocol.
 
-Constraints by Type
--------------------
-
-**Enum**
-
-A list of possible values paired with descriptive names.
-
-.. code-block:: json
-
-   [
-     {"value": 0, "name": "DISCONNECTED"},
-     {"value": 1, "name": "CONNECTED"}
-   ]
-
-**Int / Float**
-
-Minimum and maximum bounds encoded as ``int32`` or ``float32`` respectively.
-
-.. code-block:: json
-
-   {"min": -100, "max": 100}
-
-**String / Byte Array / Buffer**
-
-Minimum and maximum length of the buffer.
-
-.. code-block:: json
-
-   {"min_len": 0, "max_len": 64}
-
-**Struct**
-
-A list of field descriptors. Each field has its own name, type, and constraints. Fields can be nested structs.
-
-.. code-block:: json
-
-   [
-     {"name": "CS",    "type": "Enum",       "constraints": [{"value": 0, "name": "OFF"}, {"value": 1, "name": "ON"}]},
-     {"name": "Bytes", "type": "Byte Array", "constraints": {"min_len": 0, "max_len": 6}}
-   ]
+.. literalinclude:: ../../../protocols/stow/stow.cddl
+   :language: text
