@@ -15,6 +15,7 @@
 #include <gantry/buffer.h>
 #include <gantry/error.h>
 #include <gantry/memory.h>
+#include <gantry/stow/stow_cbor.h>
 #include <gantry/stow/types/stow_type_buffer.h>
 #include <gantry/stow/types/stow_types.h>
 #include <string.h>
@@ -163,10 +164,9 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
 
 static int encode_constraints(zcbor_state_t* encoder, const union stow_constraints* constraints)
 {
-    if (!zcbor_map_start_encode(encoder, 2) || !zcbor_tstr_put_lit(encoder, "min_len") ||
+    if (!stow_cbor_map_start(encoder, 2) || !zcbor_tstr_put_lit(encoder, "min_len") ||
         !zcbor_uint32_put(encoder, constraints->buffer_constraints.min_len) ||
-        !zcbor_tstr_put_lit(encoder, "max_len") ||
-        !zcbor_uint32_put(encoder, constraints->buffer_constraints.max_len) || !zcbor_map_end_encode(encoder, 2))
+        !zcbor_tstr_put_lit(encoder, "max_len") || !zcbor_uint32_put(encoder, constraints->buffer_constraints.max_len))
     {
         return -ENOMEM;
     }

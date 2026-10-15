@@ -13,6 +13,7 @@
  */
 
 #include <gantry/error.h>
+#include <gantry/stow/stow_cbor.h>
 #include <gantry/stow/types/stow_type_enum.h>
 #include <gantry/stow/types/stow_types.h>
 #include <sys/errno.h>
@@ -117,7 +118,7 @@ static int encode_constraints(zcbor_state_t* encoder, const union stow_constrain
     uint16_t count = constraints->enum_constraints.value_count;
     const struct data_enum_value* values = constraints->enum_constraints.values;
 
-    if (!zcbor_list_start_encode(encoder, count))
+    if (!stow_cbor_list_start(encoder, count))
     {
         return -ENOMEM;
     }
@@ -129,17 +130,12 @@ static int encode_constraints(zcbor_state_t* encoder, const union stow_constrain
             .len = strlen(values[i].name),
         };
 
-        if (!zcbor_map_start_encode(encoder, 2) || !zcbor_tstr_put_lit(encoder, "value") ||
+        if (!stow_cbor_map_start(encoder, 2) || !zcbor_tstr_put_lit(encoder, "value") ||
             !zcbor_int32_put(encoder, values[i].value) || !zcbor_tstr_put_lit(encoder, "name") ||
-            !zcbor_tstr_encode(encoder, &name_str) || !zcbor_map_end_encode(encoder, 2))
+            !zcbor_tstr_encode(encoder, &name_str))
         {
             return -ENOMEM;
         }
-    }
-
-    if (!zcbor_list_end_encode(encoder, count))
-    {
-        return -ENOMEM;
     }
 
     return SUCCESS;

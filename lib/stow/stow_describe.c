@@ -15,6 +15,7 @@
  */
 
 #include <gantry/error.h>
+#include <gantry/stow/stow_cbor.h>
 #include <gantry/stow/stow_describe.h>
 #include <gantry/stow/types/stow_types.h>
 #include <generated_stow_items.h>
@@ -78,7 +79,7 @@ static int encode_role_list(zcbor_state_t* encoder, stow_role_t perm)
             count++;
         }
     }
-    if (!zcbor_list_start_encode(encoder, count))
+    if (!stow_cbor_list_start(encoder, count))
     {
         return -ENOMEM;
     }
@@ -92,7 +93,7 @@ static int encode_role_list(zcbor_state_t* encoder, stow_role_t perm)
             }
         }
     }
-    return zcbor_list_end_encode(encoder, count) ? SUCCESS : -ENOMEM;
+    return SUCCESS;
 }
 
 /**
@@ -107,7 +108,7 @@ static int encode_role_list(zcbor_state_t* encoder, stow_role_t perm)
 static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_metadata* item)
 {
     // Encode start of list at the beginning of describe
-    if (item->id == 0 && !zcbor_list_start_encode(encoder, STOW_ID_COUNT))
+    if (item->id == 0 && !stow_cbor_list_start(encoder, STOW_ID_COUNT))
     {
         return -ENOMEM;
     }
@@ -122,14 +123,14 @@ static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_meta
         .len = strlen(item->name),
     };
 
-    if (!zcbor_map_start_encode(encoder, 9) || !zcbor_tstr_put_lit(encoder, "id") ||
+    if (!stow_cbor_map_start(encoder, 9) || !zcbor_tstr_put_lit(encoder, "id") ||
         !zcbor_uint32_put(encoder, item->id) || !zcbor_tstr_put_lit(encoder, "name") ||
         !zcbor_tstr_encode(encoder, &name_str))
     {
         return -ENOMEM;
     }
 
-    if (!zcbor_tstr_put_lit(encoder, "categories") || !zcbor_list_start_encode(encoder, item->category_count))
+    if (!zcbor_tstr_put_lit(encoder, "categories") || !stow_cbor_list_start(encoder, item->category_count))
     {
         return -ENOMEM;
     }
@@ -143,10 +144,6 @@ static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_meta
         {
             return -ENOMEM;
         }
-    }
-    if (!zcbor_list_end_encode(encoder, item->category_count))
-    {
-        return -ENOMEM;
     }
 
     if (!zcbor_tstr_put_lit(encoder, "storage") || !tstr_put(encoder, storage_type_strings[item->storage_type]) ||
@@ -179,17 +176,6 @@ static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_meta
     if (ret != SUCCESS)
     {
         return ret;
-    }
-
-    if (!zcbor_map_end_encode(encoder, 9))
-    {
-        return -ENOMEM;
-    }
-
-    // Encode end of list at the end of describe
-    if (item->id == (STOW_ID_COUNT - 1) && !zcbor_list_end_encode(encoder, STOW_ID_COUNT))
-    {
-        return -ENOMEM;
     }
 
     return SUCCESS;

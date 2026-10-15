@@ -13,6 +13,7 @@
  */
 
 #include <gantry/error.h>
+#include <gantry/stow/stow_cbor.h>
 #include <gantry/stow/types/stow_type_int.h>
 #include <gantry/stow/types/stow_types.h>
 #include <sys/errno.h>
@@ -112,9 +113,9 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
 
 static int encode_constraints(zcbor_state_t* encoder, const union stow_constraints* constraints)
 {
-    if (!zcbor_map_start_encode(encoder, 2) || !zcbor_tstr_put_lit(encoder, "min") ||
+    if (!stow_cbor_map_start(encoder, 2) || !zcbor_tstr_put_lit(encoder, "min") ||
         !zcbor_int32_put(encoder, constraints->int_constraints.min) || !zcbor_tstr_put_lit(encoder, "max") ||
-        !zcbor_int32_put(encoder, constraints->int_constraints.max) || !zcbor_map_end_encode(encoder, 2))
+        !zcbor_int32_put(encoder, constraints->int_constraints.max))
     {
         return -ENOMEM;
     }

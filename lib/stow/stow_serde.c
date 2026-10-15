@@ -16,6 +16,7 @@
 #include <gantry/error.h>
 #include <gantry/memory.h>
 #include <gantry/stow/stow.h>
+#include <gantry/stow/stow_cbor.h>
 #include <gantry/stow/stow_serde.h>
 #include <generated_stow_items.h>
 #include <string.h>
@@ -220,8 +221,8 @@ void stow_serde_release_request(struct stow_serde_request* request)
 
 int stow_serde_encode_version_response(zcbor_state_t* encoder)
 {
-    if (!zcbor_list_start_encode(encoder, 2) || !zcbor_uint32_put(encoder, STOW_MSG_VERSION_RESPONSE) ||
-        !zcbor_uint32_put(encoder, STOW_PROTOCOL_VERSION) || !zcbor_list_end_encode(encoder, 2))
+    if (!stow_cbor_list_start(encoder, 2) || !zcbor_uint32_put(encoder, STOW_MSG_VERSION_RESPONSE) ||
+        !zcbor_uint32_put(encoder, STOW_PROTOCOL_VERSION))
     {
         return -ENOMEM;
     }
@@ -231,9 +232,9 @@ int stow_serde_encode_version_response(zcbor_state_t* encoder)
 int stow_serde_encode_describe_response(
     zcbor_state_t* encoder, uint32_t next_item_id, bool has_more, const uint8_t* chunk, size_t chunk_len)
 {
-    if (!zcbor_list_start_encode(encoder, 4) || !zcbor_uint32_put(encoder, STOW_MSG_DESCRIBE_RESPONSE) ||
+    if (!stow_cbor_list_start(encoder, 4) || !zcbor_uint32_put(encoder, STOW_MSG_DESCRIBE_RESPONSE) ||
         !zcbor_uint32_put(encoder, next_item_id) || !zcbor_bool_put(encoder, has_more) ||
-        !zcbor_bstr_encode_ptr(encoder, (const char*)chunk, chunk_len) || !zcbor_list_end_encode(encoder, 4))
+        !zcbor_bstr_encode_ptr(encoder, (const char*)chunk, chunk_len))
     {
         return -ENOMEM;
     }
@@ -242,7 +243,7 @@ int stow_serde_encode_describe_response(
 
 int stow_serde_encode_get_response(zcbor_state_t* encoder, enum stow_item_id id, data_value_t value)
 {
-    if (!zcbor_list_start_encode(encoder, 3) || !zcbor_uint32_put(encoder, STOW_MSG_GET_RESPONSE) ||
+    if (!stow_cbor_list_start(encoder, 3) || !zcbor_uint32_put(encoder, STOW_MSG_GET_RESPONSE) ||
         !zcbor_uint32_put(encoder, (uint32_t)id))
     {
         return -ENOMEM;
@@ -254,16 +255,12 @@ int stow_serde_encode_get_response(zcbor_state_t* encoder, enum stow_item_id id,
         return ret;
     }
 
-    if (!zcbor_list_end_encode(encoder, 3))
-    {
-        return -ENOMEM;
-    }
     return SUCCESS;
 }
 
 int stow_serde_encode_update(zcbor_state_t* encoder, enum stow_item_id id, data_value_t value)
 {
-    if (!zcbor_list_start_encode(encoder, 3) || !zcbor_uint32_put(encoder, STOW_MSG_UPDATE) ||
+    if (!stow_cbor_list_start(encoder, 3) || !zcbor_uint32_put(encoder, STOW_MSG_UPDATE) ||
         !zcbor_uint32_put(encoder, (uint32_t)id))
     {
         return -ENOMEM;
@@ -275,10 +272,6 @@ int stow_serde_encode_update(zcbor_state_t* encoder, enum stow_item_id id, data_
         return ret;
     }
 
-    if (!zcbor_list_end_encode(encoder, 3))
-    {
-        return -ENOMEM;
-    }
     return SUCCESS;
 }
 
@@ -286,7 +279,7 @@ int stow_serde_encode_multi_get_response(
     zcbor_state_t* encoder, const enum stow_item_id* ids, const data_value_t* values, uint8_t count)
 {
     uint32_t elem_count = 1u + 2u * (uint32_t)count;
-    if (!zcbor_list_start_encode(encoder, elem_count) || !zcbor_uint32_put(encoder, STOW_MSG_MULTI_GET_RESPONSE))
+    if (!stow_cbor_list_start(encoder, elem_count) || !zcbor_uint32_put(encoder, STOW_MSG_MULTI_GET_RESPONSE))
     {
         return -ENOMEM;
     }
@@ -302,17 +295,12 @@ int stow_serde_encode_multi_get_response(
             return ret;
         }
     }
-    if (!zcbor_list_end_encode(encoder, elem_count))
-    {
-        return -ENOMEM;
-    }
     return SUCCESS;
 }
 
 int stow_serde_encode_ok(zcbor_state_t* encoder)
 {
-    if (!zcbor_list_start_encode(encoder, 1) || !zcbor_uint32_put(encoder, STOW_MSG_OK) ||
-        !zcbor_list_end_encode(encoder, 1))
+    if (!stow_cbor_list_start(encoder, 1) || !zcbor_uint32_put(encoder, STOW_MSG_OK))
     {
         return -ENOMEM;
     }
@@ -321,8 +309,8 @@ int stow_serde_encode_ok(zcbor_state_t* encoder)
 
 int stow_serde_encode_error(zcbor_state_t* encoder, enum stow_error_code code)
 {
-    if (!zcbor_list_start_encode(encoder, 2) || !zcbor_uint32_put(encoder, STOW_MSG_ERROR) ||
-        !zcbor_uint32_put(encoder, (uint32_t)code) || !zcbor_list_end_encode(encoder, 2))
+    if (!stow_cbor_list_start(encoder, 2) || !zcbor_uint32_put(encoder, STOW_MSG_ERROR) ||
+        !zcbor_uint32_put(encoder, (uint32_t)code))
     {
         return -ENOMEM;
     }
