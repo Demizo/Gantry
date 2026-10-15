@@ -49,16 +49,18 @@ static struct hello request_hello(stow_role_t roles)
     zassert_equal(test_endpoint_open(SESSION_ID, roles, &test_transport), 0);
 
     uint8_t req[8];
-    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO);
+    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO, TEST_TAG);
     zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);
 
     uint32_t cmd = 0;
+    uint32_t tag = 0;
     zcbor_state_t dec[8];
-    zassert_true(test_decode_response_header(cap.buf, &cmd, dec, ARRAY_SIZE(dec)));
+    zassert_true(test_decode_response_header(cap.buf, &cmd, &tag, dec, ARRAY_SIZE(dec)));
     zassert_equal(cmd, STOW_MSG_HELLO_RESPONSE);
+    zassert_equal(tag, TEST_TAG);
 
     struct hello hello = { 0 };
     zassert_true(zcbor_uint32_decode(dec, &hello.version));

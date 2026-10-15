@@ -29,7 +29,7 @@ ZTEST(stow_protocol_netbuf, test_response_has_reserved_headroom_and_tailroom)
     test_open_session(SESSION_ID, STOW_ROLE_GUEST);
 
     uint8_t req[8];
-    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO);
+    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO, TEST_TAG);
     zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
@@ -54,7 +54,7 @@ ZTEST(stow_protocol_netbuf, test_app_can_prepend_headers_and_append_footers)
     test_open_session(SESSION_ID, STOW_ROLE_GUEST);
 
     uint8_t req[8];
-    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO);
+    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO, TEST_TAG);
     zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));

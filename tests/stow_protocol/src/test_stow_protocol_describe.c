@@ -43,7 +43,7 @@ static int request_describe_chunk(
     bool* out_has_more)
 {
     uint8_t req[16];
-    int len = test_build_with_id(req, sizeof(req), STOW_MSG_DESCRIBE, start_id);
+    int len = test_build_with_id(req, sizeof(req), STOW_MSG_DESCRIBE, TEST_TAG, start_id);
     zassert_true(len > 0);
     zassert_equal(test_submit_rx(session_id, req, len), 0);
 
@@ -53,7 +53,7 @@ static int request_describe_chunk(
 
     uint32_t resp_cmd;
     zcbor_state_t dec[4];
-    zassert_true(test_decode_response_header(cap.buf, &resp_cmd, dec, ARRAY_SIZE(dec)));
+    zassert_true(test_decode_response_header(cap.buf, &resp_cmd, NULL, dec, ARRAY_SIZE(dec)));
     if (resp_cmd != STOW_MSG_DESCRIBE_RESPONSE)
     {
         net_buf_unref(cap.buf);

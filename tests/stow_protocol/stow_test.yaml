@@ -80,3 +80,29 @@ items:
     constraints:
       - min_len: 0
       - max_len: 16
+
+  - name: TestTofu
+    description: "Trust-on-first-use string item"
+    categories: [General]
+    type: STRING
+    storage: TOFU
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: ""
+    constraints:
+      - min_len: 0
+      - max_len: 16
+
+  - name: TestLongString
+    description: "String item whose value can exceed a response buffer"
+    categories: [General]
+    type: STRING
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: ""
+    constraints:
+      - min_len: 0
+      - max_len: 400

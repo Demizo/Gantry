@@ -32,6 +32,11 @@
 #define TEST_BUF_DATA_SIZE 320
 
 /**
+ * @brief Tag used by requests that do not exercise tagging
+ */
+#define TEST_TAG 17U
+
+/**
  * @brief Maximum number of TX responses buffered during a single test
  */
 #define TEST_MAX_PENDING_TX 16
@@ -134,48 +139,63 @@ void test_drain_captures(void);
 void test_sync(void);
 
 /**
- * @brief Decode the outer array header and command tag of a captured response
+ * @brief Decode the outer array header, message code and request tag of a captured response
  *
  * @param buf Captured response net_buf
- * @param[out] out_cmd Populated with the decoded command tag
- * @param[out] dec Initialized decoder, positioned right after the command tag.
+ * @param[out] out_cmd Populated with the decoded message code
+ * @param[out] out_tag Populated with the echoed tag, or @ref STOW_SERDE_ABSENT for null; may be NULL
+ * @param[out] dec Initialized decoder, positioned after the header.
  *                 Caller is responsible for finishing the list decode.
+ * @param dec_states Number of states in @p dec
  *
  * @return true on success
  */
-bool test_decode_response_header(struct net_buf* buf, uint32_t* out_cmd, zcbor_state_t* dec, size_t dec_states);
+bool test_decode_response_header(
+    struct net_buf* buf, uint32_t* out_cmd, uint32_t* out_tag, zcbor_state_t* dec, size_t dec_states);
 
 /**
- * @brief Encode a single-tag request [cmd] into out_buf
+ * @brief Decode a captured Error response
+ *
+ * @param buf Captured response net_buf
+ * @param[out] out_error Populated with the decoded error
+ *
+ * @return true when @p buf holds a well-formed Error
+ */
+bool test_decode_error(struct net_buf* buf, struct stow_serde_error* out_error);
+
+/**
+ * @brief Encode a request with no arguments [cmd, tag] into out_buf
  *
  * @return Encoded length on success, negative errno on failure
  */
-int test_build_simple(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd);
+int test_build_simple(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, uint32_t tag);
 
 /**
- * @brief Encode a two-element request [cmd, id]
+ * @brief Encode a request with one item [cmd, tag, id]
  */
-int test_build_with_id(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, uint32_t item_id);
+int test_build_with_id(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, uint32_t tag, uint32_t item_id);
 
 /**
  * @brief Encode a Set request for an int item
  */
-int test_build_set_int(uint8_t* out_buf, size_t out_buf_size, uint32_t item_id, int32_t value);
+int test_build_set_int(uint8_t* out_buf, size_t out_buf_size, uint32_t tag, uint32_t item_id, int32_t value);
 
 /**
  * @brief Encode a Set request for a string item
  */
-int test_build_set_string(uint8_t* out_buf, size_t out_buf_size, uint32_t item_id, const char* value);
+int test_build_set_string(uint8_t* out_buf, size_t out_buf_size, uint32_t tag, uint32_t item_id, const char* value);
 
 /**
- * @brief Encode a request [cmd, id, ...] that names several items
+ * @brief Encode a request with a list of items [cmd, tag, id, ...]
  */
-int test_build_list(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, const uint32_t* ids, uint8_t count);
+int test_build_list(
+    uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, uint32_t tag, const uint32_t* ids, uint8_t count);
 
 /**
  * @brief Encode a Set request with two int items
  */
-int test_build_set_ints(uint8_t* out_buf, size_t out_buf_size, uint32_t id1, int32_t val1, uint32_t id2, int32_t val2);
+int test_build_set_ints(
+    uint8_t* out_buf, size_t out_buf_size, uint32_t tag, uint32_t id1, int32_t val1, uint32_t id2, int32_t val2);
 
 /**
  * @brief Reset shared test state between tests

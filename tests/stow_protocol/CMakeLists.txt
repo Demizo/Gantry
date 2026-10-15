@@ -40,6 +40,7 @@ target_sources(app PRIVATE
     src/test_stow_protocol_sessions.c
     src/test_stow_protocol_netbuf.c
     src/test_stow_protocol_transport.c
+    src/test_stow_protocol_errors.c
     src/test_stow_protocol_hello.c
     src/stow_storage_stub.c
     ${GENERATED_DIR}/src/stow/generated_stow_items.c

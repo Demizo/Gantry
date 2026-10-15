@@ -99,7 +99,7 @@ void test_drain_captures(void)
 void test_sync(void)
 {
     uint8_t buf[8];
-    int len = test_build_simple(buf, sizeof(buf), STOW_MSG_HELLO);
+    int len = test_build_simple(buf, sizeof(buf), STOW_MSG_HELLO, TEST_TAG);
     zassert_true(len > 0);
 
     k_tid_t self = k_current_get();
@@ -174,7 +174,8 @@ struct test_capture test_await_tx(k_timeout_t timeout)
     return cap;
 }
 
-bool test_decode_response_header(struct net_buf* buf, uint32_t* out_cmd, zcbor_state_t* dec, size_t dec_states)
+bool test_decode_response_header(
+    struct net_buf* buf, uint32_t* out_cmd, uint32_t* out_tag, zcbor_state_t* dec, size_t dec_states)
 {
     zcbor_new_decode_state(dec, dec_states, buf->data, buf->len, 1, NULL, 0);
     if (!zcbor_list_start_decode(dec))
@@ -185,29 +186,58 @@ bool test_decode_response_header(struct net_buf* buf, uint32_t* out_cmd, zcbor_s
     {
         return false;
     }
+    uint32_t tag = STOW_TAG_NONE;
+    if (!zcbor_uint32_decode(dec, &tag) && !zcbor_nil_expect(dec, NULL))
+    {
+        return false;
+    }
+    if (out_tag != NULL)
+    {
+        *out_tag = tag;
+    }
     return true;
+}
+
+bool test_decode_error(struct net_buf* buf, struct stow_serde_error* out_error)
+{
+    zcbor_state_t dec[4];
+    uint32_t cmd = 0;
+    uint32_t tag = STOW_TAG_NONE;
+    if (!test_decode_response_header(buf, &cmd, &tag, dec, ARRAY_SIZE(dec)) || cmd != STOW_MSG_ERROR)
+    {
+        return false;
+    }
+    out_error->tag = (uint8_t)tag;
+
+    uint32_t code = 0;
+    if (!zcbor_uint32_decode(dec, &code))
+    {
+        return false;
+    }
+    out_error->code = (enum stow_error_code)code;
+    out_error->item = STOW_SERDE_ABSENT;
+    out_error->index = STOW_SERDE_ABSENT;
+
+    if (!zcbor_array_at_end(dec) && !zcbor_uint32_decode(dec, &out_error->item) && !zcbor_nil_expect(dec, NULL))
+    {
+        return false;
+    }
+    if (!zcbor_array_at_end(dec) && !zcbor_uint32_decode(dec, &out_error->index))
+    {
+        return false;
+    }
+    return zcbor_list_end_decode(dec);
 }
 
 //**********************************************************
 //* Request Builders
 //**********************************************************
 
-int test_build_simple(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd)
+int test_build_simple(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, uint32_t tag)
 {
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), out_buf, out_buf_size, 1);
-    if (!zcbor_list_start_encode(enc, 1) || !zcbor_uint32_put(enc, cmd) || !zcbor_list_end_encode(enc, 1))
-    {
-        return -ENOMEM;
-    }
-    return (int)(enc[0].payload - out_buf);
-}
-
-int test_build_with_id(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, uint32_t item_id)
-{
-    zcbor_state_t enc[4];
-    zcbor_new_encode_state(enc, ARRAY_SIZE(enc), out_buf, out_buf_size, 1);
-    if (!zcbor_list_start_encode(enc, 2) || !zcbor_uint32_put(enc, cmd) || !zcbor_uint32_put(enc, item_id) ||
+    if (!zcbor_list_start_encode(enc, 2) || !zcbor_uint32_put(enc, cmd) || !zcbor_uint32_put(enc, tag) ||
         !zcbor_list_end_encode(enc, 2))
     {
         return -ENOMEM;
@@ -215,37 +245,50 @@ int test_build_with_id(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, uint
     return (int)(enc[0].payload - out_buf);
 }
 
-int test_build_set_int(uint8_t* out_buf, size_t out_buf_size, uint32_t item_id, int32_t value)
+int test_build_with_id(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, uint32_t tag, uint32_t item_id)
 {
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), out_buf, out_buf_size, 1);
-    if (!zcbor_list_start_encode(enc, 3) || !zcbor_uint32_put(enc, STOW_MSG_SET) || !zcbor_uint32_put(enc, item_id) ||
-        !zcbor_int32_put(enc, value) || !zcbor_list_end_encode(enc, 3))
+    if (!zcbor_list_start_encode(enc, 3) || !zcbor_uint32_put(enc, cmd) || !zcbor_uint32_put(enc, tag) ||
+        !zcbor_uint32_put(enc, item_id) || !zcbor_list_end_encode(enc, 3))
     {
         return -ENOMEM;
     }
     return (int)(enc[0].payload - out_buf);
 }
 
-int test_build_set_string(uint8_t* out_buf, size_t out_buf_size, uint32_t item_id, const char* value)
+int test_build_set_int(uint8_t* out_buf, size_t out_buf_size, uint32_t tag, uint32_t item_id, int32_t value)
+{
+    zcbor_state_t enc[4];
+    zcbor_new_encode_state(enc, ARRAY_SIZE(enc), out_buf, out_buf_size, 1);
+    if (!zcbor_list_start_encode(enc, 4) || !zcbor_uint32_put(enc, STOW_MSG_SET) || !zcbor_uint32_put(enc, tag) ||
+        !zcbor_uint32_put(enc, item_id) || !zcbor_int32_put(enc, value) || !zcbor_list_end_encode(enc, 4))
+    {
+        return -ENOMEM;
+    }
+    return (int)(enc[0].payload - out_buf);
+}
+
+int test_build_set_string(uint8_t* out_buf, size_t out_buf_size, uint32_t tag, uint32_t item_id, const char* value)
 {
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), out_buf, out_buf_size, 1);
     struct zcbor_string s = { .value = value, .len = strlen(value) };
-    if (!zcbor_list_start_encode(enc, 3) || !zcbor_uint32_put(enc, STOW_MSG_SET) || !zcbor_uint32_put(enc, item_id) ||
-        !zcbor_tstr_encode(enc, &s) || !zcbor_list_end_encode(enc, 3))
+    if (!zcbor_list_start_encode(enc, 4) || !zcbor_uint32_put(enc, STOW_MSG_SET) || !zcbor_uint32_put(enc, tag) ||
+        !zcbor_uint32_put(enc, item_id) || !zcbor_tstr_encode(enc, &s) || !zcbor_list_end_encode(enc, 4))
     {
         return -ENOMEM;
     }
     return (int)(enc[0].payload - out_buf);
 }
 
-int test_build_list(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, const uint32_t* ids, uint8_t count)
+int test_build_list(
+    uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, uint32_t tag, const uint32_t* ids, uint8_t count)
 {
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), out_buf, out_buf_size, 1);
-    uint32_t elem_count = 1u + (uint32_t)count;
-    if (!zcbor_list_start_encode(enc, elem_count) || !zcbor_uint32_put(enc, cmd))
+    uint32_t elem_count = 2u + (uint32_t)count;
+    if (!zcbor_list_start_encode(enc, elem_count) || !zcbor_uint32_put(enc, cmd) || !zcbor_uint32_put(enc, tag))
     {
         return -ENOMEM;
     }
@@ -263,13 +306,14 @@ int test_build_list(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, const u
     return (int)(enc[0].payload - out_buf);
 }
 
-int test_build_set_ints(uint8_t* out_buf, size_t out_buf_size, uint32_t id1, int32_t val1, uint32_t id2, int32_t val2)
+int test_build_set_ints(
+    uint8_t* out_buf, size_t out_buf_size, uint32_t tag, uint32_t id1, int32_t val1, uint32_t id2, int32_t val2)
 {
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), out_buf, out_buf_size, 1);
-    if (!zcbor_list_start_encode(enc, 5) || !zcbor_uint32_put(enc, STOW_MSG_SET) || !zcbor_uint32_put(enc, id1) ||
-        !zcbor_int32_put(enc, val1) || !zcbor_uint32_put(enc, id2) || !zcbor_int32_put(enc, val2) ||
-        !zcbor_list_end_encode(enc, 5))
+    if (!zcbor_list_start_encode(enc, 6) || !zcbor_uint32_put(enc, STOW_MSG_SET) || !zcbor_uint32_put(enc, tag) ||
+        !zcbor_uint32_put(enc, id1) || !zcbor_int32_put(enc, val1) || !zcbor_uint32_put(enc, id2) ||
+        !zcbor_int32_put(enc, val2) || !zcbor_list_end_encode(enc, 6))
     {
         return -ENOMEM;
     }

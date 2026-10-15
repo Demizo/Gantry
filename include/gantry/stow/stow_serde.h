@@ -36,6 +36,21 @@
  */
 #define STOW_PROTOCOL_VERSION 1
 
+/**
+ * @brief Largest request tag a client may choose, so a tag always encodes as one byte
+ */
+#define STOW_TAG_MAX 23U
+
+/**
+ * @brief Marks a tag that is absent from a message
+ */
+#define STOW_TAG_NONE UINT8_MAX
+
+/**
+ * @brief Marks an item, index or next item ID that is absent from a message
+ */
+#define STOW_SERDE_ABSENT UINT32_MAX
+
 //**********************************************************
 //* Typedefs, Enums, and Structs
 //**********************************************************
@@ -94,6 +109,20 @@ enum stow_error_code
     STOW_ERR_OUT_OF_MEMORY = 4,     /**< Out of memory */
     STOW_ERR_PERMISSION_DENIED = 5, /**< Role insufficient for this item */
     STOW_ERR_UNKNOWN = 6,           /**< Unknown error */
+    STOW_ERR_INVALID_VALUE = 7,     /**< Value rejected by the item's constraints or validator */
+    STOW_ERR_ALREADY_SET = 8,       /**< Trust-on-first-use item has already been set */
+    STOW_ERR_TOO_LARGE = 9,         /**< Response does not fit the server's buffers */
+};
+
+/**
+ * @brief Contents of an Error response
+ */
+struct stow_serde_error
+{
+    enum stow_error_code code; /**< Protocol error code */
+    uint8_t tag;               /**< Tag of the failed request, or @ref STOW_TAG_NONE */
+    uint32_t item;             /**< Item that failed, or @ref STOW_SERDE_ABSENT */
+    uint32_t index;            /**< Zero-based entry that failed as it was applied, or @ref STOW_SERDE_ABSENT */
 };
 
 /**
@@ -104,11 +133,14 @@ enum stow_error_code
 struct stow_serde_request
 {
     enum stow_message_code message_code; /**< Message code */
+    uint8_t tag;                         /**< Request tag, or @ref STOW_TAG_NONE when it could not be decoded */
     enum stow_item_id item_id;           /**< Start ID of a Describe request */
 
     const uint8_t* payload; /**< The encoded request, kept to decode its entries again */
     size_t payload_len;     /**< Length of @ref payload */
     uint16_t entry_count;   /**< Number of entries in a Get, Set, Subscribe or Unsubscribe request */
+
+    uint32_t error_item; /**< Item that failed to decode, or @ref STOW_SERDE_ABSENT */
 };
 
 //**********************************************************
@@ -126,7 +158,7 @@ struct stow_serde_request
  * @return SUCCESS when the request was decoded
  * @return -EBADMSG when the request is malformed
  * @return -ENOTSUP when the message code is unknown
- * @return -EINVAL when a Describe start ID is not valid
+ * @return -ENOENT when a Describe start ID is not valid
  * @return -ENOMEM when memory cannot be allocated to check a value
  */
 int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request* request_out);
@@ -157,17 +189,19 @@ int stow_serde_decode_entry(zcbor_state_t* decoder, uint32_t* id_out);
  * @brief Encode a Hello Response message
  *
  * @param encoder CBOR encoder instance
+ * @param tag Tag of the request being answered
  * @param hello Limits and session details to report
  *
  * @return SUCCESS when the response was encoded
  * @return -ENOMEM when the encoder lacks room
  */
-int stow_serde_encode_hello_response(zcbor_state_t* encoder, const struct stow_serde_hello* hello);
+int stow_serde_encode_hello_response(zcbor_state_t* encoder, uint8_t tag, const struct stow_serde_hello* hello);
 
 /**
  * @brief Encode a Describe Response message
  *
  * @param encoder CBOR encoder instance
+ * @param tag Tag of the request being answered
  * @param next_item_id The item ID the client should use in its next Describe request
  * @param has_more Whether more items remain after this chunk
  * @param chunk Buffer holding the CBOR describe chunk
@@ -177,7 +211,7 @@ int stow_serde_encode_hello_response(zcbor_state_t* encoder, const struct stow_s
  * @return -ENOMEM when the encoder lacks room
  */
 int stow_serde_encode_describe_response(
-    zcbor_state_t* encoder, uint32_t next_item_id, bool has_more, const uint8_t* chunk, size_t chunk_len);
+    zcbor_state_t* encoder, uint8_t tag, uint32_t next_item_id, bool has_more, const uint8_t* chunk, size_t chunk_len);
 
 /**
  * @brief Encode the start of a Get Response message
@@ -185,12 +219,13 @@ int stow_serde_encode_describe_response(
  * @details Follow it with @p count calls to @ref stow_serde_encode_get_entry.
  *
  * @param encoder CBOR encoder instance
+ * @param tag Tag of the request being answered
  * @param count Number of id/value pairs that follow
  *
  * @return SUCCESS when the start was encoded
  * @return -ENOMEM when the encoder lacks room
  */
-int stow_serde_encode_get_start(zcbor_state_t* encoder, uint16_t count);
+int stow_serde_encode_get_start(zcbor_state_t* encoder, uint8_t tag, uint16_t count);
 
 /**
  * @brief Encode one id/value pair of a Get Response message
@@ -220,22 +255,25 @@ int stow_serde_encode_update(zcbor_state_t* encoder, enum stow_item_id id, data_
  * @brief Encode an OK response
  *
  * @param encoder CBOR encoder instance
+ * @param tag Tag of the request being answered
  *
  * @return SUCCESS when the response was encoded
  * @return -ENOMEM when the encoder lacks room
  */
-int stow_serde_encode_ok(zcbor_state_t* encoder);
+int stow_serde_encode_ok(zcbor_state_t* encoder, uint8_t tag);
 
 /**
  * @brief Encode an Error response
  *
+ * @details The item is encoded when present, or as null when only the index is present.
+ *
  * @param encoder CBOR encoder instance
- * @param code    Protocol error code describing the failure
+ * @param error Error to encode
  *
  * @return SUCCESS when the response was encoded
  * @return -ENOMEM when the encoder lacks room
  */
-int stow_serde_encode_error(zcbor_state_t* encoder, enum stow_error_code code);
+int stow_serde_encode_error(zcbor_state_t* encoder, const struct stow_serde_error* error);
 
 /**
  * @}

@@ -57,7 +57,7 @@ static uint32_t response_code(struct net_buf* buf)
 {
     uint32_t cmd = UINT32_MAX;
     zcbor_state_t dec[4];
-    zassert_true(test_decode_response_header(buf, &cmd, dec, ARRAY_SIZE(dec)));
+    zassert_true(test_decode_response_header(buf, &cmd, NULL, dec, ARRAY_SIZE(dec)));
     return cmd;
 }
 
@@ -67,7 +67,7 @@ ZTEST(stow_protocol_transport, test_refused_response_is_dropped_and_next_request
     test_refuse_sends(true);
 
     uint8_t req[8];
-    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO);
+    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO, TEST_TAG);
     zassert_equal(test_submit_rx(SESSION_A, req, len), 0);
     test_sync();
     zassert_is_null(test_await_tx(K_MSEC(50)).buf, "refused response was delivered");
@@ -90,7 +90,7 @@ ZTEST(stow_protocol_transport, test_session_uses_its_own_transport)
     zassert_equal(test_endpoint_open(SESSION_B, STOW_ROLE_GUEST, &other_transport), 0);
 
     uint8_t req[8];
-    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO);
+    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO, TEST_TAG);
     zassert_equal(test_submit_rx(SESSION_B, req, len), 0);
 
     struct net_buf* buf = NULL;
@@ -132,7 +132,7 @@ ZTEST(stow_protocol_transport, test_endpoint_drives_the_session_lifecycle)
 
     struct net_buf* rx = test_alloc_rx();
     zassert_not_null(rx);
-    int len = test_build_simple(net_buf_tail(rx), net_buf_tailroom(rx), STOW_MSG_HELLO);
+    int len = test_build_simple(net_buf_tail(rx), net_buf_tailroom(rx), STOW_MSG_HELLO, TEST_TAG);
     net_buf_add(rx, len);
     endpoint->receive(endpoint, SESSION_A, rx);
     net_buf_unref(rx);
@@ -147,7 +147,7 @@ ZTEST(stow_protocol_transport, test_endpoint_drives_the_session_lifecycle)
 
     rx = test_alloc_rx();
     zassert_not_null(rx);
-    net_buf_add(rx, test_build_simple(net_buf_tail(rx), net_buf_tailroom(rx), STOW_MSG_HELLO));
+    net_buf_add(rx, test_build_simple(net_buf_tail(rx), net_buf_tailroom(rx), STOW_MSG_HELLO, TEST_TAG));
     endpoint->receive(endpoint, SESSION_A, rx);
     net_buf_unref(rx);
     test_sync();
