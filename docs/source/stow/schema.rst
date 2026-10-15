@@ -121,6 +121,10 @@ Items are the individual data entires in the Stow. Each item has:
 
 After generation, items are accessed via the ``STOW_ID_<NAME>`` enum (e.g. ``STOW_ID_DEVICE_NAME``). All IDs are defined in ``generated_stow_items.h``.
 
+.. _stow-compatibility:
+
+An item's name identifies it across firmware versions. Stow clients built against the old schema report a changed item as incompatible (see :doc:`client`).
+
 Built-in Items
 **************
 

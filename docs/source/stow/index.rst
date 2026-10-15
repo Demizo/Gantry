@@ -16,6 +16,7 @@ By taking a data-driven approach to application architecture, most device functi
    Schema <schema>
    API <api>
    Protocol <protocol>
+   Client <client>
 
 How It Works
 ============

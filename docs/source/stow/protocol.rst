@@ -27,14 +27,14 @@ Stow Protocol messages are encoded with `CBOR <https://cbor.io/>`_. Stow does no
 
 Each transport message carries exactly one Stow message. A transport must deliver any message up to the size of its pool's buffers, which ``hello-max-message`` relies on.
 
-``CONFIG_STOW_COBS_TRANSPORT`` provides ``stow_cobs_transport``, which carries Stow messages as COBS frames over a byte stream such as UART, with one session per link. It is the framing used by the Python client's serial transport and a good starting point for writing a new transport.
+``CONFIG_STOW_COBS_TRANSPORT`` provides ``stow_cobs_transport``, which carries Stow messages as COBS frames over a byte stream such as UART. A link carries a server session for the peer, set with ``.server`` and opened by ``stow_cobs_transport_open``, and a client session the app opens with ``stow_cobs_transport_open_client``. It is the framing used by the Python client's serial transport and a good starting point for writing a new transport.
 
 An application that authenticates a peer in-band can change a session's roles with ``stow_protocol_session_set_roles``. Subscriptions the new roles can no longer read are revoked.
 
 Messages
 ========
 
-Every message is an array ``[CODE, TAG, ...]``. Hello (code ``0``) and the version at the start of its response are fixed across protocol versions; everything else may change.
+Every message is an array ``[CODE, TAG, ...]``. Hello (code ``0``) and the version at the start of its response are fixed across protocol versions; everything else may change. Every code has a fixed direction, requests from client to server and the rest from server to client, and new codes must keep that so one stream can carry a session in each direction.
 
 The Stow Protocol mostly follows a request-response pattern. However, Update messages arrive unsolicited.
 
