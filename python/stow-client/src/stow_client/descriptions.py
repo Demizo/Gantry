@@ -185,7 +185,7 @@ def decode_value(item_type: ItemType, constraints: Constraints | None, value: An
     if item_type is ItemType.STRING:
         return str(value)
     if item_type is ItemType.FLOAT:
-        return round(float(value), 4)
+        return float(value)
     if item_type in (ItemType.INT, ItemType.ENUM):
         return int(value)
     raise ValueError(f"Unknown item type {item_type}")
@@ -216,7 +216,7 @@ def encode_value(item_type: ItemType, constraints: Constraints | None, value: An
     if item_type is ItemType.STRING:
         return str(value)
     if item_type is ItemType.FLOAT:
-        return round(float(value), 4)
+        return float(value)
     if item_type in (ItemType.INT, ItemType.ENUM):
         return int(value)
     raise ValueError(f"Unknown item type {item_type}")

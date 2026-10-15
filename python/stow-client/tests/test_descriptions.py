@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from struct import pack, unpack
+
 import pytest
 
 from stow_client.descriptions import (
@@ -114,3 +116,10 @@ def test_decode_struct_field_count_mismatch_raises():
     struct = next(i for i in items if i.name == "SpiTxBuffer")
     with pytest.raises(ValueError):
         decode_value(struct.type, struct.constraints, [0, b""])
+
+
+def test_float_values_round_trip_exactly():
+    c = FloatConstraints(min=0.0, max=100.0)
+    device_value = unpack("<f", pack("<f", 21.123456))[0]
+    assert decode_value(ItemType.FLOAT, c, device_value) == device_value
+    assert encode_value(ItemType.FLOAT, c, device_value) == device_value
