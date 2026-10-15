@@ -64,6 +64,7 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
       lib/stow/stow_client.c
       lib/stow/stow_client_slots.c
       lib/stow/stow_client_verify.c
+      lib/stow/stow_mux.c
     )
   endif()
 

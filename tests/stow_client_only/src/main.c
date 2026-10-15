@@ -45,7 +45,6 @@ ZTEST(stow_client_only, test_a_client_without_a_local_stow_greets_its_peer)
 {
     static struct stow_cobs_transport link;
     const struct stow_cobs_transport_config config = {
-        .endpoint = &device_client.endpoint,
         .session_id = SESSION_ID,
         .message_pool = &message_pool,
         .frame_pool = &frame_pool,
@@ -53,6 +52,8 @@ ZTEST(stow_client_only, test_a_client_without_a_local_stow_greets_its_peer)
     };
     zassert_equal(stow_cobs_transport_init(&link, &config), 0);
     zassert_equal(stow_cobs_transport_open(&link), 0);
+    zassert_equal(stow_cobs_transport_open_client(&link, &device_client.endpoint), 0);
+    zassert_equal(stow_cobs_transport_open_client(&link, &device_client.endpoint), -EALREADY);
 
     struct net_buf* frame = NULL;
     zassert_equal(k_msgq_get(&frames, &frame, K_SECONDS(1)), 0, "no Hello");

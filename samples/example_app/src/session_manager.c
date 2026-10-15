@@ -86,7 +86,7 @@ static void session_manager_init(void)
     ASSERT(ret == SUCCESS, "Failed to initialize the stow protocol");
 
     const struct stow_cobs_transport_config uart_config = {
-        .endpoint = &stow_protocol_endpoint,
+        .server = &stow_protocol_endpoint,
         .session_id = UART_SESSION_ID,
         .roles = UART_SESSION_AUTH,
         .message_pool = &message_pool,
@@ -98,7 +98,7 @@ static void session_manager_init(void)
     ASSERT(ret == SUCCESS, "Failed to initialize the UART transport");
 
     const struct stow_cobs_transport_config ble_config = {
-        .endpoint = &stow_protocol_endpoint,
+        .server = &stow_protocol_endpoint,
         .session_id = BLE_SESSION_ID,
         .roles = BLE_SESSION_AUTH,
         .message_pool = &message_pool,

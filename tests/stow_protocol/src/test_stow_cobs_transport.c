@@ -37,7 +37,7 @@ static void* setup(void)
 {
     test_reset();
     struct stow_cobs_transport_config config = {
-        .endpoint = &stow_protocol_endpoint,
+        .server = &stow_protocol_endpoint,
         .session_id = LINK_SESSION,
         .roles = STOW_ROLE_GUEST,
         .message_pool = &link_message_pool,
@@ -79,6 +79,19 @@ static void expect_frame(const uint8_t* expected, size_t len)
     zassert_equal(frame->len, len, "frame length %u", frame->len);
     zassert_mem_equal(frame->data, expected, len);
     net_buf_unref(frame);
+}
+
+ZTEST(stow_cobs_transport, test_a_link_without_the_client_needs_a_server)
+{
+    struct stow_cobs_transport unused;
+    struct stow_cobs_transport_config config = {
+        .server = NULL,
+        .session_id = LINK_SESSION,
+        .message_pool = &link_message_pool,
+        .frame_pool = &link_frame_pool,
+        .write = write_frame,
+    };
+    zassert_equal(stow_cobs_transport_init(&unused, &config), -EINVAL);
 }
 
 ZTEST(stow_cobs_transport, test_frame_round_trip)

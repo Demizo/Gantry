@@ -56,6 +56,7 @@ target_sources(app PRIVATE
     src/test_stow_client_compat.c
     src/test_stow_client_faults.c
     src/test_stow_client_vectors.c
+    src/test_stow_client_mux.c
     ${GANTRY_ROOT}/tests/stow_protocol/src/stow_storage_stub.c
     ${GENERATED_SOURCES}
     ${GANTRY_LIB}/memory.c
@@ -66,6 +67,9 @@ target_sources(app PRIVATE
     ${GANTRY_LIB}/stow/stow_event.c
     ${GANTRY_LIB}/stow/stow_serde.c
     ${GANTRY_LIB}/stow/stow_wire.c
+    ${GANTRY_LIB}/stow/stow_mux.c
+    ${GANTRY_LIB}/stow/stow_cobs_transport.c
+    ${GANTRY_LIB}/cobs_framer.c
     ${GANTRY_LIB}/stow/stow_protocol.c
     ${GANTRY_LIB}/stow/stow_client_serde.c
     ${GANTRY_LIB}/stow/stow_client.c

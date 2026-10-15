@@ -15,6 +15,7 @@
 #include <gantry/cobs_framer.h>
 #include <gantry/error.h>
 #include <gantry/stow/stow_cobs_transport.h>
+#include <gantry/stow/stow_mux.h>
 #include <gantry/stow/stow_transport.h>
 #include <sys/errno.h>
 #include <zephyr/net_buf.h>
@@ -38,13 +39,13 @@ static int cobs_send(struct stow_transport* transport, uint32_t session_id, stru
     struct stow_cobs_transport* cobs = CONTAINER_OF(transport, struct stow_cobs_transport, transport);
 
     struct net_buf* frame = NULL;
-    int ret = cobs_frame_encode(cobs->config.frame_pool, buf, &frame);
+    int ret = cobs_frame_encode(cobs->frame_pool, buf, &frame);
     if (ret != SUCCESS)
     {
         return ret;
     }
 
-    ret = cobs->config.write(frame, cobs->config.user_data);
+    ret = cobs->write(frame, cobs->user_data);
     if (ret != SUCCESS)
     {
         net_buf_unref(frame);
@@ -58,9 +59,8 @@ static int cobs_send(struct stow_transport* transport, uint32_t session_id, stru
 static void on_frame(struct net_buf* buf, void* user_data)
 {
     struct stow_cobs_transport* cobs = user_data;
-    const struct stow_endpoint* endpoint = cobs->config.endpoint;
 
-    endpoint->receive(endpoint, cobs->config.session_id, buf);
+    stow_mux_receive(&cobs->mux, buf);
     net_buf_unref(buf);
 }
 
@@ -70,13 +70,15 @@ static void on_frame(struct net_buf* buf, void* user_data)
 
 int stow_cobs_transport_init(struct stow_cobs_transport* cobs, const struct stow_cobs_transport_config* config)
 {
-    if (cobs == NULL || config == NULL || config->endpoint == NULL || config->message_pool == NULL ||
-        config->frame_pool == NULL || config->write == NULL)
+    if (cobs == NULL || config == NULL || config->message_pool == NULL || config->frame_pool == NULL ||
+        config->write == NULL || (!IS_ENABLED(CONFIG_STOW_CLIENT) && config->server == NULL))
     {
         return -EINVAL;
     }
 
-    cobs->config = *config;
+    cobs->frame_pool = config->frame_pool;
+    cobs->write = config->write;
+    cobs->user_data = config->user_data;
     cobs->transport = (struct stow_transport){
         .send = cobs_send,
         .pool = config->message_pool,
@@ -84,6 +86,7 @@ int stow_cobs_transport_init(struct stow_cobs_transport* cobs, const struct stow
         .tailroom = 0U,
     };
     atomic_clear(&cobs->reset_pending);
+    stow_mux_init(&cobs->mux, &cobs->transport, config->session_id, config->server, config->roles);
 
     return cobs_frame_decoder_init(&cobs->decoder, config->message_pool, on_frame, cobs);
 }
@@ -91,18 +94,21 @@ int stow_cobs_transport_init(struct stow_cobs_transport* cobs, const struct stow
 int stow_cobs_transport_open(struct stow_cobs_transport* cobs)
 {
     atomic_set(&cobs->reset_pending, 1);
-
-    const struct stow_endpoint* endpoint = cobs->config.endpoint;
-    return endpoint->session_opened(endpoint, cobs->config.session_id, cobs->config.roles, &cobs->transport);
+    return stow_mux_open(&cobs->mux);
 }
 
 void stow_cobs_transport_close(struct stow_cobs_transport* cobs)
 {
     atomic_set(&cobs->reset_pending, 1);
-
-    const struct stow_endpoint* endpoint = cobs->config.endpoint;
-    endpoint->session_closed(endpoint, cobs->config.session_id);
+    stow_mux_close(&cobs->mux);
 }
+
+int stow_cobs_transport_open_client(struct stow_cobs_transport* cobs, const struct stow_endpoint* client)
+{
+    return stow_mux_open_client(&cobs->mux, client);
+}
+
+void stow_cobs_transport_close_client(struct stow_cobs_transport* cobs) { stow_mux_close_client(&cobs->mux); }
 
 int stow_cobs_transport_feed(struct stow_cobs_transport* cobs, const uint8_t* data, size_t len)
 {

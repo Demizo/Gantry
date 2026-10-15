@@ -135,6 +135,21 @@ static inline bool stow_wire_put_optional_uint(zcbor_state_t* encoder, uint32_t 
 }
 
 /**
+ * @brief Check whether a message code is a request, which only a server answers
+ *
+ * @details Every code has a fixed direction, so one stream can carry a server and a client session.
+ *
+ * @param code Message code
+ *
+ * @return true for Hello, Describe, Get, Set, Subscribe and Unsubscribe
+ */
+static inline bool stow_wire_is_request(uint32_t code)
+{
+    return code == STOW_MSG_HELLO || code == STOW_MSG_DESCRIBE || code == STOW_MSG_GET || code == STOW_MSG_SET ||
+           code == STOW_MSG_SUBSCRIBE || code == STOW_MSG_UNSUBSCRIBE;
+}
+
+/**
  * @brief Encode an Error response
  *
  * @details The item is encoded when present, or as null when only the index is present.
