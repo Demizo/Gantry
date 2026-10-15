@@ -47,15 +47,15 @@ static uint32_t submit_and_get_cmd(const uint8_t* data, size_t len)
 }
 
 //**********************************************************
-//* Version
+//* Hello
 //**********************************************************
 
-ZTEST(stow_protocol_basic, test_version_request)
+ZTEST(stow_protocol_basic, test_hello_reports_the_version)
 {
     open_session(STOW_ROLE_GUEST);
 
     uint8_t buf[8];
-    int len = test_build_simple(buf, sizeof(buf), STOW_MSG_VERSION);
+    int len = test_build_simple(buf, sizeof(buf), STOW_MSG_HELLO);
     int ret = test_submit_rx(SESSION_ID, buf, len);
     zassert_equal(ret, 0);
 
@@ -66,7 +66,7 @@ ZTEST(stow_protocol_basic, test_version_request)
     uint32_t cmd;
     zcbor_state_t dec[4];
     zassert_true(test_decode_response_header(cap.buf, &cmd, dec, ARRAY_SIZE(dec)));
-    zassert_equal(cmd, STOW_MSG_VERSION_RESPONSE);
+    zassert_equal(cmd, STOW_MSG_HELLO_RESPONSE);
     uint32_t version;
     zassert_true(zcbor_uint32_decode(dec, &version));
     zassert_equal(version, STOW_PROTOCOL_VERSION);
@@ -414,8 +414,8 @@ ZTEST(stow_protocol_basic, test_pipeline_two_messages)
     open_session(STOW_ROLE_GUEST);
 
     uint8_t combined[32];
-    int l1 = test_build_simple(combined, sizeof(combined), STOW_MSG_VERSION);
-    int l2 = test_build_simple(combined + l1, sizeof(combined) - l1, STOW_MSG_VERSION);
+    int l1 = test_build_simple(combined, sizeof(combined), STOW_MSG_HELLO);
+    int l2 = test_build_simple(combined + l1, sizeof(combined) - l1, STOW_MSG_HELLO);
     zassert_true(l1 > 0 && l2 > 0);
     zassert_equal(test_submit_rx(SESSION_ID, combined, (size_t)(l1 + l2)), 0);
 
@@ -424,7 +424,7 @@ ZTEST(stow_protocol_basic, test_pipeline_two_messages)
     uint32_t cmd1;
     zcbor_state_t dec1[4];
     zassert_true(test_decode_response_header(cap1.buf, &cmd1, dec1, ARRAY_SIZE(dec1)));
-    zassert_equal(cmd1, STOW_MSG_VERSION_RESPONSE);
+    zassert_equal(cmd1, STOW_MSG_HELLO_RESPONSE);
     net_buf_unref(cap1.buf);
 
     struct test_capture cap2 = test_await_tx(K_SECONDS(1));
@@ -432,6 +432,6 @@ ZTEST(stow_protocol_basic, test_pipeline_two_messages)
     uint32_t cmd2;
     zcbor_state_t dec2[4];
     zassert_true(test_decode_response_header(cap2.buf, &cmd2, dec2, ARRAY_SIZE(dec2)));
-    zassert_equal(cmd2, STOW_MSG_VERSION_RESPONSE);
+    zassert_equal(cmd2, STOW_MSG_HELLO_RESPONSE);
     net_buf_unref(cap2.buf);
 }

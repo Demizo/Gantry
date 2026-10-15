@@ -128,7 +128,7 @@ void test_drain_captures(void);
 /**
  * @brief Force the protocol thread to flush pending events
  *
- * @details Sends a Version request on a dedicated session and waits for its
+ * @details Sends a Hello request on a dedicated session and waits for its
  * response below the protocol thread's priority, so the thread is idle on return.
  */
 void test_sync(void);

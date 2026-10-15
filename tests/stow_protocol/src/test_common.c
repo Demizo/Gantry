@@ -99,7 +99,7 @@ void test_drain_captures(void)
 void test_sync(void)
 {
     uint8_t buf[8];
-    int len = test_build_simple(buf, sizeof(buf), STOW_MSG_VERSION);
+    int len = test_build_simple(buf, sizeof(buf), STOW_MSG_HELLO);
     zassert_true(len > 0);
 
     k_tid_t self = k_current_get();

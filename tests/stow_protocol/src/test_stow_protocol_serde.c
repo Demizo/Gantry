@@ -21,10 +21,10 @@ ZTEST_SUITE(stow_protocol_serde, NULL, NULL, reset_stow_only, NULL, NULL);
 //* Decode tests
 //**********************************************************
 
-ZTEST(stow_protocol_serde, test_decode_version_request)
+ZTEST(stow_protocol_serde, test_decode_hello_request)
 {
     uint8_t buf[8];
-    int len = test_build_simple(buf, sizeof(buf), STOW_MSG_VERSION);
+    int len = test_build_simple(buf, sizeof(buf), STOW_MSG_HELLO);
     zassert_true(len > 0);
 
     zcbor_state_t dec[4];
@@ -33,7 +33,7 @@ ZTEST(stow_protocol_serde, test_decode_version_request)
     struct stow_serde_request req = { 0 };
     int ret = stow_serde_decode_request(dec, &req);
     zassert_equal(ret, 0);
-    zassert_equal(req.message_code, STOW_MSG_VERSION);
+    zassert_equal(req.message_code, STOW_MSG_HELLO);
     zassert_false(req.has_value);
 
     stow_serde_release_request(&req);
@@ -198,26 +198,28 @@ ZTEST(stow_protocol_serde, test_encode_error)
     zassert_true(zcbor_list_end_decode(dec));
 }
 
-ZTEST(stow_protocol_serde, test_encode_version_response)
+ZTEST(stow_protocol_serde, test_encode_hello_response)
 {
-    uint8_t buf[16];
+    uint8_t buf[96];
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), 1);
 
-    int ret = stow_serde_encode_version_response(enc);
-    zassert_equal(ret, 0);
+    struct stow_serde_hello hello = { .max_message = 300, .stow_hash = "abc", .roles = STOW_ROLE_GUEST };
+    zassert_equal(stow_serde_encode_hello_response(enc, &hello), 0);
 
-    size_t encoded_len = enc[0].payload - buf;
-    zcbor_state_t dec[4];
-    zcbor_new_decode_state(dec, ARRAY_SIZE(dec), buf, encoded_len, 1, NULL, 0);
+    zcbor_state_t dec[6];
+    zcbor_new_decode_state(dec, ARRAY_SIZE(dec), buf, enc[0].payload - buf, 1, NULL, 0);
+    uint32_t value = 0;
     zassert_true(zcbor_list_start_decode(dec));
-    uint32_t cmd;
-    zassert_true(zcbor_uint32_decode(dec, &cmd));
-    zassert_equal(cmd, STOW_MSG_VERSION_RESPONSE);
-    uint32_t version;
-    zassert_true(zcbor_uint32_decode(dec, &version));
-    zassert_equal(version, STOW_PROTOCOL_VERSION);
-    zassert_true(zcbor_list_end_decode(dec));
+    zassert_true(zcbor_uint32_decode(dec, &value));
+    zassert_equal(value, STOW_MSG_HELLO_RESPONSE);
+    zassert_true(zcbor_uint32_decode(dec, &value));
+    zassert_equal(value, STOW_PROTOCOL_VERSION);
+    zassert_true(zcbor_map_start_decode(dec));
+    zassert_true(zcbor_uint32_decode(dec, &value));
+    zassert_equal(value, STOW_HELLO_MAX_MESSAGE);
+    zassert_true(zcbor_uint32_decode(dec, &value));
+    zassert_equal(value, 300);
 }
 
 ZTEST(stow_protocol_serde, test_encode_get_response_int)

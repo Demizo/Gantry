@@ -82,9 +82,9 @@ ZTEST(stow_protocol_sessions, test_multi_session_isolated_responses)
     open_tracked(SESSION_BASE, STOW_ROLE_GUEST);
     open_tracked(SESSION_BASE + 1, STOW_ROLE_GUEST);
 
-    // Send Version to each, in order
+    // Send Hello to each, in order
     uint8_t req[8];
-    int len = test_build_simple(req, sizeof(req), STOW_MSG_VERSION);
+    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO);
     zassert_equal(test_submit_rx(SESSION_BASE, req, len), 0);
     zassert_equal(test_submit_rx(SESSION_BASE + 1, req, len), 0);
 
@@ -111,7 +111,7 @@ ZTEST(stow_protocol_sessions, test_close_then_rx_is_dropped)
     test_drain_captures();
 
     uint8_t req[8];
-    int len = test_build_simple(req, sizeof(req), STOW_MSG_VERSION);
+    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO);
     zassert_equal(test_submit_rx(SESSION_BASE, req, len), 0);
     test_sync();
 

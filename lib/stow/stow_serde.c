@@ -59,9 +59,9 @@ int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request*
 
     switch (message_code)
     {
-        case STOW_MSG_VERSION:
+        case STOW_MSG_HELLO:
         {
-            request_out->message_code = STOW_MSG_VERSION;
+            request_out->message_code = STOW_MSG_HELLO;
             break;
         }
         case STOW_MSG_DESCRIBE:
@@ -219,13 +219,32 @@ void stow_serde_release_request(struct stow_serde_request* request)
     }
 }
 
-int stow_serde_encode_version_response(zcbor_state_t* encoder)
+int stow_serde_encode_hello_response(zcbor_state_t* encoder, const struct stow_serde_hello* hello)
 {
-    if (!stow_cbor_list_start(encoder, 2) || !zcbor_uint32_put(encoder, STOW_MSG_VERSION_RESPONSE) ||
-        !zcbor_uint32_put(encoder, STOW_PROTOCOL_VERSION))
+    struct zcbor_string hash = { .value = (const uint8_t*)hello->stow_hash, .len = strlen(hello->stow_hash) };
+
+    if (!stow_cbor_list_start(encoder, 3) || !zcbor_uint32_put(encoder, STOW_MSG_HELLO_RESPONSE) ||
+        !zcbor_uint32_put(encoder, STOW_PROTOCOL_VERSION) || !stow_cbor_map_start(encoder, 4) ||
+        !zcbor_uint32_put(encoder, STOW_HELLO_MAX_MESSAGE) || !zcbor_uint32_put(encoder, hello->max_message) ||
+        !zcbor_uint32_put(encoder, STOW_HELLO_STOW_HASH) || !zcbor_tstr_encode(encoder, &hash) ||
+        !zcbor_uint32_put(encoder, STOW_HELLO_ROLES) || !zcbor_uint32_put(encoder, hello->roles) ||
+        !zcbor_uint32_put(encoder, STOW_HELLO_ROLE_NAMES) || !stow_cbor_list_start(encoder, STOW_ROLE_COUNT))
     {
         return -ENOMEM;
     }
+
+    for (int bit = 0; bit < STOW_ROLE_COUNT; bit++)
+    {
+        struct zcbor_string name = {
+            .value = (const uint8_t*)g_stow_role_names[bit],
+            .len = strlen(g_stow_role_names[bit]),
+        };
+        if (!zcbor_tstr_encode(encoder, &name))
+        {
+            return -ENOMEM;
+        }
+    }
+
     return SUCCESS;
 }
 

@@ -32,7 +32,7 @@
 //**********************************************************
 
 /**
- * @brief Stow protocol version reported in Version Response
+ * @brief Stow protocol version reported in Hello Response
  */
 #define STOW_PROTOCOL_VERSION 1
 
@@ -45,8 +45,8 @@
  */
 enum stow_message_code
 {
-    STOW_MSG_VERSION = 0,
-    STOW_MSG_VERSION_RESPONSE = 1,
+    STOW_MSG_HELLO = 0,
+    STOW_MSG_HELLO_RESPONSE = 1,
     STOW_MSG_DESCRIBE = 2,
     STOW_MSG_DESCRIBE_RESPONSE = 3,
     STOW_MSG_GET = 4,
@@ -61,6 +61,29 @@ enum stow_message_code
     STOW_MSG_OK = 13,
     STOW_MSG_ERROR = 14,
     STOW_MSG_COUNT,
+};
+
+/**
+ * @brief Keys of the map in a Hello Response
+ *
+ * @details Clients ignore keys they do not know, so the map can grow.
+ */
+enum stow_hello_key
+{
+    STOW_HELLO_MAX_MESSAGE = 0, /**< Largest message the server can send, in bytes */
+    STOW_HELLO_STOW_HASH = 1,   /**< Current StowHash value */
+    STOW_HELLO_ROLES = 2,       /**< Bitmask of the roles the session holds */
+    STOW_HELLO_ROLE_NAMES = 3,  /**< Name of every role, indexed by its bit */
+};
+
+/**
+ * @brief Contents of a Hello Response
+ */
+struct stow_serde_hello
+{
+    uint32_t max_message;  /**< Largest message the server can send, in bytes */
+    const char* stow_hash; /**< Current StowHash value */
+    stow_role_t roles;     /**< Roles the session holds */
 };
 
 /**
@@ -132,14 +155,15 @@ int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request*
 void stow_serde_release_request(struct stow_serde_request* request);
 
 /**
- * @brief Encode a Version Response message
+ * @brief Encode a Hello Response message
  *
  * @param encoder CBOR encoder instance
+ * @param hello Limits and session details to report
  *
  * @return SUCCESS when the response was encoded
  * @return -ENOMEM when the encoder lacks room
  */
-int stow_serde_encode_version_response(zcbor_state_t* encoder);
+int stow_serde_encode_hello_response(zcbor_state_t* encoder, const struct stow_serde_hello* hello);
 
 /**
  * @brief Encode a Describe Response message

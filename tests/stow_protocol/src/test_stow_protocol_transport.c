@@ -67,7 +67,7 @@ ZTEST(stow_protocol_transport, test_refused_response_is_dropped_and_next_request
     test_refuse_sends(true);
 
     uint8_t req[8];
-    int len = test_build_simple(req, sizeof(req), STOW_MSG_VERSION);
+    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO);
     zassert_equal(test_submit_rx(SESSION_A, req, len), 0);
     test_sync();
     zassert_is_null(test_await_tx(K_MSEC(50)).buf, "refused response was delivered");
@@ -80,7 +80,7 @@ ZTEST(stow_protocol_transport, test_refused_response_is_dropped_and_next_request
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf, "next request was not answered");
     zassert_equal(cap.session_id, SESSION_A);
-    zassert_equal(response_code(cap.buf), STOW_MSG_VERSION_RESPONSE);
+    zassert_equal(response_code(cap.buf), STOW_MSG_HELLO_RESPONSE);
     net_buf_unref(cap.buf);
 }
 
@@ -90,13 +90,13 @@ ZTEST(stow_protocol_transport, test_session_uses_its_own_transport)
     zassert_equal(test_endpoint_open(SESSION_B, STOW_ROLE_GUEST, &other_transport), 0);
 
     uint8_t req[8];
-    int len = test_build_simple(req, sizeof(req), STOW_MSG_VERSION);
+    int len = test_build_simple(req, sizeof(req), STOW_MSG_HELLO);
     zassert_equal(test_submit_rx(SESSION_B, req, len), 0);
 
     struct net_buf* buf = NULL;
     zassert_equal(k_msgq_get(&other_capture_msgq, &buf, K_SECONDS(1)), 0, "no response on the session's transport");
     zassert_equal(net_buf_headroom(buf), OTHER_HEADROOM);
-    zassert_equal(response_code(buf), STOW_MSG_VERSION_RESPONSE);
+    zassert_equal(response_code(buf), STOW_MSG_HELLO_RESPONSE);
     net_buf_unref(buf);
 
     zassert_is_null(test_await_tx(K_MSEC(50)).buf, "response leaked onto another transport");
@@ -132,14 +132,14 @@ ZTEST(stow_protocol_transport, test_endpoint_drives_the_session_lifecycle)
 
     struct net_buf* rx = test_alloc_rx();
     zassert_not_null(rx);
-    int len = test_build_simple(net_buf_tail(rx), net_buf_tailroom(rx), STOW_MSG_VERSION);
+    int len = test_build_simple(net_buf_tail(rx), net_buf_tailroom(rx), STOW_MSG_HELLO);
     net_buf_add(rx, len);
     endpoint->receive(endpoint, SESSION_A, rx);
     net_buf_unref(rx);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);
-    zassert_equal(response_code(cap.buf), STOW_MSG_VERSION_RESPONSE);
+    zassert_equal(response_code(cap.buf), STOW_MSG_HELLO_RESPONSE);
     net_buf_unref(cap.buf);
 
     endpoint->session_closed(endpoint, SESSION_A);
@@ -147,7 +147,7 @@ ZTEST(stow_protocol_transport, test_endpoint_drives_the_session_lifecycle)
 
     rx = test_alloc_rx();
     zassert_not_null(rx);
-    net_buf_add(rx, test_build_simple(net_buf_tail(rx), net_buf_tailroom(rx), STOW_MSG_VERSION));
+    net_buf_add(rx, test_build_simple(net_buf_tail(rx), net_buf_tailroom(rx), STOW_MSG_HELLO));
     endpoint->receive(endpoint, SESSION_A, rx);
     net_buf_unref(rx);
     test_sync();

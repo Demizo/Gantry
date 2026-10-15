@@ -178,7 +178,8 @@ static void remove_subscription(struct protocol_session* session, enum stow_item
 
 static void dispatch_request(
     struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
-static void handle_version(struct response* response);
+static int encode_hello(struct protocol_session* session, struct response* response);
+static void handle_hello(struct protocol_session* session, struct response* response);
 static void handle_describe(const struct stow_serde_request* request, struct response* response);
 static void handle_get(
     struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
@@ -560,9 +561,38 @@ static void remove_subscription(struct protocol_session* session, enum stow_item
     }
 }
 
-static void handle_version(struct response* response)
+/**
+ * @brief Encode a Hello Response for a session
+ *
+ * @param session Session the response is for
+ * @param response Empty response to encode into
+ *
+ * @return SUCCESS when the response was encoded
+ * @return -ENOMEM when it does not fit
+ * @return the error from @ref STOW_GET when the StowHash cannot be read
+ */
+static int encode_hello(struct protocol_session* session, struct response* response)
 {
-    response_check(response, stow_serde_encode_version_response(response->encoder));
+    data_value_t hash = { 0 };
+    int ret = STOW_GET(STOW_ID_STOW_HASH, &hash);
+    if (ret != SUCCESS)
+    {
+        return ret;
+    }
+
+    struct stow_serde_hello hello = {
+        .max_message = (uint32_t)response->budget,
+        .stow_hash = hash.data.string_value,
+        .roles = session->roles,
+    };
+    ret = stow_serde_encode_hello_response(response->encoder, &hello);
+    STOW_RELEASE(STOW_ID_STOW_HASH, &hash);
+    return ret;
+}
+
+static void handle_hello(struct protocol_session* session, struct response* response)
+{
+    response_check(response, encode_hello(session, response));
 }
 
 static void handle_describe(const struct stow_serde_request* request, struct response* response)
@@ -720,8 +750,8 @@ static void dispatch_request(
 {
     switch (request->message_code)
     {
-        case STOW_MSG_VERSION:
-            handle_version(response);
+        case STOW_MSG_HELLO:
+            handle_hello(session, response);
             break;
         case STOW_MSG_DESCRIBE:
             handle_describe(request, response);
