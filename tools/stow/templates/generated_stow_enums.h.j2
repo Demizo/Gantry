@@ -1,5 +1,5 @@
 /**
- * @file generated_stow_enums.h
+ * @file generated_{{ prefix }}stow_enums.h
  *
  * @brief Stow enumeration declarations
  *
@@ -24,18 +24,18 @@
 /**
  * @brief {{ enum_def.description }}
  */
-enum {{ enum_name }}
+enum {{ prefix }}{{ enum_name }}
 {
 {% for val in enum_def['values'] %}
-    {{ enum_name }}_{{ val.name }} = {{ val.value }},
+    {{ prefix }}{{ enum_name }}_{{ val.name }} = {{ val.value }},
 {% endfor %}
-    {{ enum_name }}_COUNT,
+    {{ prefix }}{{ enum_name }}_COUNT,
 };
 
 /**
  * @brief Values for {{ enum_name }}
  */
-extern const struct data_enum_value {{ enum_name }}_enum_values[{{ enum_name }}_COUNT];
+extern const struct data_enum_value {{ prefix }}{{ enum_name }}_enum_values[{{ prefix }}{{ enum_name }}_COUNT];
 
 {% endfor %}
 /**

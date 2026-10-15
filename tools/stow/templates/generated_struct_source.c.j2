@@ -1,5 +1,5 @@
 /**
- * @file generated_struct_{{ struct.name }}.c
+ * @file generated_{{ prefix }}struct_{{ struct.name }}.c
  *
  * @brief Stow interface implementation for {{ struct.name }} struct type
  *
@@ -11,7 +11,7 @@
  *
  */
 
-#include "generated_struct_{{ struct.name }}.h"
+#include "generated_{{ prefix }}struct_{{ struct.name }}.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -29,18 +29,18 @@
 #include <gantry/stow/types/stow_type_string.h>
 #include <gantry/stow/types/stow_types.h>
 #include <gantry/error.h>
-#include "generated_stow_enums.h"
+#include "generated_{{ prefix }}stow_enums.h"
 #include <gantry/memory.h>
 {% for field in struct.fields %}
 {% if field.type == 'STRUCT' %}
-#include "generated_struct_{{ field.nested_struct_name }}.h"
+#include "generated_{{ prefix }}struct_{{ field.nested_struct_name }}.h"
 {% endif %}
 {% endfor %}
 
 /**
  * @brief Logger for module
  */
-LOG_MODULE_REGISTER(stow_struct_{{ struct.snake_name }}, CONFIG_STOW_TYPES_LOG_LEVEL);
+LOG_MODULE_REGISTER({{ prefix }}stow_struct_{{ struct.snake_name }}, CONFIG_STOW_TYPES_LOG_LEVEL);
 
 //**********************************************************
 //* Static Function Declarations
@@ -64,7 +64,7 @@ static int encode_constraints(zcbor_state_t* encoder, const union stow_constrain
 static const union stow_constraints {{ field.snake_name }}_constraints = {
     .enum_constraints = {
         .value_count = {{ field.enum_values | length }},
-        .values = {{ field.enum_name }}_enum_values,
+        .values = {{ prefix }}{{ field.enum_name }}_enum_values,
     },
 };
 
@@ -108,7 +108,7 @@ static bool validate(const union stow_constraints* constraints, data_value_t val
 {
     ARG_UNUSED(constraints);
     ASSERT(value.type == STOW_ITEM_TYPE_STRUCT, "Unexpected value type");
-    {{ struct.name }}_t* s = ({{ struct.name }}_t*)value.data.raw_value;
+    {{ struct.c_type }}* s = ({{ struct.c_type }}*)value.data.raw_value;
 
 {% for field in struct.fields %}
     // Check {{ field.name }}
@@ -124,8 +124,8 @@ static bool validate(const union stow_constraints* constraints, data_value_t val
 static bool is_equal(data_value_t a, data_value_t b)
 {
     ASSERT((a.type == STOW_ITEM_TYPE_STRUCT) && (b.type == STOW_ITEM_TYPE_STRUCT), "Unexpected value type");
-    {{ struct.name }}_t* a_struct = ({{ struct.name }}_t*)a.data.raw_value;
-    {{ struct.name }}_t* b_struct = ({{ struct.name }}_t*)b.data.raw_value;
+    {{ struct.c_type }}* a_struct = ({{ struct.c_type }}*)a.data.raw_value;
+    {{ struct.c_type }}* b_struct = ({{ struct.c_type }}*)b.data.raw_value;
 
     data_value_t a_value = { 0 };
     data_value_t b_value = { 0 };
@@ -144,18 +144,18 @@ static bool is_equal(data_value_t a, data_value_t b)
 static int set(void* dest, data_value_t value)
 {
     ASSERT(value.type == STOW_ITEM_TYPE_STRUCT, "Unexpected value type");
-    {{ struct.name }}_t* src = ({{ struct.name }}_t*)value.data.raw_value;
+    {{ struct.c_type }}* src = ({{ struct.c_type }}*)value.data.raw_value;
 
     // Allocate new struct block
     void* new_block = NULL;
-    int ret = mem_alloc(sizeof({{ struct.name }}_t), &new_block);
+    int ret = mem_alloc(sizeof({{ struct.c_type }}), &new_block);
     if (ret != SUCCESS)
     {
         return ret;
     }
 
-    {{ struct.name }}_t* new_struct = ({{ struct.name }}_t*)new_block;
-    memset(new_struct, 0, sizeof({{ struct.name }}_t));
+    {{ struct.c_type }}* new_struct = ({{ struct.c_type }}*)new_block;
+    memset(new_struct, 0, sizeof({{ struct.c_type }}));
 {% for field in struct.fields %}
 
     // Copy {{ field.name }}
@@ -173,21 +173,21 @@ static int set(void* dest, data_value_t value)
 {% endfor %}
 
     // Release old value
-    {{ struct.name }}_t* old_struct = *({{ struct.name }}_t**)dest;
+    {{ struct.c_type }}* old_struct = *({{ struct.c_type }}**)dest;
     if (old_struct != NULL)
     {
         data_value_t old_value = { .type = STOW_ITEM_TYPE_STRUCT, .data.raw_value = old_struct };
         release(&old_value);
     }
 
-    *({{ struct.name }}_t**)dest = ({{ struct.name }}_t*)new_block;
+    *({{ struct.c_type }}**)dest = ({{ struct.c_type }}*)new_block;
     PASS_OWNERSHIP(new_block);
     return SUCCESS;
 }
 
 static int get(void* src, data_value_t* out_value)
 {
-    {{ struct.name }}_t* current = *({{ struct.name }}_t**)src;
+    {{ struct.c_type }}* current = *({{ struct.c_type }}**)src;
 
     mem_ref(current);
     out_value->type = STOW_ITEM_TYPE_STRUCT;
@@ -203,7 +203,7 @@ static void release(data_value_t* value)
     // Release may be called when a decode fails when partially complete. For this reason release must gracefully handle NULL for the data value.
     if (value->data.raw_value == NULL) return;
 
-    {{ struct.name }}_t* s = ({{ struct.name }}_t*)value->data.raw_value;
+    {{ struct.c_type }}* s = ({{ struct.c_type }}*)value->data.raw_value;
 
     if (mem_get_ref_count((void*)s) == 1)
     {
@@ -226,7 +226,7 @@ static void release(data_value_t* value)
 static int encode(zcbor_state_t* encoder, data_value_t value)
 {
     ASSERT(value.type == STOW_ITEM_TYPE_STRUCT, "Unexpected value type");
-    {{ struct.name }}_t* s = ({{ struct.name }}_t*)value.data.raw_value;
+    {{ struct.c_type }}* s = ({{ struct.c_type }}*)value.data.raw_value;
 
     if (!stow_cbor_list_start(encoder, {{ struct.n_fields }}))
     {
@@ -253,16 +253,16 @@ static int decode(zcbor_state_t* decoder, data_value_t* out_value)
     }
 
     void* new_block = NULL;
-    int ret = mem_alloc(sizeof({{ struct.name }}_t), &new_block);
+    int ret = mem_alloc(sizeof({{ struct.c_type }}), &new_block);
     if (ret != SUCCESS)
     {
         return ret;
     }
 
-    {{ struct.name }}_t* new_struct = ({{ struct.name }}_t*)new_block;
+    {{ struct.c_type }}* new_struct = ({{ struct.c_type }}*)new_block;
     // Zero all fields. If the decode fails release will be called. In this case, fields that have not been populated will be NULL.
     // Release can be called on NULL data values.
-    memset(new_struct, 0, sizeof({{ struct.name }}_t));
+    memset(new_struct, 0, sizeof({{ struct.c_type }}));
 
 {% for field in struct.fields %}
     // Decode {{ field.name }}
@@ -340,7 +340,7 @@ static int encode_constraints(zcbor_state_t* encoder, const union stow_constrain
 //* Public Function Definitions
 //**********************************************************
 
-const struct stow_item_interface stow_struct_{{ struct.snake_name }}_interface = {
+const struct stow_item_interface {{ struct.interface_sym }} = {
     .validate = validate,
     .is_equal = is_equal,
     .set = set,

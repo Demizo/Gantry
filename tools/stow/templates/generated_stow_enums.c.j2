@@ -1,5 +1,5 @@
 /**
- * @file generated_stow_enums.c
+ * @file generated_{{ prefix }}stow_enums.c
  *
  * @brief Stow enumeration definitions
  *
@@ -11,7 +11,7 @@
  *
  */
 
-#include "generated_stow_enums.h"
+#include "generated_{{ prefix }}stow_enums.h"
 
 /**
  * @addtogroup stow
@@ -19,7 +19,7 @@
  */
 
 {% for enum_name, enum_def in enums.items() %}
-const struct data_enum_value {{ enum_name }}_enum_values[{{ enum_name }}_COUNT] = {
+const struct data_enum_value {{ prefix }}{{ enum_name }}_enum_values[{{ prefix }}{{ enum_name }}_COUNT] = {
 {% for val in enum_def['values'] %}
     {
         .value = {{ val.value }},

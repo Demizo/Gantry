@@ -1,5 +1,5 @@
 /**
- * @file generated_struct_{{ struct.name }}.h
+ * @file generated_{{ prefix }}struct_{{ struct.name }}.h
  *
  * @brief {{ struct.description }}
  *
@@ -19,7 +19,7 @@
 #include <gantry/stow/types/stow_types.h>
 {% for field in struct.fields %}
 {% if field.type == 'STRUCT' %}
-#include "generated_struct_{{ field.nested_struct_name }}.h"
+#include "generated_{{ prefix }}struct_{{ field.nested_struct_name }}.h"
 {% endif %}
 {% endfor %}
 
@@ -57,12 +57,12 @@ typedef struct
 {% for field in struct.fields %}
     {{ field.c_decl }}; /**< {{ field.name }} field */
 {% endfor %}
-} {{ struct.name }}_t;
+} {{ struct.c_type }};
 
 /**
  * @brief Stow interface for {{ struct.name }} struct type
  */
-extern const struct stow_item_interface stow_struct_{{ struct.snake_name }}_interface;
+extern const struct stow_item_interface {{ struct.interface_sym }};
 
 /**
  * @}

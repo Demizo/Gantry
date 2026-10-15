@@ -4,11 +4,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import yaml
 from jinja2 import Environment, FileSystemLoader
 
 sys.path.insert(0, str(Path(__file__).parent))
-from validator import validate
 
 INTERFACE_MAP = {
     "STRING": "stow_string_interface",
@@ -71,7 +69,11 @@ def _fmt_float(v) -> str:
 
 
 def _preprocess_struct_fields(
-    struct_name: str, fields: list, enums: dict, structs_by_name: dict | None = None
+    struct_name: str,
+    fields: list,
+    enums: dict,
+    structs_by_name: dict | None = None,
+    prefix: str = "",
 ) -> list:
     if structs_by_name is None:
         structs_by_name = {}
@@ -82,7 +84,7 @@ def _preprocess_struct_fields(
         ftype = field["type"]
         fsnake = _to_snake(fname)
         fcdict = _flatten(field["constraints"])
-        fdefine_prefix = f"{struct_name.upper()}_{fsnake.upper()}"
+        fdefine_prefix = f"{prefix.upper()}{struct_name.upper()}_{fsnake.upper()}"
 
         nested_struct_name = ""
         nested_struct_snake = ""
@@ -113,8 +115,8 @@ def _preprocess_struct_fields(
         elif ftype == "STRUCT":
             nested_struct_name = fcdict.get("struct", "")
             nested_struct_snake = _to_snake(nested_struct_name)
-            c_decl = f"{nested_struct_name}_t* {fsnake}"
-            interface_sym = f"stow_struct_{nested_struct_snake}_interface"
+            c_decl = f"{prefix}{nested_struct_name}_t* {fsnake}"
+            interface_sym = f"{prefix}stow_struct_{nested_struct_snake}_interface"
         else:
             c_decl = f"void* {fsnake}"
             interface_sym = ""
@@ -149,16 +151,19 @@ def _preprocess_struct_fields(
     return result
 
 
-def _preprocess_structs(structs_list: list, enums: dict) -> dict:
-    # First pass: build name→raw dict so nested struct refs resolve
-    raw = {s["name"]: s for s in structs_list}
+def _preprocess_structs(structs_list: list, enums: dict, prefix: str = "") -> dict:
+    # First pass: preprocess each struct before nested struct refs are filled in
     result = {}
     for struct in structs_list:
         name = struct["name"]
         snake = _to_snake(name)
-        fields = _preprocess_struct_fields(snake, struct["fields"], enums, result)
+        fields = _preprocess_struct_fields(
+            snake, struct["fields"], enums, result, prefix
+        )
         result[name] = {
             "name": name,
+            "c_type": f"{prefix}{name}_t",
+            "interface_sym": f"{prefix}stow_struct_{snake}_interface",
             "snake_name": snake,
             "upper_name": snake.upper(),
             "description": struct.get("description", ""),
@@ -540,6 +545,7 @@ def generate(
         keep_trailing_newline=True,
     )
     env.globals["now"] = datetime.now().strftime("%Y-%m-%d")
+    env.globals["prefix"] = ""
 
     context = {
         "enums": enums,
