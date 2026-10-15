@@ -49,6 +49,14 @@ config STOW_CALLBACK_TIME_BUDGET_US
     default 200
     depends on STOW_CALLBACK_TIME_ASSERT
 
+config STOW_COBS_TRANSPORT
+    bool "Raw COBS Stow transport"
+    default n
+    select GANTRY_COBS_FRAMER
+    select COBS
+    help
+      An interim transport that carries Stow messages as COBS frames over a byte stream.
+
 menuconfig STOW_PROTOCOL
     bool "Enable the Stow protocol module"
     default n

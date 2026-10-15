@@ -114,6 +114,16 @@ int cobs_frame_decoder_init(
     return alloc_rx_buf(frame_decoder);
 }
 
+void cobs_frame_decoder_reset(struct cobs_frame_decoder* frame_decoder)
+{
+    if (frame_decoder->rx_buf != NULL)
+    {
+        net_buf_reset(frame_decoder->rx_buf);
+    }
+    frame_decoder->is_syncing = false;
+    cobs_decoder_init(&frame_decoder->dec, internal_stream_cb, frame_decoder, COBS_FLAG_TRAILING_DELIMITER);
+}
+
 int cobs_frame_decoder_feed(struct cobs_frame_decoder* frame_decoder, const uint8_t* data, size_t len)
 {
     if (frame_decoder->rx_buf == NULL)

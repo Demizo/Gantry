@@ -47,6 +47,10 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
       lib/stow/types/stow_type_buffer.c
     )
 
+    if(CONFIG_STOW_COBS_TRANSPORT)
+      zephyr_library_sources(lib/stow/stow_cobs_transport.c)
+    endif()
+
     if(CONFIG_STOW_PROTOCOL)
       zephyr_library_sources(
         lib/stow/stow_serde.c

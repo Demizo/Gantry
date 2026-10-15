@@ -40,6 +40,7 @@ target_sources(app PRIVATE
     src/test_stow_protocol_sessions.c
     src/test_stow_protocol_netbuf.c
     src/test_stow_protocol_transport.c
+    src/test_stow_cobs_transport.c
     src/test_stow_protocol_errors.c
     src/test_stow_protocol_hello.c
     src/stow_storage_stub.c
@@ -49,11 +50,13 @@ target_sources(app PRIVATE
     ${GANTRY_LIB}/memory.c
     ${GANTRY_LIB}/event.c
     ${GANTRY_LIB}/string_utils.c
+    ${GANTRY_LIB}/cobs_framer.c
     ${GANTRY_LIB}/stow/stow.c
     ${GANTRY_LIB}/stow/stow_describe.c
     ${GANTRY_LIB}/stow/stow_event.c
     ${GANTRY_LIB}/stow/stow_serde.c
     ${GANTRY_LIB}/stow/stow_protocol.c
+    ${GANTRY_LIB}/stow/stow_cobs_transport.c
     ${GANTRY_LIB}/stow/types/stow_type_enum.c
     ${GANTRY_LIB}/stow/types/stow_type_int.c
     ${GANTRY_LIB}/stow/types/stow_type_float.c

@@ -89,6 +89,15 @@ int cobs_frame_decoder_init(
     struct cobs_frame_decoder* frame_decoder, struct net_buf_pool* pool, cobs_frame_cb_t cb, void* user_data);
 
 /**
+ * @brief Discard any partially decoded frame.
+ *
+ * @note Not safe to call concurrently with @ref cobs_frame_decoder_feed on the same decoder.
+ *
+ * @param frame_decoder Frame decoder instance
+ */
+void cobs_frame_decoder_reset(struct cobs_frame_decoder* frame_decoder);
+
+/**
  * @brief Feed bytes into the COBS frame decoder.
  *
  * @details The frame decoder callback is called when a complete frame is received. Frames that overflow the pool buffer
