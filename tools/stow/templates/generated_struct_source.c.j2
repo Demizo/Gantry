@@ -204,23 +204,21 @@ static void release(data_value_t* value)
     if (value->data.raw_value == NULL) return;
 
     {{ struct.c_type }}* s = ({{ struct.c_type }}*)value->data.raw_value;
-
-    if (mem_get_ref_count((void*)s) == 1)
-    {
-        // Free any fields that contain pointers to nested memory blocks
-        {% for field in struct.fields %}
-        {% if field.type in ['STRUCT', 'BUFFER'] %}
-        // Release {{ field.name }}
-        {
-            data_value_t fval = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = {{ field.data_member_cast }}s->{{ field.snake_name }} };
-            {{ field.interface_sym }}.release(&fval);
-        }
-        {% endif %}
-        {% endfor %}
-    }
+    {% set nested = struct.fields | selectattr('type', 'in', ['STRUCT', 'BUFFER']) | list %}
+    {% for field in nested %}
+    data_value_t nested_{{ field.snake_name }} = { .type = {{ field.c_type_enum }}, .data.{{ field.data_member }} = {{ field.data_member_cast }}s->{{ field.snake_name }} };
+    {% endfor %}
 
     void* s_ptr = s;
     mem_unref(&s_ptr);
+    {% if nested %}
+    if (s_ptr == NULL)
+    {
+        {% for field in nested %}
+        {{ field.interface_sym }}.release(&nested_{{ field.snake_name }});
+        {% endfor %}
+    }
+    {% endif %}
 }
 
 static int encode(zcbor_state_t* encoder, data_value_t value)
