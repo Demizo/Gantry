@@ -33,12 +33,8 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
     zephyr_library_sources(lib/cobs_framer.c)
   endif()
 
-  if(CONFIG_GANTRY_STOW)
+  if(CONFIG_GANTRY_STOW_TYPES)
     zephyr_library_sources(
-      lib/stow/stow.c
-      lib/stow/stow_describe.c
-      lib/stow/stow_event.c
-      lib/stow/stow_storage.c
       lib/stow/types/stow_type_enum.c
       lib/stow/types/stow_type_int.c
       lib/stow/types/stow_type_float.c
@@ -46,10 +42,19 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
       lib/stow/types/stow_type_byte_array.c
       lib/stow/types/stow_type_buffer.c
     )
+  endif()
 
-    if(CONFIG_STOW_COBS_TRANSPORT)
-      zephyr_library_sources(lib/stow/stow_cobs_transport.c)
-    endif()
+  if(CONFIG_STOW_COBS_TRANSPORT)
+    zephyr_library_sources(lib/stow/stow_cobs_transport.c)
+  endif()
+
+  if(CONFIG_GANTRY_STOW)
+    zephyr_library_sources(
+      lib/stow/stow.c
+      lib/stow/stow_describe.c
+      lib/stow/stow_event.c
+      lib/stow/stow_storage.c
+    )
 
     if(CONFIG_STOW_PROTOCOL)
       zephyr_library_sources(

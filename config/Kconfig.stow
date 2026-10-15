@@ -2,10 +2,6 @@ config STOW_LOG_LEVEL
     int "Stow log level"
     default 3
 
-config STOW_TYPES_LOG_LEVEL
-    int "Stow type parsing log level"
-    default 3
-    
 config STOW_STORAGE_LOG_LEVEL
     int "Stow storage backend log level"
     default 3
@@ -48,14 +44,6 @@ config STOW_CALLBACK_TIME_BUDGET_US
     int "Time budget for a stow callback, in microseconds"
     default 200
     depends on STOW_CALLBACK_TIME_ASSERT
-
-config STOW_COBS_TRANSPORT
-    bool "Raw COBS Stow transport"
-    default n
-    select GANTRY_COBS_FRAMER
-    select COBS
-    help
-      An interim transport that carries Stow messages as COBS frames over a byte stream.
 
 menuconfig STOW_PROTOCOL
     bool "Enable the Stow protocol module"

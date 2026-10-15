@@ -1,0 +1,19 @@
+config GANTRY_STOW_TYPES
+    bool
+    select ZCBOR
+    help
+      Stow value codecs, which build without a local Stow schema.
+
+config STOW_TYPES_LOG_LEVEL
+    int "Stow type parsing log level"
+    default 3
+    depends on GANTRY_STOW_TYPES
+
+config STOW_COBS_TRANSPORT
+    bool "Raw COBS Stow transport"
+    default n
+    depends on STOW_PROTOCOL
+    select GANTRY_COBS_FRAMER
+    select COBS
+    help
+      An interim transport that carries Stow messages as COBS frames over a byte stream.
