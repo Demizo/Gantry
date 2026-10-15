@@ -129,41 +129,14 @@ struct protocol_session
 };
 
 /**
- * @brief Context for encoding errors
+ * @brief A response being built for one request
  */
-struct encode_error_context
+struct response
 {
-    enum stow_error_code code; /**< Error code */
-};
-
-/**
- * @brief Context for encoding describe responses
- */
-struct encode_describe_context
-{
-    const uint8_t* chunk;  /**< CBOR describe chunk */
-    size_t chunk_len;      /**<Length of the describe chunk */
-    uint32_t next_item_id; /**< Next item id to describe */
-    bool has_more;         /**< Whether there are more items to describe */
-};
-
-/**
- * @brief Context for encoding values
- */
-struct encode_value_context
-{
-    enum stow_item_id id; /**< Item ID */
-    data_value_t value;   /**< Item value */
-};
-
-/**
- * @brief Context for encoding a multi-get response
- */
-struct encode_multi_get_context
-{
-    const enum stow_item_id* ids; /**< Item IDs */
-    const data_value_t* values;   /**< Item values */
-    uint8_t count;                /**< Number of item/value pairs */
+    struct net_buf* buf;                 /**< Buffer the response is encoded into */
+    uint8_t* start;                      /**< Start of the encoded response */
+    size_t budget;                       /**< Bytes the encoder may use */
+    zcbor_state_t encoder[ZCBOR_STATES]; /**< Encoder positioned after the encoded elements */
 };
 
 //**********************************************************
@@ -181,7 +154,6 @@ static int alloc_protocol_event(
 static struct protocol_session* get_session(uint32_t session_id);
 static struct protocol_session* get_open_session(uint32_t session_id);
 static int signal_session(uint32_t session_id, enum session_signal signal);
-static int alloc_response_buf(const struct stow_transport* transport, struct net_buf** out_buf, size_t* out_budget);
 static int send_message(struct protocol_session* session, struct net_buf* buf);
 
 static void handle_rx(const struct stow_protocol_event_payload* rx_payload);
@@ -195,37 +167,32 @@ static int endpoint_session_opened(
 static void endpoint_session_closed(const struct stow_endpoint* endpoint, uint32_t session_id);
 static void endpoint_receive(const struct stow_endpoint* endpoint, uint32_t session_id, struct net_buf* buf);
 
-static void dispatch_request(
-    uint32_t session_id, struct protocol_session* session, const struct stow_serde_request* request);
-static void handle_version(uint32_t session_id);
-static void handle_describe(uint32_t session_id, enum stow_item_id start_id);
-static void handle_get(uint32_t session_id, struct protocol_session* session, enum stow_item_id id);
-static void handle_set(uint32_t session_id, struct protocol_session* session, const struct stow_serde_request* request);
-static void handle_subscribe(uint32_t session_id, struct protocol_session* session, enum stow_item_id id);
-static void handle_unsubscribe(uint32_t session_id, struct protocol_session* session, enum stow_item_id id);
-static void handle_multi_get(
-    uint32_t session_id, struct protocol_session* session, const struct stow_serde_request* request);
-static void handle_multi_set(
-    uint32_t session_id, struct protocol_session* session, const struct stow_serde_request* request);
-
-static int emit_response(uint32_t session_id, int (*encode_fn)(zcbor_state_t*, void*), void* ctx);
-static int encode_ok(zcbor_state_t* enc, void* ctx);
-static int encode_version(zcbor_state_t* enc, void* ctx);
-static int encode_error(zcbor_state_t* enc, void* ctx);
-static int encode_describe(zcbor_state_t* enc, void* ctx);
-static int encode_get_response(zcbor_state_t* enc, void* ctx);
-static int encode_update(zcbor_state_t* enc, void* ctx);
-static int encode_multi_get_response(zcbor_state_t* enc, void* ctx);
-static void emit_error_code(uint32_t session_id, int err);
-static void emit_error(uint32_t session_id, enum stow_error_code code);
-static void emit_ok(uint32_t session_id);
-static void emit_version_response(uint32_t session_id);
-static void emit_describe_chunk(uint32_t session_id, uint32_t start_id);
-static void emit_get_response(uint32_t session_id, enum stow_item_id id, data_value_t value);
-static void emit_update(uint32_t session_id, enum stow_item_id id, data_value_t value);
-static void emit_multi_get_response(
-    uint32_t session_id, const enum stow_item_id* ids, const data_value_t* values, uint8_t count);
+static int response_open(struct protocol_session* session, struct response* response);
+static enum stow_error_code error_code_from_errno(int err);
+static void response_fail(struct response* response, int err);
+static void response_check(struct response* response, int ret);
+static void response_send(struct protocol_session* session, struct response* response);
+static void response_ok(struct response* response);
+static void emit_update(struct protocol_session* session, enum stow_item_id id, data_value_t value);
 static void remove_subscription(struct protocol_session* session, enum stow_item_id id);
+
+static void dispatch_request(
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
+static void handle_version(struct response* response);
+static void handle_describe(const struct stow_serde_request* request, struct response* response);
+static void handle_get(
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
+static void handle_set(
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
+static int add_subscription(struct protocol_session* session, enum stow_item_id id);
+static void handle_subscribe(
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
+static void handle_unsubscribe(
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
+static void handle_multi_get(
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
+static void handle_multi_set(
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -410,35 +377,6 @@ static int signal_session(uint32_t session_id, enum session_signal signal)
 }
 
 /**
- * @brief Allocate a response net_buf and compute the encoder budget
- *
- * @param transport Transport whose pool, headroom, and tailroom apply
- * @param[out] out_buf Populated with the allocated buf on success
- * @param[out] out_budget Populated with the number of bytes the encoder
- *                        may safely consume
- *
- * @return SUCCESS on success
- * @return -ENOMEM when no buf is available
- */
-static int alloc_response_buf(const struct stow_transport* transport, struct net_buf** out_buf, size_t* out_budget)
-{
-    struct net_buf* buf = net_buf_alloc(transport->pool, K_NO_WAIT);
-    if (buf == NULL)
-    {
-        return -ENOMEM;
-    }
-    net_buf_reserve(buf, transport->headroom);
-
-    size_t tail = net_buf_tailroom(buf);
-    ASSERT(tail >= transport->tailroom, "Provided buffers are too small")
-
-    *out_buf = buf;
-    *out_budget = tail - transport->tailroom;
-    PASS_OWNERSHIP(buf);
-    return SUCCESS;
-}
-
-/**
  * @brief Hand a message to the session's transport
  *
  * @param session Session the message belongs to
@@ -458,204 +396,151 @@ static int send_message(struct protocol_session* session, struct net_buf* buf)
 }
 
 /**
- * @brief Allocate, encode, and emit a response
+ * @brief Start a message to a session
  *
- * @details Calls the supplied encoding function to populate the buf, then hands
- * the buf to the session's transport.
+ * @param session Session the message is for
+ * @param[out] response Populated with a buffer and an encoder positioned at its start
+ *
+ * @return SUCCESS when the message is ready to encode
+ * @return -ENOMEM when no buffer is available
  */
-static int emit_response(uint32_t session_id, int (*encode_fn)(zcbor_state_t*, void*), void* encode_context)
+static int response_open(struct protocol_session* session, struct response* response)
 {
-    struct protocol_session* session = get_session(session_id);
-    if (session == NULL)
+    const struct stow_transport* transport = session->transport;
+    struct net_buf* buf = net_buf_alloc(transport->pool, K_NO_WAIT);
+    if (buf == NULL)
     {
-        return -ENOTCONN;
+        return -ENOMEM;
     }
+    net_buf_reserve(buf, transport->headroom);
 
-    struct net_buf* buf = NULL;
-    size_t budget = 0;
+    size_t tail = net_buf_tailroom(buf);
+    ASSERT(tail >= transport->tailroom, "Provided buffers are too small");
 
-    int ret = alloc_response_buf(session->transport, &buf, &budget);
-    if (ret != SUCCESS)
-    {
-        return ret;
-    }
-
-    uint8_t* start = net_buf_tail(buf);
-    zcbor_state_t enc[ZCBOR_STATES];
-    zcbor_new_encode_state(enc, ARRAY_SIZE(enc), start, budget, 1);
-
-    ret = encode_fn(enc, encode_context);
-    if (ret != SUCCESS)
-    {
-        net_buf_unref(buf);
-        return ret;
-    }
-
-    size_t encoded = enc[0].payload - start;
-    net_buf_add(buf, encoded);
-
-    return send_message(session, buf);
+    response->buf = buf;
+    response->budget = tail - transport->tailroom;
+    response->start = net_buf_tail(buf);
+    zcbor_new_encode_state(response->encoder, ARRAY_SIZE(response->encoder), response->start, response->budget, 1);
+    PASS_OWNERSHIP(buf);
+    return SUCCESS;
 }
 
-static int encode_ok(zcbor_state_t* enc, void* ctx)
+/**
+ * @brief Map an errno to a protocol error code
+ *
+ * @param err Negative errno
+ *
+ * @return The matching protocol error code
+ */
+static enum stow_error_code error_code_from_errno(int err)
 {
-    ARG_UNUSED(ctx);
-    return stow_serde_encode_ok(enc);
-}
-
-static int encode_version(zcbor_state_t* enc, void* ctx)
-{
-    ARG_UNUSED(ctx);
-    return stow_serde_encode_version_response(enc);
-}
-
-static int encode_error(zcbor_state_t* enc, void* ctx)
-{
-    return stow_serde_encode_error(enc, ((struct encode_error_context*)ctx)->code);
-}
-
-static int encode_describe(zcbor_state_t* enc, void* ctx)
-{
-    struct encode_describe_context* describe_context = (struct encode_describe_context*)ctx;
-    return stow_serde_encode_describe_response(
-        enc, describe_context->next_item_id, describe_context->has_more, describe_context->chunk,
-        describe_context->chunk_len);
-}
-
-static int encode_get_response(zcbor_state_t* enc, void* ctx)
-{
-    struct encode_value_context* value_context = (struct encode_value_context*)ctx;
-    return stow_serde_encode_get_response(enc, value_context->id, value_context->value);
-}
-
-static int encode_update(zcbor_state_t* enc, void* ctx)
-{
-    struct encode_value_context* value_context = (struct encode_value_context*)ctx;
-    return stow_serde_encode_update(enc, value_context->id, value_context->value);
-}
-
-static int encode_multi_get_response(zcbor_state_t* enc, void* ctx)
-{
-    struct encode_multi_get_context* multi_get_context = (struct encode_multi_get_context*)ctx;
-    return stow_serde_encode_multi_get_response(
-        enc, multi_get_context->ids, multi_get_context->values, multi_get_context->count);
-}
-
-static void emit_ok(uint32_t session_id)
-{
-    int ret = emit_response(session_id, encode_ok, NULL);
-    if (ret != SUCCESS)
-    {
-        LOG_ERR("Failed to emit OK to session %u (%d)", session_id, ret);
-    }
-}
-
-static void emit_error_code(uint32_t session_id, int err)
-{
-    enum stow_error_code code;
-
     switch (err)
     {
         case -EBADMSG:
-            code = STOW_ERR_MALFORMED_MSG;
-            break;
+            return STOW_ERR_MALFORMED_MSG;
         case -ENOTSUP:
-            code = STOW_ERR_UNKNOWN_MSG;
-            break;
+            return STOW_ERR_UNKNOWN_MSG;
         case -EINVAL:
-            code = STOW_ERR_INVALID_ITEM;
-            break;
+            return STOW_ERR_INVALID_ITEM;
         case -ENOMEM:
-            code = STOW_ERR_OUT_OF_MEMORY;
-            break;
+            return STOW_ERR_OUT_OF_MEMORY;
         case -EACCES:
         case -EALREADY:
-            code = STOW_ERR_PERMISSION_DENIED;
-            break;
+            return STOW_ERR_PERMISSION_DENIED;
         default:
-            code = STOW_ERR_UNKNOWN;
-            break;
-    }
-
-    emit_error(session_id, code);
-}
-
-static void emit_error(uint32_t session_id, enum stow_error_code code)
-{
-    struct encode_error_context ctx = { .code = code };
-    int ret = emit_response(session_id, encode_error, &ctx);
-    if (ret != SUCCESS)
-    {
-        LOG_ERR("Failed to emit Error to session %u (code %u, ret %d)", session_id, (uint32_t)code, ret);
+            return STOW_ERR_UNKNOWN;
     }
 }
 
-static void emit_multi_get_response(
-    uint32_t session_id, const enum stow_item_id* ids, const data_value_t* values, uint8_t count)
+/**
+ * @brief Replace whatever was encoded in a response with an Error
+ *
+ * @details An Error that does not fit the response buffer is logged and the response is dropped.
+ *
+ * @param response The response
+ * @param err Negative errno describing the failure
+ */
+static void response_fail(struct response* response, int err)
 {
-    struct encode_multi_get_context ctx = { .ids = ids, .values = values, .count = count };
-    int ret = emit_response(session_id, encode_multi_get_response, &ctx);
-    if (ret != SUCCESS)
+    zcbor_new_encode_state(response->encoder, ARRAY_SIZE(response->encoder), response->start, response->budget, 1);
+    if (stow_serde_encode_error(response->encoder, error_code_from_errno(err)) != SUCCESS)
     {
-        LOG_ERR("Failed to emit Multi-Get Response to session %u (%d)", session_id, ret);
+        LOG_ERR("Transport buffers cannot hold an Error, dropping the response");
+        struct net_buf* buf = response->buf;
+        net_buf_unref(buf);
+        response->buf = NULL;
     }
 }
 
-static void emit_version_response(uint32_t session_id)
+/**
+ * @brief Drop a response that could not be encoded
+ *
+ * @param response The response
+ * @param ret Result of encoding the response
+ */
+static void response_check(struct response* response, int ret)
 {
-    int ret = emit_response(session_id, encode_version, NULL);
     if (ret != SUCCESS)
     {
-        LOG_ERR("Failed to emit Version Response to session %u (%d)", session_id, ret);
+        LOG_ERR("Response does not fit the transport's buffer (%d), dropping it", ret);
+        struct net_buf* buf = response->buf;
+        net_buf_unref(buf);
+        response->buf = NULL;
     }
 }
 
-static void emit_get_response(uint32_t session_id, enum stow_item_id id, data_value_t value)
+/**
+ * @brief Hand a finished response to the session's transport
+ *
+ * @param session Session the response belongs to
+ * @param response The response, its buffer is always consumed
+ */
+static void response_send(struct protocol_session* session, struct response* response)
 {
-    struct encode_value_context ctx = { .id = id, .value = value };
-    int ret = emit_response(session_id, encode_get_response, &ctx);
+    if (response->buf == NULL)
+    {
+        return;
+    }
+
+    net_buf_add(response->buf, response->encoder[0].payload - response->start);
+    int ret = send_message(session, response->buf);
+    response->buf = NULL;
     if (ret != SUCCESS)
     {
-        LOG_ERR("Failed to emit Get Response to session %u (%d)", session_id, ret);
+        LOG_WRN("Dropped a message to session %u (%d)", session->session_id, ret);
     }
 }
 
-static void emit_update(uint32_t session_id, enum stow_item_id id, data_value_t value)
+/**
+ * @brief Encode an OK response
+ *
+ * @param response The response
+ */
+static void response_ok(struct response* response)
 {
-    struct encode_value_context ctx = { .id = id, .value = value };
-    int ret = emit_response(session_id, encode_update, &ctx);
-    if (ret != SUCCESS)
-    {
-        LOG_ERR("Failed to emit Update to session %u (%d)", session_id, ret);
-    }
+    response_check(response, stow_serde_encode_ok(response->encoder));
 }
 
-static void emit_describe_chunk(uint32_t session_id, uint32_t start_id)
+static void emit_update(struct protocol_session* session, enum stow_item_id id, data_value_t value)
 {
-    int ret = SUCCESS;
-    zcbor_state_t inner[ZCBOR_STATES];
-    zcbor_new_encode_state(
-        inner, ARRAY_SIZE(inner), describe_chunk_staging_buffer, sizeof(describe_chunk_staging_buffer), 1);
-
-    uint32_t next_id = 0;
-    // Ignore result of describe. Out of memory conditions are expected as the protocol dictates chunking the full
-    // description
-    (void)stow_describe(start_id, inner, &next_id);
-
-    size_t chunk_len = inner[0].payload - describe_chunk_staging_buffer;
-    bool has_more = (next_id < STOW_ID_COUNT);
-
-    struct encode_describe_context ctx = {
-        .chunk = describe_chunk_staging_buffer,
-        .chunk_len = chunk_len,
-        .next_item_id = next_id,
-        .has_more = has_more,
-    };
-    ret = emit_response(session_id, encode_describe, &ctx);
+    struct response response;
+    int ret = response_open(session, &response);
+    if (ret == SUCCESS)
+    {
+        ret = stow_serde_encode_update(response.encoder, id, value);
+        if (ret != SUCCESS)
+        {
+            struct net_buf* buf = response.buf;
+            net_buf_unref(buf);
+        }
+    }
     if (ret != SUCCESS)
     {
-        LOG_ERR("Failed to emit Describe Response to session %u (%d)", session_id, ret);
+        LOG_WRN("Dropped Update for item %u to session %u (%d)", (uint32_t)id, session->session_id, ret);
+        return;
     }
+
+    response_send(session, &response);
 }
 
 static void remove_subscription(struct protocol_session* session, enum stow_item_id id)
@@ -675,163 +560,189 @@ static void remove_subscription(struct protocol_session* session, enum stow_item
     }
 }
 
-static void handle_version(uint32_t session_id) { emit_version_response(session_id); }
-
-static void handle_describe(uint32_t session_id, enum stow_item_id start_id)
+static void handle_version(struct response* response)
 {
-    emit_describe_chunk(session_id, (uint32_t)start_id);
+    response_check(response, stow_serde_encode_version_response(response->encoder));
 }
 
-static void handle_get(uint32_t session_id, struct protocol_session* session, enum stow_item_id id)
+static void handle_describe(const struct stow_serde_request* request, struct response* response)
+{
+    zcbor_state_t inner[ZCBOR_STATES];
+    zcbor_new_encode_state(
+        inner, ARRAY_SIZE(inner), describe_chunk_staging_buffer, sizeof(describe_chunk_staging_buffer), 1);
+
+    uint32_t next_id = 0;
+    // Ignore result of describe. Out of memory conditions are expected as the protocol dictates chunking the full
+    // description
+    (void)stow_describe((uint32_t)request->item_id, inner, &next_id);
+
+    size_t chunk_len = inner[0].payload - describe_chunk_staging_buffer;
+    bool has_more = (next_id < STOW_ID_COUNT);
+
+    int ret = stow_serde_encode_describe_response(
+        response->encoder, next_id, has_more, describe_chunk_staging_buffer, chunk_len);
+    response_check(response, ret);
+}
+
+static void handle_get(
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
 {
     data_value_t value = { 0 };
-    int ret = STOW_GET_EXTERNAL(session->roles, id, &value);
+    int ret = STOW_GET_EXTERNAL(session->roles, request->item_id, &value);
     if (ret != SUCCESS)
     {
-        emit_error_code(session_id, ret);
+        response_fail(response, ret);
         return;
     }
-    emit_get_response(session_id, id, value);
-    STOW_RELEASE(id, &value);
+
+    ret = stow_serde_encode_get_response(response->encoder, request->item_id, value);
+    STOW_RELEASE(request->item_id, &value);
+    response_check(response, ret);
 }
 
-static void handle_set(uint32_t session_id, struct protocol_session* session, const struct stow_serde_request* request)
+static void handle_set(
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
 {
     int ret = STOW_SET_EXTERNAL(session->roles, request->item_id, request->value);
-    if (ret == SUCCESS)
+    if (ret != SUCCESS)
     {
-        emit_ok(session_id);
+        response_fail(response, ret);
+        return;
     }
-    else
-    {
-        emit_error_code(session_id, ret);
-    }
+    response_ok(response);
 }
 
-static void handle_subscribe(uint32_t session_id, struct protocol_session* session, enum stow_item_id id)
+/**
+ * @brief Subscribe a session to one item
+ *
+ * @param session Session to subscribe
+ * @param id Item to subscribe to
+ *
+ * @return SUCCESS when the session is subscribed, including when it already was
+ * @return -EACCES when the session's roles cannot read the item
+ * @return the error from @ref stow_subscribe_external
+ */
+static int add_subscription(struct protocol_session* session, enum stow_item_id id)
 {
     if (atomic_test_bit(session->subscriptions, (int)id))
     {
-        emit_ok(session_id);
-        return;
+        return SUCCESS;
+    }
+
+    if ((g_stow_const_metadata[id].permissions.read_permissions & session->roles) == 0)
+    {
+        return -EACCES;
     }
 
     if (item_subscription_counts[id] == 0)
     {
-        item_subscription_counts[id]++;
-        atomic_set_bit(session->subscriptions, (int)id);
         int ret = stow_subscribe_external(session->roles, id, &stow_protocol_subscription);
         if (ret != SUCCESS)
         {
-            atomic_clear_bit(session->subscriptions, (int)id);
-            item_subscription_counts[id]--;
-            emit_error_code(session_id, ret);
-            return;
+            return ret;
         }
     }
-    else
-    {
-        if ((g_stow_const_metadata[id].permissions.read_permissions & session->roles) == 0)
-        {
-            emit_error(session_id, STOW_ERR_PERMISSION_DENIED);
-            return;
-        }
-        item_subscription_counts[id]++;
-        atomic_set_bit(session->subscriptions, (int)id);
-    }
-    emit_ok(session_id);
+    item_subscription_counts[id]++;
+    atomic_set_bit(session->subscriptions, (int)id);
+    return SUCCESS;
 }
 
-static void handle_unsubscribe(uint32_t session_id, struct protocol_session* session, enum stow_item_id id)
+static void handle_subscribe(
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
 {
-    if (atomic_test_bit(session->subscriptions, (int)id))
+    int ret = add_subscription(session, request->item_id);
+    if (ret != SUCCESS)
     {
-        remove_subscription(session, id);
+        response_fail(response, ret);
+        return;
     }
-    emit_ok(session_id);
+    response_ok(response);
+}
+
+static void handle_unsubscribe(
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
+{
+    remove_subscription(session, request->item_id);
+    response_ok(response);
 }
 
 static void handle_multi_get(
-    uint32_t session_id, struct protocol_session* session, const struct stow_serde_request* request)
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
 {
     data_value_t values[CONFIG_STOW_PROTOCOL_MULTI_MAX_ITEMS] = { 0 };
-    bool got[CONFIG_STOW_PROTOCOL_MULTI_MAX_ITEMS] = { false };
-    bool failed = false;
+    uint8_t got = 0;
+    int ret = SUCCESS;
 
-    for (uint8_t i = 0; i < request->multi_count; i++)
+    for (; got < request->multi_count; got++)
     {
-        data_value_t* value_ptr = &values[i];
-        int ret = STOW_GET_EXTERNAL(session->roles, request->multi_ids[i], value_ptr);
+        data_value_t* value_ptr = &values[got];
+        ret = STOW_GET_EXTERNAL(session->roles, request->multi_ids[got], value_ptr);
         if (ret != SUCCESS)
         {
-            emit_error_code(session_id, ret);
-            failed = true;
+            response_fail(response, ret);
             break;
         }
-        got[i] = true;
 
         // Values will be freed in a loop after sending the response
         PASS_OWNERSHIP(value_ptr)
     }
 
-    if (!failed)
+    if (ret == SUCCESS)
     {
-        emit_multi_get_response(session_id, request->multi_ids, values, request->multi_count);
+        ret = stow_serde_encode_multi_get_response(response->encoder, request->multi_ids, values, request->multi_count);
+        response_check(response, ret);
     }
 
-    for (uint8_t i = 0; i < request->multi_count; i++)
+    for (uint8_t i = 0; i < got; i++)
     {
-        if (got[i])
-        {
-            data_value_t* value_ptr = &values[i];
-            STOW_RELEASE(request->multi_ids[i], value_ptr);
-        }
+        data_value_t* value_ptr = &values[i];
+        STOW_RELEASE(request->multi_ids[i], value_ptr);
     }
 }
 
 static void handle_multi_set(
-    uint32_t session_id, struct protocol_session* session, const struct stow_serde_request* request)
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
 {
     for (uint8_t i = 0; i < request->multi_count; i++)
     {
         int ret = STOW_SET_EXTERNAL(session->roles, request->multi_ids[i], request->multi_values[i]);
         if (ret != SUCCESS)
         {
-            emit_error_code(session_id, ret);
+            response_fail(response, ret);
             return;
         }
     }
-    emit_ok(session_id);
+    response_ok(response);
 }
 
 static void dispatch_request(
-    uint32_t session_id, struct protocol_session* session, const struct stow_serde_request* request)
+    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
 {
     switch (request->message_code)
     {
         case STOW_MSG_VERSION:
-            handle_version(session_id);
+            handle_version(response);
             break;
         case STOW_MSG_DESCRIBE:
-            handle_describe(session_id, request->item_id);
+            handle_describe(request, response);
             break;
         case STOW_MSG_GET:
-            handle_get(session_id, session, request->item_id);
+            handle_get(session, request, response);
             break;
         case STOW_MSG_SET:
-            handle_set(session_id, session, request);
+            handle_set(session, request, response);
             break;
         case STOW_MSG_SUBSCRIBE:
-            handle_subscribe(session_id, session, request->item_id);
+            handle_subscribe(session, request, response);
             break;
         case STOW_MSG_UNSUBSCRIBE:
-            handle_unsubscribe(session_id, session, request->item_id);
+            handle_unsubscribe(session, request, response);
             break;
         case STOW_MSG_MULTI_GET:
-            handle_multi_get(session_id, session, request);
+            handle_multi_get(session, request, response);
             break;
         case STOW_MSG_MULTI_SET:
-            handle_multi_set(session_id, session, request);
+            handle_multi_set(session, request, response);
             break;
         default:
             ASSERT(false, "Unexpected message code");
@@ -852,7 +763,12 @@ static void handle_rx(const struct stow_protocol_event_payload* payload)
 
     if (payload->rx.buf == NULL || payload->rx.buf->len == 0)
     {
-        emit_error(session->session_id, STOW_ERR_MALFORMED_MSG);
+        struct response response;
+        if (response_open(session, &response) == SUCCESS)
+        {
+            response_fail(&response, -EBADMSG);
+            response_send(session, &response);
+        }
         return;
     }
 
@@ -866,16 +782,32 @@ static void handle_rx(const struct stow_protocol_event_payload* payload)
 
         struct stow_serde_request request = { 0 };
         int ret = stow_serde_decode_request(dec, &request);
-        if (ret != SUCCESS)
+
+        struct response response = { 0 };
+        int open_ret = response_open(session, &response);
+        if (open_ret != SUCCESS)
         {
-            LOG_WRN("Request decode failed for session %u (%d)", payload->rx.session_id, ret);
-            emit_error_code(session->session_id, ret);
+            LOG_ERR("No response buffer for session %u (%d)", session->session_id, open_ret);
             stow_serde_release_request(&request);
-            break;
+            return;
         }
 
-        dispatch_request(session->session_id, session, &request);
+        if (ret == SUCCESS)
+        {
+            dispatch_request(session, &request, &response);
+        }
+        else
+        {
+            LOG_WRN("Request decode failed for session %u (%d)", session->session_id, ret);
+            response_fail(&response, ret);
+        }
+
         stow_serde_release_request(&request);
+        response_send(session, &response);
+        if (ret != SUCCESS)
+        {
+            break;
+        }
         cursor = dec[0].payload;
     }
 }
@@ -905,7 +837,7 @@ static void handle_update(event_t* event)
             continue;
         }
 
-        emit_update(session->session_id, id, payload->value_copy);
+        emit_update(session, id, payload->value_copy);
     }
 }
 
