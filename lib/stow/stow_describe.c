@@ -56,12 +56,30 @@ const char* const item_type_strings[] = {
 //**********************************************************
 
 static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_metadata* item);
+static uint32_t next_described(const atomic_t* filter, uint32_t id);
 static bool tstr_put(zcbor_state_t* encoder, const char* str);
 static int encode_role_list(zcbor_state_t* encoder, stow_role_t perm);
 
 //**********************************************************
 //* Static Function Definitions
 //**********************************************************
+
+/**
+ * @brief Find the next item to describe
+ *
+ * @param filter Bitmap of item IDs to describe, or NULL for every item
+ * @param id First item ID to consider
+ *
+ * @return The first described item ID at or after @p id, or STOW_ID_COUNT when there is none
+ */
+static uint32_t next_described(const atomic_t* filter, uint32_t id)
+{
+    while (id < STOW_ID_COUNT && filter != NULL && !atomic_test_bit(filter, (int)id))
+    {
+        id++;
+    }
+    return id;
+}
 
 static bool tstr_put(zcbor_state_t* encoder, const char* str)
 {
@@ -107,12 +125,6 @@ static int encode_role_list(zcbor_state_t* encoder, stow_role_t perm)
  */
 static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_metadata* item)
 {
-    // Encode start of list at the beginning of describe
-    if (item->id == 0 && !stow_cbor_list_start(encoder, STOW_ID_COUNT))
-    {
-        return -ENOMEM;
-    }
-
     data_value_t default_value = {
         .type = item->type,
         .data = item->default_value,
@@ -185,25 +197,24 @@ static int encode_item(zcbor_state_t* encoder, const struct stow_item_const_meta
 //* Public Function Definitions
 //**********************************************************
 
-int stow_describe(uint32_t start_id, zcbor_state_t* encoder, uint32_t* next_id_out)
+int stow_describe(uint32_t start_id, const atomic_t* filter, zcbor_state_t* encoder, uint32_t* next_id_out)
 {
-    uint32_t id = start_id;
+    uint32_t id = next_described(filter, start_id);
+    bool encoded_any = false;
 
     while (id < STOW_ID_COUNT)
     {
-        const struct stow_item_const_metadata* item = &g_stow_const_metadata[id];
-
         zcbor_state_t saved = *encoder;
-
-        int ret = encode_item(encoder, item);
+        int ret = encode_item(encoder, &g_stow_const_metadata[id]);
         if (ret != SUCCESS)
         {
             *encoder = saved;
             *next_id_out = id;
-            return ret;
+            return encoded_any ? ret : -E2BIG;
         }
 
-        id++;
+        encoded_any = true;
+        id = next_described(filter, id + 1);
     }
 
     *next_id_out = STOW_ID_COUNT;

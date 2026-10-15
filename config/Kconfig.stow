@@ -94,8 +94,13 @@ config STOW_PROTOCOL_MAX_SESSIONS
     int "Maximum concurrent Stow protocol sessions"
     default 4
 
-config STOW_PROTOCOL_DESCRIBE_CHUNK_SIZE
-    int "Maximum describe chunk size in bytes"
-    default 512
+config STOW_PROTOCOL_RESPONSE_CHECK
+    bool "Check that a transport's responses can hold every description and Hello"
+    default y if DEBUG
+    depends on ASSERT
+    help
+      After a session opens, the protocol thread encodes every item's
+      description and the Hello Response into buffers from the session's
+      transport pool and asserts if one does not fit.
 
 endif # STOW_PROTOCOL

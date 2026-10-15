@@ -361,7 +361,7 @@ ZTEST(stow_protocol_serde, test_encode_describe_response)
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), 1);
 
-    int ret = stow_serde_encode_describe_response(enc, TEST_TAG, 0, false, chunk, sizeof(chunk));
+    int ret = stow_serde_encode_describe_response(enc, TEST_TAG, STOW_SERDE_ABSENT, chunk, sizeof(chunk));
     zassert_equal(ret, 0);
 
     size_t encoded_len = enc[0].payload - buf;
@@ -374,12 +374,7 @@ ZTEST(stow_protocol_serde, test_encode_describe_response)
     uint32_t tag;
     zassert_true(zcbor_uint32_decode(dec, &tag));
     zassert_equal(tag, TEST_TAG);
-    uint32_t next_id;
-    zassert_true(zcbor_uint32_decode(dec, &next_id));
-    zassert_equal(next_id, 0);
-    bool has_more;
-    zassert_true(zcbor_bool_decode(dec, &has_more));
-    zassert_equal(has_more, false);
+    zassert_true(zcbor_nil_expect(dec, NULL));
     struct zcbor_string s;
     zassert_true(zcbor_bstr_decode(dec, &s));
     zassert_equal(s.len, sizeof(chunk));

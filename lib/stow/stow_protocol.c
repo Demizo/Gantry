@@ -55,6 +55,13 @@ LOG_MODULE_REGISTER(stow_protocol, CONFIG_STOW_PROTOCOL_LOG_LEVEL);
  */
 #define ZCBOR_STATES 4
 
+/**
+ * @brief Bytes a Describe Response needs before its chunk, at most
+ *
+ * @details The list header, message code, tag, next item ID and the chunk's byte string header.
+ */
+#define DESCRIBE_RESPONSE_OVERHEAD 13
+
 //**********************************************************
 //* Typedefs, Enums, and Structs
 //**********************************************************
@@ -112,6 +119,9 @@ DEFINE_EVENT_TYPE(EVENT_ID_STOW_PROTOCOL, stow_protocol_event, protocol_event_on
 enum session_signal
 {
     SESSION_SIGNAL_CLOSE, /**< The peer disconnected */
+#ifdef CONFIG_STOW_PROTOCOL_RESPONSE_CHECK
+    SESSION_SIGNAL_CHECK, /**< The session's responses have not been checked against its transport */
+#endif
     SESSION_SIGNAL_COUNT,
 };
 
@@ -181,6 +191,10 @@ static void dispatch_request(
     struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
 static int encode_hello(struct protocol_session* session, struct response* response);
 static void handle_hello(struct protocol_session* session, struct response* response);
+static int encode_describe(struct response* response, uint32_t start_id, const atomic_t* filter, uint32_t* next_id_out);
+#ifdef CONFIG_STOW_PROTOCOL_RESPONSE_CHECK
+static void check_responses_fit(struct protocol_session* session);
+#endif
 static void handle_describe(const struct stow_serde_request* request, struct response* response);
 static void handle_get(
     struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
@@ -244,11 +258,6 @@ static struct protocol_session sessions[CONFIG_STOW_PROTOCOL_MAX_SESSIONS];
  * @brief Number of sessions currently subscribed to each item
  */
 static uint16_t item_subscription_counts[STOW_ID_COUNT];
-
-/**
- * @brief Local staging buffer used to encode describe chunks
- */
-static uint8_t describe_chunk_staging_buffer[CONFIG_STOW_PROTOCOL_DESCRIBE_CHUNK_SIZE];
 
 //**********************************************************
 //* Static Function Definitions
@@ -606,22 +615,98 @@ static void handle_hello(struct protocol_session* session, struct response* resp
     response_check(response, encode_hello(session, response), STOW_SERDE_ABSENT);
 }
 
+/**
+ * @brief Encode a Describe Response whose chunk fills the response's budget with whole items
+ *
+ * @details The chunk is encoded in place after room for the response's prefix, which is then encoded in front of it.
+ *
+ * @param response Empty response to encode into
+ * @param start_id First item ID to describe
+ * @param filter Bitmap of the item IDs to describe, or NULL for every item
+ * @param[out] next_id_out Populated with the next item ID to describe, or the item that does not fit
+ *
+ * @return SUCCESS when the response was encoded
+ * @return -E2BIG when the first item to describe cannot be encoded into an otherwise empty response
+ */
+static int encode_describe(struct response* response, uint32_t start_id, const atomic_t* filter, uint32_t* next_id_out)
+{
+    *next_id_out = start_id;
+    if (response->budget <= DESCRIBE_RESPONSE_OVERHEAD)
+    {
+        return -E2BIG;
+    }
+
+    uint8_t* chunk = response->start + DESCRIBE_RESPONSE_OVERHEAD;
+    zcbor_state_t inner[ZCBOR_STATES];
+    zcbor_new_encode_state(inner, ARRAY_SIZE(inner), chunk, response->budget - DESCRIBE_RESPONSE_OVERHEAD, 1);
+
+    int ret = stow_describe(start_id, filter, inner, next_id_out);
+    if (ret == -E2BIG)
+    {
+        return ret;
+    }
+
+    size_t chunk_len = inner[0].payload - chunk;
+    uint32_t next_id = (*next_id_out < STOW_ID_COUNT) ? *next_id_out : STOW_SERDE_ABSENT;
+    return stow_serde_encode_describe_response(response->encoder, response->tag, next_id, chunk, chunk_len);
+}
+
+#ifdef CONFIG_STOW_PROTOCOL_RESPONSE_CHECK
+/**
+ * @brief Assert that every item's description and the Hello Response fit a session's transport
+ *
+ * @details Encodes into scratch buffers from the transport's pool, and skips the check when none is free.
+ *
+ * @param session Session whose transport is checked
+ */
+static void check_responses_fit(struct protocol_session* session)
+{
+    if (!atomic_test_and_clear_bit(session->signals, SESSION_SIGNAL_CHECK))
+    {
+        return;
+    }
+
+    struct response response;
+    if (response_open(session, STOW_TAG_MAX, &response) != SUCCESS)
+    {
+        LOG_WRN("Skipped the response check for session %u, no buffer free", session->session_id);
+        return;
+    }
+    int ret = encode_hello(session, &response);
+    struct net_buf* buf = response.buf;
+    net_buf_unref(buf);
+    ASSERT(ret == SUCCESS, "The Hello Response does not fit this transport (%d)", ret);
+
+    for (uint32_t id = 0; id < STOW_ID_COUNT; id++)
+    {
+        if (response_open(session, STOW_TAG_MAX, &response) != SUCCESS)
+        {
+            LOG_WRN("Skipped the response check for session %u, no buffer free", session->session_id);
+            return;
+        }
+
+        ATOMIC_DEFINE(filter, STOW_ID_COUNT) = { 0 };
+        atomic_set_bit(filter, (int)id);
+        uint32_t next_id = 0;
+        ret = encode_describe(&response, id, filter, &next_id);
+        buf = response.buf;
+        net_buf_unref(buf);
+        ASSERT(
+            ret == SUCCESS, "Item %u's description does not fit a Describe Response on this transport (%d)", id, ret);
+    }
+}
+#endif
+
 static void handle_describe(const struct stow_serde_request* request, struct response* response)
 {
-    zcbor_state_t inner[ZCBOR_STATES];
-    zcbor_new_encode_state(
-        inner, ARRAY_SIZE(inner), describe_chunk_staging_buffer, sizeof(describe_chunk_staging_buffer), 1);
-
     uint32_t next_id = 0;
-    // Ignore result of describe. Out of memory conditions are expected as the protocol dictates chunking the full
-    // description
-    (void)stow_describe((uint32_t)request->item_id, inner, &next_id);
-
-    size_t chunk_len = inner[0].payload - describe_chunk_staging_buffer;
-    bool has_more = (next_id < STOW_ID_COUNT);
-
-    int ret = stow_serde_encode_describe_response(
-        response->encoder, response->tag, next_id, has_more, describe_chunk_staging_buffer, chunk_len);
+    const atomic_t* filter = request->has_filter ? request->filter : NULL;
+    int ret = encode_describe(response, (uint32_t)request->item_id, filter, &next_id);
+    if (ret == -E2BIG)
+    {
+        response_fail(response, ret, next_id, STOW_SERDE_ABSENT);
+        return;
+    }
     response_check(response, ret, STOW_SERDE_ABSENT);
 }
 
@@ -942,7 +1027,11 @@ static void handle_signals(void)
         if (atomic_test_bit(session->signals, SESSION_SIGNAL_CLOSE))
         {
             close_session(session);
+            continue;
         }
+#ifdef CONFIG_STOW_PROTOCOL_RESPONSE_CHECK
+        check_responses_fit(session);
+#endif
     }
 }
 
@@ -1046,6 +1135,9 @@ static int endpoint_session_opened(
     free_slot->in_use = true;
 
     irq_unlock(key);
+#ifdef CONFIG_STOW_PROTOCOL_RESPONSE_CHECK
+    (void)signal_session(session_id, SESSION_SIGNAL_CHECK);
+#endif
     return SUCCESS;
 }
 

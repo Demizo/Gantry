@@ -21,6 +21,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <zcbor_common.h>
+#include <zephyr/sys/atomic.h>
 
 /**
  * @addtogroup stow_protocol
@@ -140,6 +141,9 @@ struct stow_serde_request
     size_t payload_len;     /**< Length of @ref payload */
     uint16_t entry_count;   /**< Number of entries in a Get, Set, Subscribe or Unsubscribe request */
 
+    bool has_filter;                      /**< Whether a Describe request named the items to describe */
+    ATOMIC_DEFINE(filter, STOW_ID_COUNT); /**< Items named by a Describe request; unknown names are ignored */
+
     uint32_t error_item; /**< Item that failed to decode, or @ref STOW_SERDE_ABSENT */
 };
 
@@ -202,16 +206,15 @@ int stow_serde_encode_hello_response(zcbor_state_t* encoder, uint8_t tag, const 
  *
  * @param encoder CBOR encoder instance
  * @param tag Tag of the request being answered
- * @param next_item_id The item ID the client should use in its next Describe request
- * @param has_more Whether more items remain after this chunk
- * @param chunk Buffer holding the CBOR describe chunk
+ * @param next_item_id The item ID for the client's next Describe request, or @ref STOW_SERDE_ABSENT when done
+ * @param chunk Buffer holding the CBOR describe chunk, which may lie later in the encoder's own buffer
  * @param chunk_len Length of the chunk in bytes
  *
  * @return SUCCESS when the response was encoded
  * @return -ENOMEM when the encoder lacks room
  */
 int stow_serde_encode_describe_response(
-    zcbor_state_t* encoder, uint8_t tag, uint32_t next_item_id, bool has_more, const uint8_t* chunk, size_t chunk_len);
+    zcbor_state_t* encoder, uint8_t tag, uint32_t next_item_id, const uint8_t* chunk, size_t chunk_len);
 
 /**
  * @brief Encode the start of a Get Response message

@@ -40,6 +40,7 @@ LOG_MODULE_REGISTER(stow_serde, CONFIG_STOW_SERDE_LOG_LEVEL);
 
 static int check_value(zcbor_state_t* decoder, uint32_t id);
 static int check_entries(zcbor_state_t* decoder, struct stow_serde_request* request);
+static int decode_describe_filter(zcbor_state_t* decoder, struct stow_serde_request* request_out);
 static bool put_optional_uint(zcbor_state_t* encoder, uint32_t value);
 
 //**********************************************************
@@ -116,6 +117,50 @@ static int check_entries(zcbor_state_t* decoder, struct stow_serde_request* requ
 }
 
 /**
+ * @brief Decode the item names of a filtered Describe request
+ *
+ * @param decoder CBOR decoder positioned at the list of names
+ * @param[out] request_out Request whose filter is populated
+ *
+ * @return SUCCESS when the names were decoded
+ * @return -EBADMSG when the list is malformed
+ */
+static int decode_describe_filter(zcbor_state_t* decoder, struct stow_serde_request* request_out)
+{
+    if (!zcbor_list_start_decode(decoder))
+    {
+        return -EBADMSG;
+    }
+
+    while (!zcbor_array_at_end(decoder))
+    {
+        struct zcbor_string name;
+        if (!zcbor_tstr_decode(decoder, &name))
+        {
+            return -EBADMSG;
+        }
+
+        for (uint32_t id = 0; id < STOW_ID_COUNT; id++)
+        {
+            const char* item_name = g_stow_const_metadata[id].name;
+            if (strlen(item_name) == name.len && memcmp(item_name, name.value, name.len) == 0)
+            {
+                atomic_set_bit(request_out->filter, (int)id);
+                break;
+            }
+        }
+    }
+
+    if (!zcbor_list_end_decode(decoder))
+    {
+        return -EBADMSG;
+    }
+
+    request_out->has_filter = true;
+    return SUCCESS;
+}
+
+/**
  * @brief Encode an unsigned integer, or null when it is absent
  *
  * @param encoder CBOR encoder instance
@@ -182,6 +227,11 @@ int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request*
                 return -ENOENT;
             }
             request_out->item_id = (enum stow_item_id)start_id;
+
+            if (!zcbor_array_at_end(decoder))
+            {
+                ret = decode_describe_filter(decoder, request_out);
+            }
             break;
         }
         case STOW_MSG_GET:
@@ -255,11 +305,11 @@ int stow_serde_encode_hello_response(zcbor_state_t* encoder, uint8_t tag, const 
 }
 
 int stow_serde_encode_describe_response(
-    zcbor_state_t* encoder, uint8_t tag, uint32_t next_item_id, bool has_more, const uint8_t* chunk, size_t chunk_len)
+    zcbor_state_t* encoder, uint8_t tag, uint32_t next_item_id, const uint8_t* chunk, size_t chunk_len)
 {
-    if (!stow_cbor_list_start(encoder, 5) || !zcbor_uint32_put(encoder, STOW_MSG_DESCRIBE_RESPONSE) ||
-        !zcbor_uint32_put(encoder, tag) || !zcbor_uint32_put(encoder, next_item_id) ||
-        !zcbor_bool_put(encoder, has_more) || !zcbor_bstr_encode_ptr(encoder, (const char*)chunk, chunk_len))
+    if (!stow_cbor_list_start(encoder, 4) || !zcbor_uint32_put(encoder, STOW_MSG_DESCRIBE_RESPONSE) ||
+        !zcbor_uint32_put(encoder, tag) || !put_optional_uint(encoder, next_item_id) ||
+        !zcbor_bstr_encode_ptr(encoder, (const char*)chunk, chunk_len))
     {
         return -ENOMEM;
     }

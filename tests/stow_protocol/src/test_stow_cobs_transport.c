@@ -9,7 +9,7 @@
 #include "test_common.h"
 
 #define LINK_SESSION 71
-#define LINK_MESSAGE_SIZE 128
+#define LINK_MESSAGE_SIZE 240
 
 NET_BUF_POOL_DEFINE(link_message_pool, 8, LINK_MESSAGE_SIZE, 0, NULL);
 NET_BUF_POOL_DEFINE(link_frame_pool, 4, COBS_ENCODE_MAX_SIZE(LINK_MESSAGE_SIZE), 0, NULL);

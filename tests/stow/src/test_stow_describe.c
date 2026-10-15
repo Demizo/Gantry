@@ -15,21 +15,65 @@ ZTEST(stow_describe, test_full_describe_succeeds)
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), STOW_ID_COUNT);
 
     uint32_t next_id = 0;
-    int ret = stow_describe(0, enc, &next_id);
+    int ret = stow_describe(0, NULL, enc, &next_id);
     zassert_equal(ret, 0);
     zassert_equal(next_id, STOW_ID_COUNT);
 }
 
-ZTEST(stow_describe, test_tiny_buffer_returns_enomem)
+ZTEST(stow_describe, test_tiny_buffer_returns_e2big)
 {
     uint8_t buf[1];
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), STOW_ID_COUNT);
 
     uint32_t next_id = STOW_ID_COUNT;
-    int ret = stow_describe(0, enc, &next_id);
-    zassert_equal(ret, -ENOMEM);
+    int ret = stow_describe(0, NULL, enc, &next_id);
+    zassert_equal(ret, -E2BIG);
     zassert_equal(next_id, 0);
+    zassert_equal_ptr(enc[0].payload, buf);
+}
+
+ZTEST(stow_describe, test_filter_describes_only_selected_items)
+{
+    ATOMIC_DEFINE(filter, STOW_ID_COUNT) = { 0 };
+    atomic_set_bit(filter, STOW_ID_TEST_INT);
+
+    uint8_t buf[512];
+    zcbor_state_t enc[4];
+    zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), STOW_ID_COUNT);
+
+    uint32_t next_id = 0;
+    zassert_equal(stow_describe(0, filter, enc, &next_id), 0);
+    zassert_equal(next_id, STOW_ID_COUNT);
+
+    ZCBOR_STATE_D(dec, 3, buf, enc[0].payload - buf, 1, 0);
+    zassert_true(zcbor_map_start_decode(dec));
+    struct zcbor_string key;
+    uint32_t id;
+    zassert_true(zcbor_tstr_decode(dec, &key));
+    zassert_true(zcbor_uint32_decode(dec, &id));
+    zassert_equal(id, STOW_ID_TEST_INT);
+    for (int i = 0; i < 8 * 2; i++)
+    {
+        zassert_true(zcbor_any_skip(dec, NULL));
+    }
+    zassert_true(zcbor_map_end_decode(dec));
+    zassert_equal_ptr(dec->payload, enc[0].payload);
+}
+
+ZTEST(stow_describe, test_empty_filter_describes_nothing)
+{
+    ATOMIC_DEFINE(filter, STOW_ID_COUNT) = { 0 };
+
+    uint8_t buf[8];
+    zcbor_state_t enc[4];
+    zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), STOW_ID_COUNT);
+
+    uint32_t next_id = 0;
+    zassert_equal(stow_describe(0, filter, enc, &next_id), 0);
+    zassert_equal(next_id, STOW_ID_COUNT);
+
+    zassert_equal_ptr(enc[0].payload, buf);
 }
 
 ZTEST(stow_describe, test_rollback_leaves_no_partial_data)
@@ -41,7 +85,7 @@ ZTEST(stow_describe, test_rollback_leaves_no_partial_data)
     const uint8_t* payload_before = enc[0].payload;
 
     uint32_t next_id = 0;
-    stow_describe(0, enc, &next_id);
+    stow_describe(0, NULL, enc, &next_id);
 
     zassert_equal_ptr(enc[0].payload, payload_before);
 }
@@ -58,7 +102,7 @@ ZTEST(stow_describe, test_chunked_describe_covers_all_items)
         zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), STOW_ID_COUNT);
 
         uint32_t id_before = next_id;
-        int ret = stow_describe(next_id, enc, &next_id);
+        int ret = stow_describe(next_id, NULL, enc, &next_id);
 
         if (ret == 0)
         {
@@ -96,16 +140,13 @@ ZTEST(stow_describe, test_describe_encoding)
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), buf, sizeof(buf), STOW_ID_COUNT);
 
     uint32_t next_id = 0;
-    int ret = stow_describe(0, enc, &next_id);
+    int ret = stow_describe(0, NULL, enc, &next_id);
     zassert_equal(ret, -ENOMEM);
     zassert_true(next_id > 0);
 
     ZCBOR_STATE_D(dec, 2, buf, enc->payload - buf, 1, 0);
     uint32_t val_u32;
     struct zcbor_string val_tstr;
-
-    // First element starts the list
-    zassert_true(zcbor_list_start_decode(dec), "Failed to start list decode");
 
     // Start map decode
     zassert_true(zcbor_map_start_decode(dec), "Failed to start map decode");
