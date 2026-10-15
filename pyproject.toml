@@ -29,7 +29,7 @@ cwd = "${scopeFsPath}/docs"
 
 [tool.uv.workspace]
 members = ["python/stow-client", "samples/example_app"]
-exclude = ["tools/resource_check"]
+exclude = ["tools/protocol_spec", "tools/resource_check"]
 
 [build-system]
 requires = ["uv_build>=0.10.6,<0.11.0"]

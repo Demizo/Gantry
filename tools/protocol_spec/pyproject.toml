@@ -1,0 +1,30 @@
+[project]
+name = "protocol-spec"
+version = "0.1.0"
+description = "Builds and checks protocol golden vectors from a CDDL spec and vectors written in diagnostic notation"
+authors = [{ name = "Demizo", email = "demizodemazo@gmail.com" }]
+license = "Apache-2.0"
+requires-python = ">=3.13"
+dependencies = [
+    "cbor-diag>=1.2.0",
+    # zcbor 0.9.1 imports names that cbor2 6 removed
+    "cbor2>=5.6,<6",
+    "pyyaml>=6.0",
+    "zcbor==0.9.1",
+]
+
+[project.scripts]
+protocol-spec = "protocol_spec.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff==0.15.14",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.6,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
