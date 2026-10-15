@@ -39,7 +39,12 @@
 /**
  * @brief Maximum number of TX responses buffered during a single test
  */
-#define TEST_MAX_PENDING_TX 16
+#define TEST_MAX_PENDING_TX 32
+
+/**
+ * @brief Number of buffers in the fake transport's pool
+ */
+#define TEST_TX_BUF_COUNT 32
 
 /**
  * @brief Reserved headroom for the test TX pool (verifies app head usage)
@@ -91,6 +96,18 @@ int test_endpoint_open(uint32_t session_id, stow_role_t roles, struct stow_trans
 void test_endpoint_close(uint32_t session_id);
 
 /**
+ * @brief Make the fake transport block inside send until unblocked
+ *
+ * @param block Whether sends block
+ */
+void test_block_sends(bool block);
+
+/**
+ * @brief Wait until the protocol thread is blocked inside send
+ */
+void test_await_blocked_send(void);
+
+/**
  * @brief Open a session on the fake transport
  *
  * @param session_id Session to open
@@ -137,6 +154,11 @@ void test_drain_captures(void);
  * response below the protocol thread's priority, so the thread is idle on return.
  */
 void test_sync(void);
+
+/**
+ * @brief Let the protocol thread run until it has nothing left to do, without sending it anything
+ */
+void test_settle(void);
 
 /**
  * @brief Decode the outer array header, message code and request tag of a captured response

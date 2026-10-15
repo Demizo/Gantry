@@ -20,7 +20,7 @@ LOG_MODULE_REGISTER(test_common, 3);
 
 #define TEST_SYNC_SESSION 0xDEADBEEFu
 
-NET_BUF_POOL_DEFINE(test_tx_pool, 16, TEST_BUF_DATA_SIZE, TEST_BUF_USER_DATA, NULL);
+NET_BUF_POOL_DEFINE(test_tx_pool, TEST_TX_BUF_COUNT, TEST_BUF_DATA_SIZE, TEST_BUF_USER_DATA, NULL);
 NET_BUF_POOL_DEFINE(test_rx_pool, 16, TEST_BUF_DATA_SIZE, TEST_BUF_USER_DATA, NULL);
 
 K_MSGQ_DEFINE(test_capture_msgq, sizeof(struct test_capture), TEST_MAX_PENDING_TX, sizeof(void*));
@@ -29,6 +29,10 @@ K_MSGQ_DEFINE(test_sync_msgq, sizeof(struct net_buf*), 1, sizeof(void*));
 static bool g_protocol_initialized;
 
 static atomic_t g_refuse_sends;
+static atomic_t g_block_sends;
+
+K_SEM_DEFINE(test_send_gate, 0, 1);
+K_SEM_DEFINE(test_send_blocked, 0, 1);
 
 //**********************************************************
 //* Fake Transport
@@ -41,6 +45,12 @@ static int test_send(struct stow_transport* transport, uint32_t session_id, stru
     if (session_id == TEST_SYNC_SESSION)
     {
         return k_msgq_put(&test_sync_msgq, &buf, K_NO_WAIT) == 0 ? 0 : -EIO;
+    }
+
+    if (atomic_get(&g_block_sends) != 0)
+    {
+        k_sem_give(&test_send_blocked);
+        k_sem_take(&test_send_gate, K_FOREVER);
     }
 
     if (atomic_get(&g_refuse_sends) != 0)
@@ -65,6 +75,21 @@ struct stow_transport test_transport = {
 };
 
 void test_refuse_sends(bool refuse) { atomic_set(&g_refuse_sends, refuse ? 1 : 0); }
+
+void test_block_sends(bool block)
+{
+    k_sem_reset(&test_send_blocked);
+    atomic_set(&g_block_sends, block ? 1 : 0);
+    if (!block)
+    {
+        k_sem_give(&test_send_gate);
+    }
+}
+
+void test_await_blocked_send(void)
+{
+    zassert_equal(k_sem_take(&test_send_blocked, K_SECONDS(1)), 0, "send did not block");
+}
 
 //**********************************************************
 //* Lifecycle
@@ -114,6 +139,14 @@ void test_sync(void)
     zassert_equal(ret, 0);
     zassert_equal(got, 0, "sync response missing");
     net_buf_unref(response);
+}
+
+void test_settle(void)
+{
+    k_tid_t self = k_current_get();
+    int priority = k_thread_priority_get(self);
+    k_thread_priority_set(self, CONFIG_STOW_PROTOCOL_THREAD_PRIORITY + 1);
+    k_thread_priority_set(self, priority);
 }
 
 void test_reset(void)
