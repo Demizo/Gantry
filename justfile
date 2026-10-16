@@ -107,6 +107,10 @@ test-resource-check *args='':
 test-link-broker *args='':
     uv run --project tools/link_broker pytest tools/link_broker/tests {{args}}
 
+# Run the controller and sensor samples as a simulated network
+test-peers *args='':
+    uv run --project tools/link_broker pytest samples/stow_peers/tests {{args}}
+
 # Build documentation
 docs:
   doxygen Doxyfile

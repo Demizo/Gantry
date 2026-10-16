@@ -1,0 +1,11 @@
+# The controller and the sensor, joined by one UART link named controller-sensor
+seed: 1
+
+nodes:
+  controller:
+    app: controller
+  sensor:
+    app: sensor
+
+links:
+  - ends: [controller, sensor]
