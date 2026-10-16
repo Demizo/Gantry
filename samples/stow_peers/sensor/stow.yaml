@@ -1,0 +1,41 @@
+# The sensor's own items: a battery level it drains, and a mode the controller sets.
+
+enums:
+  Mode:
+    description: "Operating mode"
+    values:
+      - name: IDLE
+        value: 0
+      - name: ECO
+        value: 1
+      - name: BOOST
+        value: 2
+
+categories:
+  - Sensor
+
+items:
+  - name: Battery
+    description: "Battery level, in percent"
+    categories: [Sensor]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: INTERNAL
+    default: 100
+    constraints:
+      - min: 0
+      - max: 100
+
+  - name: Mode
+    description: "Operating mode"
+    categories: [Sensor]
+    type: ENUM
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: IDLE
+    constraints:
+      - enum: Mode

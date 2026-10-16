@@ -1,0 +1,18 @@
+# The controller's own item, which the sensor reads when they connect.
+
+categories:
+  - Controller
+
+items:
+  - name: Name
+    description: "A name for the controller"
+    categories: [Controller]
+    type: STRING
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default: "unnamed"
+    constraints:
+      - min_len: 1
+      - max_len: 16

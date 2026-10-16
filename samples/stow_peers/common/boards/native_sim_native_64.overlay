@@ -1,0 +1,9 @@
+/ {
+	chosen {
+		gantry,peer-uart = &uart1;
+	};
+};
+
+&uart1 {
+	status = "okay";
+};
