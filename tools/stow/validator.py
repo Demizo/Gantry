@@ -38,6 +38,14 @@ def _validate_perm(value, valid_roles: set, ctx: str) -> None:
     )
 
 
+def _require_name(value, ctx: str) -> None:
+    """Reject a name that is not a non-empty string, as YAML reads OFF, yes or 1 unquoted."""
+    if not isinstance(value, str) or not value:
+        raise ValueError(
+            f"{ctx}: name must be a non-empty string, got {value!r}; quote it in the YAML"
+        )
+
+
 def _flatten(lst: list, ctx: str) -> dict:
     result = {}
     for entry in lst:
@@ -58,6 +66,7 @@ def _validate_structs(structs_list: list, enums: dict) -> None:
 
         if "name" not in struct:
             raise ValueError(f"{ctx}: missing 'name'")
+        _require_name(struct["name"], ctx)
         if "description" not in struct:
             raise ValueError(f"{ctx}: missing 'description'")
         if (
@@ -74,6 +83,7 @@ def _validate_structs(structs_list: list, enums: dict) -> None:
             for k in ("name", "type", "constraints"):
                 if k not in field:
                     raise ValueError(f"{fctx}: missing '{k}'")
+            _require_name(field["name"], fctx)
 
             ftype = field["type"]
             if ftype not in VALID_STRUCT_FIELD_TYPES:
@@ -134,6 +144,7 @@ def validate(data: dict) -> None:
                 raise ValueError(f"{ctx} value[{i}]: must be a mapping")
             if "name" not in val:
                 raise ValueError(f"{ctx} value[{i}]: missing 'name'")
+            _require_name(val["name"], f"{ctx} value[{i}]")
             if "value" not in val:
                 raise ValueError(f"{ctx} value[{i}]: missing 'value'")
             if not isinstance(val["value"], int):
@@ -145,8 +156,7 @@ def validate(data: dict) -> None:
     if len(roles_raw) > 16:
         raise ValueError("'roles' may define at most 16 roles")
     for i, role in enumerate(roles_raw):
-        if not isinstance(role, str) or not role:
-            raise ValueError(f"roles[{i}]: must be a non-empty string")
+        _require_name(role, f"roles[{i}]")
     valid_roles = set(roles_raw)
 
     categories_raw = data.get("categories") or []
@@ -180,6 +190,7 @@ def validate(data: dict) -> None:
             raise ValueError(
                 f"{ctx}: missing required fields: {', '.join(sorted(missing))}"
             )
+        _require_name(item["name"], ctx)
 
         item_categories = item["categories"]
         if not isinstance(item_categories, list) or not item_categories:
