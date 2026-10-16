@@ -1,9 +1,26 @@
 import re
 
 VALID_TYPES = {"STRING", "INT", "FLOAT", "ENUM", "BYTE_ARRAY", "BUFFER", "STRUCT"}
-VALID_STRUCT_FIELD_TYPES = {"STRING", "INT", "FLOAT", "ENUM", "BYTE_ARRAY", "BUFFER", "STRUCT"}
+VALID_STRUCT_FIELD_TYPES = {
+    "STRING",
+    "INT",
+    "FLOAT",
+    "ENUM",
+    "BYTE_ARRAY",
+    "BUFFER",
+    "STRUCT",
+}
 VALID_STORAGE_TYPES = {"EPHEMERAL", "PERSISTENT", "TOFU"}
-ITEM_REQUIRED_FIELDS = {"name", "description", "categories", "type", "storage", "permissions", "default", "constraints"}
+ITEM_REQUIRED_FIELDS = {
+    "name",
+    "description",
+    "categories",
+    "type",
+    "storage",
+    "permissions",
+    "default",
+    "constraints",
+}
 C_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -16,14 +33,18 @@ def _validate_perm(value, valid_roles: set, ctx: str) -> None:
             if r not in valid_roles:
                 raise ValueError(f"{ctx}: role '{r}' not defined in top-level 'roles'")
         return
-    raise ValueError(f"{ctx}: permission must be 'ANY', 'INTERNAL', or a list of role names")
+    raise ValueError(
+        f"{ctx}: permission must be 'ANY', 'INTERNAL', or a list of role names"
+    )
 
 
 def _flatten(lst: list, ctx: str) -> dict:
     result = {}
     for entry in lst:
         if not isinstance(entry, dict):
-            raise ValueError(f"{ctx}: expected a list of mappings, got {type(entry).__name__}")
+            raise ValueError(
+                f"{ctx}: expected a list of mappings, got {type(entry).__name__}"
+            )
         result.update(entry)
     return result
 
@@ -39,7 +60,11 @@ def _validate_structs(structs_list: list, enums: dict) -> None:
             raise ValueError(f"{ctx}: missing 'name'")
         if "description" not in struct:
             raise ValueError(f"{ctx}: missing 'description'")
-        if "fields" not in struct or not isinstance(struct["fields"], list) or not struct["fields"]:
+        if (
+            "fields" not in struct
+            or not isinstance(struct["fields"], list)
+            or not struct["fields"]
+        ):
             raise ValueError(f"{ctx}: 'fields' must be a non-empty list")
 
         for i, field in enumerate(struct["fields"]):
@@ -61,11 +86,15 @@ def _validate_structs(structs_list: list, enums: dict) -> None:
             if ftype in ("STRING", "BYTE_ARRAY", "BUFFER"):
                 for k in ("min_len", "max_len"):
                     if k not in fcdict:
-                        raise ValueError(f"{fctx}: type {ftype} requires constraint '{k}'")
+                        raise ValueError(
+                            f"{fctx}: type {ftype} requires constraint '{k}'"
+                        )
             elif ftype in ("INT", "FLOAT"):
                 for k in ("min", "max"):
                     if k not in fcdict:
-                        raise ValueError(f"{fctx}: type {ftype} requires constraint '{k}'")
+                        raise ValueError(
+                            f"{fctx}: type {ftype} requires constraint '{k}'"
+                        )
             elif ftype == "ENUM":
                 if "enum" not in fcdict:
                     raise ValueError(f"{fctx}: type ENUM requires constraint 'enum'")
@@ -75,7 +104,9 @@ def _validate_structs(structs_list: list, enums: dict) -> None:
                     )
             elif ftype == "STRUCT":
                 if "struct" not in fcdict:
-                    raise ValueError(f"{fctx}: type STRUCT requires constraint 'struct'")
+                    raise ValueError(
+                        f"{fctx}: type STRUCT requires constraint 'struct'"
+                    )
                 # Note: forward-reference validation skipped here; generator handles ordering
 
 
@@ -146,21 +177,29 @@ def validate(data: dict) -> None:
 
         missing = ITEM_REQUIRED_FIELDS - set(item.keys())
         if missing:
-            raise ValueError(f"{ctx}: missing required fields: {', '.join(sorted(missing))}")
+            raise ValueError(
+                f"{ctx}: missing required fields: {', '.join(sorted(missing))}"
+            )
 
         item_categories = item["categories"]
         if not isinstance(item_categories, list) or not item_categories:
             raise ValueError(f"{ctx}: 'categories' must be a non-empty list")
         for cat in item_categories:
             if cat not in valid_categories:
-                raise ValueError(f"{ctx}: category '{cat}' is not defined in top-level 'categories'")
+                raise ValueError(
+                    f"{ctx}: category '{cat}' is not defined in top-level 'categories'"
+                )
 
         item_type = item["type"]
         if item_type not in VALID_TYPES:
-            raise ValueError(f"{ctx}: invalid type '{item_type}', must be one of {sorted(VALID_TYPES)}")
+            raise ValueError(
+                f"{ctx}: invalid type '{item_type}', must be one of {sorted(VALID_TYPES)}"
+            )
 
         if item["storage"] not in VALID_STORAGE_TYPES:
-            raise ValueError(f"{ctx}: invalid storage '{item['storage']}', must be one of {sorted(VALID_STORAGE_TYPES)}")
+            raise ValueError(
+                f"{ctx}: invalid storage '{item['storage']}', must be one of {sorted(VALID_STORAGE_TYPES)}"
+            )
 
         perms = item["permissions"]
         if not isinstance(perms, list):
@@ -179,11 +218,15 @@ def validate(data: dict) -> None:
         if item_type in ("STRING", "BYTE_ARRAY", "BUFFER"):
             for k in ("min_len", "max_len"):
                 if k not in cdict:
-                    raise ValueError(f"{ctx}: type {item_type} requires constraint '{k}'")
+                    raise ValueError(
+                        f"{ctx}: type {item_type} requires constraint '{k}'"
+                    )
         elif item_type in ("INT", "FLOAT"):
             for k in ("min", "max"):
                 if k not in cdict:
-                    raise ValueError(f"{ctx}: type {item_type} requires constraint '{k}'")
+                    raise ValueError(
+                        f"{ctx}: type {item_type} requires constraint '{k}'"
+                    )
         elif item_type == "ENUM":
             if "enum" not in cdict:
                 raise ValueError(f"{ctx}: type ENUM requires constraint 'enum'")
@@ -205,4 +248,6 @@ def validate(data: dict) -> None:
             if key in item:
                 val = item[key]
                 if not isinstance(val, str) or not C_IDENT_RE.match(val):
-                    raise ValueError(f"{ctx}: '{key}' must be a valid C identifier, got {val!r}")
+                    raise ValueError(
+                        f"{ctx}: '{key}' must be a valid C identifier, got {val!r}"
+                    )

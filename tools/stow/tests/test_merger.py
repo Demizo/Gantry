@@ -51,7 +51,9 @@ def test_constraints_sub_merge_patches_single_key():
 
     merged = merge_dict(base, overlay)
 
-    constraints = dict(kv for d in merged["items"][0]["constraints"] for kv in d.items())
+    constraints = dict(
+        kv for d in merged["items"][0]["constraints"] for kv in d.items()
+    )
     assert constraints == {"min_len": 3, "max_len": 10}
 
 
