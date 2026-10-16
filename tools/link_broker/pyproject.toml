@@ -1,0 +1,27 @@
+[project]
+name = "link-broker"
+version = "0.1.0"
+description = "Joins simulated nodes' UARTs by a topology file, injects link faults and logs every frame"
+authors = [{ name = "Demizo", email = "demizodemazo@gmail.com" }]
+requires-python = ">=3.13"
+dependencies = [
+    "cbor-diag>=1.2.0",
+    "pytest>=8.0",
+    "pyyaml>=6.0",
+    "stow-client",
+]
+
+[dependency-groups]
+dev = [
+    "ruff==0.15.14",
+]
+
+[tool.uv.sources]
+stow-client = { path = "../../python/stow-client", editable = true }
+
+[build-system]
+requires = ["uv_build>=0.10.6,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

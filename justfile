@@ -103,6 +103,10 @@ test-stow-tools *args='':
 test-resource-check *args='':
     uv run --project tools/resource_check pytest tools/resource_check/tests tests/resource_check {{args}}
 
+# Run the link broker's own unit tests
+test-link-broker *args='':
+    uv run --project tools/link_broker pytest tools/link_broker/tests {{args}}
+
 # Build documentation
 docs:
   doxygen Doxyfile
