@@ -26,6 +26,7 @@ Benefits
    Stow <stow/index>
    Memory Management <memory_management/index>
    Resource Checker <resource_checker/index>
+   Link Broker <link_broker/index>
    Events <events/index>
    Modules <module/index>
    Flags <flags/index>
