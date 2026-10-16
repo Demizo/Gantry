@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+
 from stow_client import ErrorCode, StowClient, StowError
 
 pytestmark = pytest.mark.integration

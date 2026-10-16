@@ -69,6 +69,11 @@ vectors:
 check-vectors:
   uv run --project tools/protocol_spec protocol-spec check protocols/stow
 
+# Lint and format-check the repo's Python with the pinned ruff
+lint:
+  uv run ruff check .
+  uv run ruff format --check .
+
 # Format the library, sample, and test sources
 format:
   find lib include {{sample}} tests -path "*/build" -prune -o \( -iname "*.c" -o -iname "*.h" \) -print | xargs clang-format -i

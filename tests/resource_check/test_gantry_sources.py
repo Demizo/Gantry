@@ -2,6 +2,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+
 from resource_check.annotations import load_annotations
 from resource_check.checker import BUNDLED_ANNOTATIONS, check_file, iter_c_files
 from resource_check.parser import make_parser

@@ -10,10 +10,15 @@ dependencies = [
     "breathe>=4.36.0",
     "jinja2>=3.1.6",
     "pyyaml>=6.0",
-    "ruff>=0.15.14",
+    "ruff==0.15.14",
     "sphinx>=9.1.0",
     "sphinx-rtd-theme>=3.1.0",
     "sphinxcontrib-mermaid>=2.0.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
 ]
 
 [tool.uv]
@@ -26,6 +31,13 @@ buildCommand = ["sphinx-build", "-b", "html", "docs/source", "docs/build"]
 command = ["uv", "run", "python"]
 env = { PYTHONPATH = ""}
 cwd = "${scopeFsPath}/docs"
+
+[tool.ruff]
+# Package roots, so imports of each project sort as first-party from anywhere
+src = [".", "python/stow-client/src", "tools/protocol_spec/src", "tools/resource_check/src", "tools/stow"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
 
 [tool.uv.workspace]
 members = ["python/stow-client", "samples/example_app"]

@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 import pytest
+
 from resource_check.checker import check_file, main
 from resource_check.parser import make_parser
 

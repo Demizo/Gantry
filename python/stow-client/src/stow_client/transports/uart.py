@@ -12,7 +12,6 @@ import serial_asyncio  # type: ignore[import-untyped]
 from ..cobs import cobs_decode, cobs_encode
 from ..transport import StowTransport
 
-
 # ---------------------------------------------------------------------------
 # Transport
 # ---------------------------------------------------------------------------

@@ -95,7 +95,7 @@ class LengthConstraints:
 class StructField:
     name: str
     type: ItemType
-    constraints: "Constraints"
+    constraints: Constraints
 
 
 @dataclass(frozen=True)
@@ -253,7 +253,7 @@ def decode_value(
             )
         return {
             f.name: decode_value(f.type, f.constraints, v)
-            for f, v in zip(constraints.fields, value)
+            for f, v in zip(constraints.fields, value, strict=True)
         }
     if item_type in (ItemType.BYTE_ARRAY, ItemType.BUFFER):
         if isinstance(value, (bytes, bytearray)):
@@ -284,7 +284,7 @@ def encode_value(
             raise ValueError("STRUCT value must be a dict or list")
         return [
             encode_value(f.type, f.constraints, v)
-            for f, v in zip(constraints.fields, ordered)
+            for f, v in zip(constraints.fields, ordered, strict=True)
         ]
     if item_type in (ItemType.BYTE_ARRAY, ItemType.BUFFER):
         if isinstance(value, (bytes, bytearray)):

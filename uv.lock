@@ -169,7 +169,7 @@ requires-dist = [
     { name = "pyserial-asyncio", specifier = ">=0.6" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
-    { name = "ruff", specifier = ">=0.15.14" },
+    { name = "ruff", specifier = "==0.15.14" },
     { name = "stow-client", editable = "python/stow-client" },
 ]
 
@@ -187,16 +187,24 @@ dependencies = [
     { name = "sphinxcontrib-mermaid" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "breathe", specifier = ">=4.36.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "ruff", specifier = ">=0.15.14" },
+    { name = "ruff", specifier = "==0.15.14" },
     { name = "sphinx", specifier = ">=9.1.0" },
     { name = "sphinx-rtd-theme", specifier = ">=3.1.0" },
     { name = "sphinxcontrib-mermaid", specifier = ">=2.0.1" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.0" }]
 
 [[package]]
 name = "idna"

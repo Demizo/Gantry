@@ -1,6 +1,7 @@
 import copy
 
 import pytest
+
 from client_generator import generate_client
 
 ITEM = {

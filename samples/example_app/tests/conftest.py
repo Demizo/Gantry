@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 import pytest
+
 from stow_client import Storage, StowClient
 from stow_client.transports import UartTransport
 

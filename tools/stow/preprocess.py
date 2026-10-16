@@ -182,7 +182,7 @@ def preprocess_structs(structs_list: list, enums: dict, prefix: str = "") -> dic
             "n_fields": len(fields),
         }
     # Second pass: fill nested_struct_fields now that all structs are preprocessed
-    for name, struct_def in result.items():
+    for struct_def in result.values():
         for field in struct_def["fields"]:
             if field["type"] == "STRUCT" and field["nested_struct_name"] in result:
                 field["nested_struct_fields"] = result[field["nested_struct_name"]][

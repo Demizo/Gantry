@@ -117,7 +117,7 @@ class StowClient:
         self._hello: HelloResponse | None = None
         self._loaded = False
 
-    async def __aenter__(self) -> "StowClient":
+    async def __aenter__(self) -> StowClient:
         await self.load()
         return self
 
@@ -202,7 +202,7 @@ class StowClient:
             )
         values = {
             d.name: decode_value(d.type, d.constraints, value)
-            for d, (_, value) in zip(descs, response.items)
+            for d, (_, value) in zip(descs, response.items, strict=True)
         }
         return values[item_names] if isinstance(item_names, str) else values
 

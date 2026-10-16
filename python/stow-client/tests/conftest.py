@@ -11,9 +11,9 @@ import pytest
 
 from stow_client import StowClient, StowTransport
 from stow_client.descriptions import ConstraintKey as K
+from stow_client.descriptions import DescribeKey, ItemType, Storage
 from stow_client.descriptions import EnumConstraintKey as E
 from stow_client.descriptions import FieldConstraintKey as F
-from stow_client.descriptions import DescribeKey, ItemType, Storage
 from stow_client.messages import (
     DescribeResponse,
     HelloKey,

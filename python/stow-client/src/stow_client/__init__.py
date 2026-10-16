@@ -12,12 +12,12 @@ from .client import (
 )
 from .descriptions import (
     ConstraintKey,
-    EnumConstraintKey,
-    FieldConstraintKey,
     Constraints,
     DescribeKey,
+    EnumConstraintKey,
     EnumConstraints,
     EnumValue,
+    FieldConstraintKey,
     FloatConstraints,
     IntConstraints,
     ItemDescription,

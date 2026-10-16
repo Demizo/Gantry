@@ -1,10 +1,10 @@
 import argparse
-import subprocess
+import queue
 import socket
-import time
+import subprocess
 import sys
 import threading
-import queue
+import time
 
 
 def monitor_openocd(process, event_queue):
@@ -49,12 +49,12 @@ def run_rtt_session(args, ram_base, ram_size):
 
     # Wait for OpenOCD to open the port
     s = None
-    for attempt in range(10):
+    for _ in range(10):
         try:
             s = socket.create_connection(("localhost", args.port), timeout=1)
             s.settimeout(0.5)
             break
-        except (ConnectionRefusedError, socket.timeout):
+        except (TimeoutError, ConnectionRefusedError):
             time.sleep(0.5)
 
     if not s:
@@ -85,7 +85,7 @@ def run_rtt_session(args, ram_base, ram_size):
                     break
                 sys.stdout.write(data.decode("utf-8", errors="replace"))
                 sys.stdout.flush()
-            except (socket.timeout, TimeoutError):
+            except TimeoutError:
                 continue
 
     except KeyboardInterrupt:

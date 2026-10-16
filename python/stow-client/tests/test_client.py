@@ -10,8 +10,8 @@ import pytest
 from stow_client import (
     StowClient,
     StowError,
-    StowRequestTooLargeError,
     StowNotLoadedError,
+    StowRequestTooLargeError,
     StowVersionMismatch,
     UnexpectedResponseError,
 )
@@ -531,7 +531,9 @@ async def test_tags_rotate_through_the_tag_range(
         transport.reply(GetResponse(items=((2, 0),)))
         await loaded_client.get("TestInt", timeout=1.0)
     tags = [decode(frame).tag for frame in transport.outgoing]
-    assert all((b - a) % (TAG_MAX + 1) == 1 for a, b in zip(tags, tags[1:]))
+    assert all(
+        (b - a) % (TAG_MAX + 1) == 1 for a, b in zip(tags, tags[1:], strict=False)
+    )
     assert all(0 <= tag <= TAG_MAX for tag in tags)
 
 

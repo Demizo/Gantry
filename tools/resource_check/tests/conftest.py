@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+
 from resource_check.annotations import Annotations, load_annotations
 from resource_check.checker import BUNDLED_ANNOTATIONS, check_file
 from resource_check.findings import Finding
