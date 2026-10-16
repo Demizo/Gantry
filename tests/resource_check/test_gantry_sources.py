@@ -13,11 +13,18 @@ SAMPLE_SRC = REPO / "samples" / "example_app" / "src"
 SAMPLE_INC = REPO / "samples" / "example_app" / "inc"
 
 
-@pytest.fixture(scope="module")
-def library_annotations():
-    registry, findings = load_annotations([INCLUDE, BUNDLED_ANNOTATIONS, SAMPLE_INC])
+def _annotations_with(include_dir: Path):
+    """Annotations from the same places as `just analyze`, the checked trees included."""
+    registry, findings = load_annotations(
+        [BUNDLED_ANNOTATIONS, include_dir, SAMPLE_INC, LIB, SAMPLE_SRC]
+    )
     assert findings == []
     return registry
+
+
+@pytest.fixture(scope="module")
+def library_annotations():
+    return _annotations_with(INCLUDE)
 
 
 def _check_tree(root: Path, annotations) -> list:
@@ -27,17 +34,8 @@ def _check_tree(root: Path, annotations) -> list:
     ]
 
 
-def _annotations_with(include_dir: Path):
-    registry, findings = load_annotations(
-        [include_dir, BUNDLED_ANNOTATIONS, SAMPLE_INC]
-    )
-    assert findings == []
-    return registry
-
-
 def test_library_and_sample_are_clean():
-    registry, findings = load_annotations([INCLUDE, BUNDLED_ANNOTATIONS, SAMPLE_INC])
-    assert findings == []
+    registry = _annotations_with(INCLUDE)
     assert _check_tree(LIB, registry) == []
     assert _check_tree(SAMPLE_SRC, registry) == []
 
