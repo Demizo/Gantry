@@ -1,5 +1,10 @@
 if(CONFIG_GANTRY)
   zephyr_include_directories(include)
+  include(${CMAKE_CURRENT_LIST_DIR}/cmake/gantry.cmake)
+endif()
+
+if(CONFIG_GANTRY_STOW_TYPES)
+  gantry_protocol_constants(${CMAKE_CURRENT_LIST_DIR}/protocols/stow stow_wire_codes.h)
 endif()
 
 if(CONFIG_GANTRY_STOW)
@@ -30,8 +35,6 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
   if(CONFIG_GANTRY_MODULE)
     zephyr_library_sources(lib/module.c)
   endif()
-
-  include(${CMAKE_CURRENT_LIST_DIR}/cmake/gantry.cmake)
 
   if(CONFIG_GANTRY_COBS_FRAMER)
     zephyr_library_sources(lib/cobs_framer.c)

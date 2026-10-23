@@ -1,0 +1,15 @@
+# The names stow.cddl's integers take in C. Format: tools/protocol_spec/README.md.
+
+cddl: stow.cddl
+constants:
+  protocol-version: {c: STOW_PROTOCOL_VERSION}
+  tag: {c: STOW_TAG_MAX, bound: max}
+  msg-: {c_enum: stow_message_code, c_prefix: STOW_MSG_, c_count: STOW_MSG_COUNT}
+  err-: {c_enum: stow_error_code, c_prefix: STOW_ERR_}
+  hello-: {c_enum: stow_hello_key, c_prefix: STOW_HELLO_}
+  desc-: {c_enum: stow_describe_key, c_prefix: STOW_DESCRIBE_}
+  type-: {c_enum: stow_item_type, c_prefix: STOW_ITEM_TYPE_, c_count: STOW_ITEM_TYPE_COUNT}
+  storage-: {c_enum: stow_storage_type, c_prefix: STOW_STORAGE_}
+  constraint-: {c_enum: stow_constraint_key, c_prefix: STOW_CONSTRAINT_}
+  enum-: {c_enum: stow_enum_constraint_key, c_prefix: STOW_ENUM_CONSTRAINT_}
+  field-: {c_enum: stow_field_constraint_key, c_prefix: STOW_FIELD_CONSTRAINT_}

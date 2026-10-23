@@ -19,6 +19,7 @@
 #include <gantry/memory.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stow_wire_codes.h> /* generated from protocols/stow/stow.cddl during the build */
 #include <zcbor_decode.h>
 #include <zcbor_encode.h>
 #include <zephyr/kernel.h>
@@ -35,21 +36,6 @@
 //**********************************************************
 //* Typedefs, Enums, and Structs
 //**********************************************************
-
-/**
- * @brief Supported item data types
- */
-enum stow_item_type
-{
-    STOW_ITEM_TYPE_ENUM = 0,
-    STOW_ITEM_TYPE_INT = 1,
-    STOW_ITEM_TYPE_FLOAT = 2,
-    STOW_ITEM_TYPE_STRING = 3,
-    STOW_ITEM_TYPE_BYTE_ARRAY = 4,
-    STOW_ITEM_TYPE_BUFFER = 5,
-    STOW_ITEM_TYPE_STRUCT = 6,
-    STOW_ITEM_TYPE_COUNT
-};
 
 /**
  * @brief Union of raw values for each data type
@@ -71,45 +57,6 @@ typedef struct
     enum stow_item_type type; /**< Data value type */
     raw_data_value_t data;    /**< Data value */
 } data_value_t;
-
-/**
- * @brief Keys of the map that bounds an Int or Float value, or the length of a String, Byte Array or Buffer
- */
-enum stow_constraint_key
-{
-    STOW_CONSTRAINT_MIN = 0, /**< Minimum value or length */
-    STOW_CONSTRAINT_MAX = 1, /**< Maximum value or length */
-};
-
-/**
- * @brief Keys of the map that describes one value of an Enum
- */
-enum stow_enum_constraint_key
-{
-    STOW_ENUM_CONSTRAINT_VALUE = 0, /**< Number of the value */
-    STOW_ENUM_CONSTRAINT_NAME = 1,  /**< Name of the value */
-};
-
-/**
- * @brief Keys of the map that describes one field of a Struct
- */
-enum stow_field_constraint_key
-{
-    STOW_FIELD_CONSTRAINT_NAME = 0,        /**< Name of the field */
-    STOW_FIELD_CONSTRAINT_TYPE = 1,        /**< @ref stow_item_type of the field */
-    STOW_FIELD_CONSTRAINT_CONSTRAINTS = 2, /**< Constraints of the field */
-};
-
-/**
- * @brief Storage types for stow items
- */
-enum stow_storage_type
-{
-    STOW_STORAGE_EPHEMERAL = 0,  /**< Items are reset to their default value upon reboot */
-    STOW_STORAGE_PERSISTENT = 1, /**< Items are stored in non-volatile storage. Their values persist across reboots. */
-    STOW_STORAGE_TOFU = 2,       /**< Item can be written while at its default value. It cannot be changed again. */
-    STOW_STORAGE_COUNT
-};
 
 /**
  * @brief Role bitmask type for access control.

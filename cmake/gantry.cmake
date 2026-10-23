@@ -1,3 +1,27 @@
+# gantry_protocol_constants(<folder> <header>)
+#
+# Renders the CDDL integers a protocol folder's constants.yaml names as
+# <header> in the build directory, and adds it to the include path. The mapping,
+# CDDL and the tool become configure dependencies.
+function(gantry_protocol_constants folder header)
+  set(_tool ${ZEPHYR_GANTRY_MODULE_DIR}/tools/protocol_spec)
+  set(_dir ${CMAKE_BINARY_DIR}/gantry_generated/inc/protocols)
+  file(GLOB _inputs ${folder}/constants.yaml ${folder}/*.cddl ${_tool}/src/protocol_spec/*.py ${_tool}/src/protocol_spec/templates/*)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_inputs})
+
+  find_program(GANTRY_UV_CMD NAMES uv REQUIRED)
+  execute_process(
+    COMMAND ${GANTRY_UV_CMD} run --project ${_tool} --no-dev
+            protocol-spec constants ${folder} --output ${_dir}/${header}
+    RESULT_VARIABLE _result
+  )
+  if(NOT _result EQUAL 0)
+    message(FATAL_ERROR "Gantry: rendering the constants of ${folder} failed (exit ${_result})")
+  endif()
+
+  zephyr_include_directories(${_dir})
+endfunction()
+
 # gantry_stow_add_fragment(<path>)
 #
 # Registers an additional stow YAML fragment to be merged into the app's

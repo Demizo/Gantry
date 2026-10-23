@@ -111,7 +111,7 @@ Items are the individual data entires in the Stow. Each item has:
 - ``name``: The name of the data item.
 - ``categories``: List of categories that the item belongs to.
 - ``type``: The datatype of the item.
-- ``storage``: Storage mode for the item.
+- ``storage``: Storage mode for the item: ``EPHEMERAL`` items reset to their default at boot, ``PERSISTENT`` items keep their value in non-volatile storage, and ``TOFU`` items can be written only while at their default.
 - ``permissions``: ``read`` and ``write`` access controls. Each is a list of roles able to access the item. The ``ANY`` keyword can be used to allow access to all roles. The ``INTERNAL`` keyword can be used to restrict access from all roles; only the firmware can access these items.
 - ``default``: The default value of the item.
 - ``constraints``: The item's value constraints.
