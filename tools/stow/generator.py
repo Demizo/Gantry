@@ -31,16 +31,18 @@ def _parse_version_file(text: str) -> str:
     return version
 
 
-def _build_builtin_items(hash_bytes: bytes, version_dir: Path) -> list:
-    items = []
+def stow_hash(merged_yaml: bytes, version_dir: Path) -> str:
+    """The StowHash of a merged stow.yaml and the VERSION file in version_dir, if any."""
     version_path = version_dir / "VERSION"
-
-    stow_bytes = hash_bytes
     if version_path.exists():
-        stow_bytes += version_path.read_bytes()
-    yaml_hash = hashlib.sha256(stow_bytes).hexdigest()
-    items.append(builtin_item("StowHash", yaml_hash))
+        merged_yaml += version_path.read_bytes()
+    return hashlib.sha256(merged_yaml).hexdigest()
 
+
+def _build_builtin_items(hash_bytes: bytes, version_dir: Path) -> list:
+    items = [builtin_item("StowHash", stow_hash(hash_bytes, version_dir))]
+
+    version_path = version_dir / "VERSION"
     if version_path.exists():
         version = _parse_version_file(version_path.read_text())
         items.append(builtin_item("FirmwareVersion", version))
