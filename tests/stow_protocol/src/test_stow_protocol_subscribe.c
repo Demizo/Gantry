@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "gantry/stow/stow_serde.h"
 #include "test_common.h"
 
 #define SESSION_A 31
@@ -282,7 +281,7 @@ ZTEST(stow_protocol_subscribe, test_subscribe_partial_failure_names_entry)
     zassert_equal(test_submit_rx(SESSION_A, req, len), 0);
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);
-    struct stow_serde_error error;
+    struct test_error error;
     zassert_true(test_decode_error(cap.buf, &error));
     zassert_equal(error.code, STOW_ERR_PERMISSION_DENIED);
     zassert_equal(error.item, STOW_ID_TEST_SESSION_INT);

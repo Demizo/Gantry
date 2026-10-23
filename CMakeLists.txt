@@ -78,14 +78,12 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
   if(CONFIG_GANTRY_STOW)
     zephyr_library_sources(
       lib/stow/stow.c
-      lib/stow/stow_describe.c
       lib/stow/stow_event.c
       lib/stow/stow_storage.c
     )
 
     if(CONFIG_STOW_PROTOCOL)
       zephyr_library_sources(
-        lib/stow/stow_serde.c
         lib/stow/stow_protocol.c
       )
     endif()

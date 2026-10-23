@@ -17,10 +17,13 @@
 #pragma once
 
 #include <gantry/error.h>
+#include <gantry/memory.h>
 #include <gantry/stow/types/stow_types.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/errno.h>
 #include <zephyr/net_buf.h>
+#include <zephyr/sys/__assert.h>
 
 /**
  * @addtogroup stow_protocol
@@ -101,6 +104,56 @@ struct stow_endpoint
 //**********************************************************
 //* Functions
 //**********************************************************
+
+/**
+ * @brief Check that a transport can carry Stow messages: it sends, and its fixed-size buffers outlast its headroom and
+ * tailroom
+ *
+ * @param transport The transport, or NULL
+ *
+ * @return true when sessions may be bound to it
+ */
+static inline bool stow_transport_usable(const struct stow_transport* transport)
+{
+    return transport != NULL && transport->send != NULL && transport->pool != NULL &&
+           transport->pool->alloc->cb == &net_buf_fixed_cb &&
+           transport->headroom + transport->tailroom <= transport->pool->alloc->max_alloc_size;
+}
+
+/**
+ * @brief Allocate an outgoing Stow message and find how many bytes it may hold
+ *
+ * @param transport The transport the message is for
+ * @param limit Largest message the receiver accepts, or 0 for no limit beyond the buffer
+ * @param[out] buf_out The message, with the transport's headroom reserved; write at its tail
+ * @param[out] budget_out Bytes the message may use
+ *
+ * @return SUCCESS when the message is allocated
+ * @return -EBUSY when the transport has no free buffer
+ * @acquires net_buf buf_out on-success
+ */
+static inline int stow_transport_alloc(
+    const struct stow_transport* transport, uint32_t limit, struct net_buf** buf_out, size_t* budget_out)
+{
+    struct net_buf* buf = net_buf_alloc(transport->pool, K_NO_WAIT);
+    if (buf == NULL)
+    {
+        return -EBUSY;
+    }
+    __ASSERT(
+        transport->headroom + transport->tailroom <= buf->size, "Bind only a transport stow_transport_usable accepts");
+    net_buf_reserve(buf, transport->headroom);
+
+    size_t budget = net_buf_tailroom(buf) - transport->tailroom;
+    if (limit != 0U && limit < budget)
+    {
+        budget = limit;
+    }
+    *buf_out = buf;
+    *budget_out = budget;
+    PASS_OWNERSHIP(buf);
+    return SUCCESS;
+}
 
 /**
  * @brief Send one complete Stow message, dropping it when the transport refuses it

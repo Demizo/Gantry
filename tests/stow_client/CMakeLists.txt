@@ -34,6 +34,9 @@ foreach(_gen
       message(FATAL_ERROR "Failed to run ${_script} ${_gen}")
   endif()
 endforeach()
+foreach(_depth generated_stow_depth generated_peer_stow_depth generated_variant_stow_depth generated_vec_stow_depth)
+  gantry_stow_raise_depth(${GENERATED_DIR}/${_depth})
+endforeach()
 
 file(GLOB GENERATED_SOURCES ${GENERATED_DIR}/src/stow/*.c)
 
@@ -50,9 +53,8 @@ target_sources(app PRIVATE
     ${GANTRY_LIB}/event.c
     ${GANTRY_LIB}/string_utils.c
     ${GANTRY_LIB}/stow/stow.c
-    ${GANTRY_LIB}/stow/stow_describe.c
     ${GANTRY_LIB}/stow/stow_event.c
-    ${GANTRY_LIB}/stow/stow_serde.c
+    ${GANTRY_LIB}/stow/stow_msg.c
     ${GANTRY_LIB}/stow/stow_wire.c
     ${GANTRY_LIB}/stow/stow_mux.c
     ${GANTRY_LIB}/stow/stow_cobs_transport.c

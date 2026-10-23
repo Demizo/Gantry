@@ -19,16 +19,13 @@
 #include <gantry/event.h>
 #include <gantry/memory.h>
 #include <gantry/stow/stow.h>
-#include <gantry/stow/stow_describe.h>
 #include <gantry/stow/stow_event.h>
+#include <gantry/stow/stow_msg.h>
 #include <gantry/stow/stow_protocol.h>
-#include <gantry/stow/stow_serde.h>
 #include <generated_stow_items.h>
 #include <stddef.h>
 #include <string.h>
 #include <sys/errno.h>
-#include <zcbor_decode.h>
-#include <zcbor_encode.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/net_buf.h>
@@ -46,21 +43,6 @@ LOG_MODULE_REGISTER(stow_protocol, CONFIG_STOW_PROTOCOL_LOG_LEVEL);
 //**********************************************************
 //* Local Definitions
 //**********************************************************
-
-/**
- * @brief Number of zcbor encoder/decoder state slots
- *
- * @details Two is sufficient for the flat request/response framing; the
- * value-encoding helpers nest at most one level deeper.
- */
-#define ZCBOR_STATES 4
-
-/**
- * @brief Bytes a Describe Response needs before its chunk, at most
- *
- * @details The list header, message code, tag, next item ID and the chunk's byte string header.
- */
-#define DESCRIBE_RESPONSE_OVERHEAD 13
 
 //**********************************************************
 //* Typedefs, Enums, and Structs
@@ -139,16 +121,9 @@ struct protocol_session
 };
 
 /**
- * @brief A response being built for one request
+ * @brief Applies one entry of a Set, Subscribe or Unsubscribe
  */
-struct response
-{
-    struct net_buf* buf;                 /**< Buffer the response is encoded into */
-    uint8_t* start;                      /**< Start of the encoded response */
-    size_t budget;                       /**< Bytes the encoder may use */
-    uint8_t tag;                         /**< Tag of the request being answered */
-    zcbor_state_t encoder[ZCBOR_STATES]; /**< Encoder positioned after the encoded elements */
-};
+typedef int (*apply_fn)(struct protocol_session* session, const struct stow_msg_entry* entry);
 
 //**********************************************************
 //* Static Function Declarations
@@ -178,33 +153,32 @@ static int endpoint_session_opened(
 static void endpoint_session_closed(const struct stow_endpoint* endpoint, uint32_t session_id);
 static void endpoint_receive(const struct stow_endpoint* endpoint, uint32_t session_id, struct net_buf* buf);
 
-static int response_open(struct protocol_session* session, uint8_t tag, struct response* response);
-static enum stow_error_code error_code_from_errno(int err);
-static void response_fail(struct response* response, int err, uint32_t item, uint32_t index);
-static void response_check(struct response* response, int ret, uint32_t item);
-static void response_send(struct protocol_session* session, struct response* response);
-static void response_ok(struct response* response);
+static int resolve_item(const struct stow_msg_items* items, struct stow_msg_entry* entry);
+static void reply_error(struct stow_msg_writer* writer, uint8_t tag, int err, uint32_t item, uint32_t index);
 static void emit_update(struct protocol_session* session, enum stow_item_id id, data_value_t value);
 static void remove_subscription(struct protocol_session* session, enum stow_item_id id);
 
 static void dispatch_request(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
-static int encode_hello(struct protocol_session* session, struct response* response);
-static void handle_hello(struct protocol_session* session, struct response* response);
-static int encode_describe(struct response* response, uint32_t start_id, const atomic_t* filter, uint32_t* next_id_out);
+    struct protocol_session* session, struct stow_msg_reader* reader, const struct stow_msg* req,
+    struct stow_msg_writer* writer);
+static uint8_t answer(struct protocol_session* session, const struct net_buf* rx, struct stow_msg_writer* writer);
+static int write_hello(struct protocol_session* session, struct stow_msg_writer* writer, uint8_t tag);
+static void handle_hello(struct protocol_session* session, const struct stow_msg* req, struct stow_msg_writer* writer);
+static uint32_t next_described(const atomic_t* filter, uint32_t id);
 #ifdef CONFIG_STOW_PROTOCOL_RESPONSE_CHECK
 static void check_responses_fit(struct protocol_session* session);
 #endif
-static void handle_describe(const struct stow_serde_request* request, struct response* response);
+static void handle_describe(struct stow_msg_reader* reader, const struct stow_msg* req, struct stow_msg_writer* writer);
+static int put_value(struct protocol_session* session, struct stow_msg_writer* writer, uint16_t id);
 static void handle_get(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
-static void handle_set(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
-static int add_subscription(struct protocol_session* session, enum stow_item_id id);
-static void handle_subscribe(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
-static void handle_unsubscribe(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response);
+    struct protocol_session* session, struct stow_msg_reader* reader, const struct stow_msg* req,
+    struct stow_msg_writer* writer);
+static int apply_set(struct protocol_session* session, const struct stow_msg_entry* entry);
+static int apply_subscribe(struct protocol_session* session, const struct stow_msg_entry* entry);
+static int apply_unsubscribe(struct protocol_session* session, const struct stow_msg_entry* entry);
+static void apply_entries(
+    struct protocol_session* session, struct stow_msg_reader* reader, const struct stow_msg* req,
+    struct stow_msg_writer* writer, apply_fn apply);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -258,6 +232,11 @@ static struct protocol_session sessions[CONFIG_STOW_PROTOCOL_MAX_SESSIONS];
  * @brief Number of sessions currently subscribed to each item
  */
 static uint16_t item_subscription_counts[STOW_ID_COUNT];
+
+/**
+ * @brief Resolver for every request: a wire item ID is the server's item of that ID
+ */
+static const struct stow_msg_items server_items = { .resolve = resolve_item };
 
 //**********************************************************
 //* Static Function Definitions
@@ -408,167 +387,62 @@ static int send_message(struct protocol_session* session, struct net_buf* buf)
     return stow_transport_send(session->transport, session->session_id, buf);
 }
 
-/**
- * @brief Start a message to a session
- *
- * @param session Session the message is for
- * @param tag Tag of the request being answered, or @ref STOW_TAG_NONE for an Update
- * @param[out] response Populated with a buffer and an encoder positioned at its start
- *
- * @return SUCCESS when the message is ready to encode
- * @return -ENOMEM when no buffer is available
- */
-static int response_open(struct protocol_session* session, uint8_t tag, struct response* response)
+static int resolve_item(const struct stow_msg_items* items, struct stow_msg_entry* entry)
 {
-    const struct stow_transport* transport = session->transport;
-    struct net_buf* buf = net_buf_alloc(transport->pool, K_NO_WAIT);
-    if (buf == NULL)
+    ARG_UNUSED(items);
+    if (!stow_is_id_valid(entry->id))
     {
-        return -ENOMEM;
+        return -ENOENT;
     }
-    net_buf_reserve(buf, transport->headroom);
-
-    size_t tail = net_buf_tailroom(buf);
-    ASSERT(tail >= transport->tailroom, "Provided buffers are too small");
-
-    response->buf = buf;
-    response->budget = tail - transport->tailroom;
-    response->tag = tag;
-    response->start = net_buf_tail(buf);
-    zcbor_new_encode_state(response->encoder, ARRAY_SIZE(response->encoder), response->start, response->budget, 1);
-    PASS_OWNERSHIP(buf);
+    entry->local = (uint16_t)entry->id;
+    entry->codec = g_stow_const_metadata[entry->id].interface;
     return SUCCESS;
 }
 
 /**
- * @brief Map an errno to a protocol error code
+ * @brief Replace whatever was written with an Error
  *
- * @param err Negative errno
- *
- * @return The matching protocol error code
- */
-static enum stow_error_code error_code_from_errno(int err)
-{
-    switch (err)
-    {
-        case -EBADMSG:
-            return STOW_ERR_MALFORMED_MSG;
-        case -ENOTSUP:
-            return STOW_ERR_UNKNOWN_MSG;
-        case -ENOENT:
-            return STOW_ERR_INVALID_ITEM;
-        case -EINVAL:
-            return STOW_ERR_INVALID_VALUE;
-        case -ENOMEM:
-            return STOW_ERR_OUT_OF_MEMORY;
-        case -EACCES:
-            return STOW_ERR_PERMISSION_DENIED;
-        case -EALREADY:
-            return STOW_ERR_ALREADY_SET;
-        case -E2BIG:
-            return STOW_ERR_TOO_LARGE;
-        default:
-            return STOW_ERR_UNKNOWN;
-    }
-}
-
-/**
- * @brief Replace whatever was encoded in a response with an Error
- *
- * @details An Error that does not fit the response buffer is logged and the response is dropped.
- *
- * @param response The response
+ * @param writer Writer of the response
+ * @param tag Tag of the request being answered, or @ref STOW_TAG_NONE
  * @param err Negative errno describing the failure
- * @param item Item that failed, or @ref STOW_SERDE_ABSENT
- * @param index Entry that failed as it was applied, or @ref STOW_SERDE_ABSENT
+ * @param item Item that failed, or @ref STOW_MSG_ABSENT
+ * @param index Entry that failed as it was applied, or @ref STOW_MSG_ABSENT
  */
-static void response_fail(struct response* response, int err, uint32_t item, uint32_t index)
+static void reply_error(struct stow_msg_writer* writer, uint8_t tag, int err, uint32_t item, uint32_t index)
 {
-    struct stow_serde_error error = {
-        .code = error_code_from_errno(err),
-        .tag = response->tag,
-        .item = item,
-        .index = index,
-    };
-
-    zcbor_new_encode_state(response->encoder, ARRAY_SIZE(response->encoder), response->start, response->budget, 1);
-    if (stow_wire_encode_error(response->encoder, &error) != SUCCESS)
-    {
-        LOG_ERR("Transport buffers cannot hold an Error, dropping the response");
-        struct net_buf* buf = response->buf;
-        net_buf_unref(buf);
-        response->buf = NULL;
-    }
-}
-
-/**
- * @brief Turn a failed encode into a TOO_LARGE error
- *
- * @param response The response
- * @param ret Result of encoding the response
- * @param item Item being encoded, or @ref STOW_SERDE_ABSENT
- */
-static void response_check(struct response* response, int ret, uint32_t item)
-{
-    if (ret != SUCCESS)
-    {
-        response_fail(response, (ret == -ENOMEM) ? -E2BIG : ret, item, STOW_SERDE_ABSENT);
-    }
-}
-
-/**
- * @brief Hand a finished response to the session's transport
- *
- * @param session Session the response belongs to
- * @param response The response, its buffer is always consumed
- */
-static void response_send(struct protocol_session* session, struct response* response)
-{
-    if (response->buf == NULL)
-    {
-        return;
-    }
-
-    struct net_buf* buf = response->buf;
-    response->buf = NULL;
-    net_buf_add(buf, response->encoder[0].payload - response->start);
-    int ret = send_message(session, buf);
-    if (ret != SUCCESS)
-    {
-        LOG_WRN("Dropped a message to session %u (%d)", session->session_id, ret);
-    }
-}
-
-/**
- * @brief Encode an OK response
- *
- * @param response The response
- */
-static void response_ok(struct response* response)
-{
-    response_check(response, stow_serde_encode_ok(response->encoder, response->tag), STOW_SERDE_ABSENT);
+    (void)stow_msg_write(
+        writer, &(struct stow_msg){ .code = STOW_MSG_ERROR, .tag = tag, .error = { err, item, index } });
 }
 
 static void emit_update(struct protocol_session* session, enum stow_item_id id, data_value_t value)
 {
-    struct response response;
-    int ret = response_open(session, STOW_TAG_NONE, &response);
+    struct net_buf* buf = NULL;
+    size_t budget = 0;
+    int ret = stow_transport_alloc(session->transport, 0U, &buf, &budget);
     if (ret == SUCCESS)
     {
-        ret = stow_serde_encode_update(response.encoder, id, value);
-        if (ret != SUCCESS)
+        struct stow_msg_writer writer;
+        stow_msg_writer_init(&writer, net_buf_tail(buf), budget);
+        (void)stow_msg_write(&writer, &(struct stow_msg){ .code = STOW_MSG_UPDATE, .tag = STOW_TAG_NONE, .count = 1 });
+        const struct stow_msg_entry entry = { .id = id, .codec = g_stow_const_metadata[id].interface, .value = value };
+        (void)stow_msg_put_entry(&writer, &entry);
+
+        size_t len = 0;
+        ret = stow_msg_finish(&writer, &len);
+        if (ret == SUCCESS)
         {
-            struct net_buf* buf = response.buf;
+            net_buf_add(buf, len);
+            ret = send_message(session, buf);
+        }
+        else
+        {
             net_buf_unref(buf);
         }
     }
     if (ret != SUCCESS)
     {
         LOG_WRN("Dropped Update for item %u to session %u (%d)", (uint32_t)id, session->session_id, ret);
-        return;
     }
-
-    response_send(session, &response);
 }
 
 static void remove_subscription(struct protocol_session* session, enum stow_item_id id)
@@ -589,16 +463,17 @@ static void remove_subscription(struct protocol_session* session, enum stow_item
 }
 
 /**
- * @brief Encode a Hello Response for a session
+ * @brief Write a Hello Response for a session
  *
  * @param session Session the response is for
- * @param response Empty response to encode into
+ * @param writer Writer of the response
+ * @param tag Tag of the request being answered
  *
- * @return SUCCESS when the response was encoded
- * @return -ENOMEM when it does not fit
+ * @return SUCCESS when the response was written
+ * @return -E2BIG when it does not fit
  * @return the error from @ref STOW_GET when the StowHash cannot be read
  */
-static int encode_hello(struct protocol_session* session, struct response* response)
+static int write_hello(struct protocol_session* session, struct stow_msg_writer* writer, uint8_t tag)
 {
     data_value_t hash = { 0 };
     int ret = STOW_GET(STOW_ID_STOW_HASH, &hash);
@@ -607,62 +482,53 @@ static int encode_hello(struct protocol_session* session, struct response* respo
         return ret;
     }
 
-    struct stow_serde_hello hello = {
-        .max_message = (uint32_t)response->budget,
-        .stow_hash = hash.data.string_value,
-        .roles = session->roles,
+    const char* text = hash.data.string_value;
+    const struct stow_msg hello = {
+        .code = STOW_MSG_HELLO_RESPONSE,
+        .tag = tag,
+        .hello = {
+            .stow_hash = { .value = (const uint8_t*)text, .len = strlen(text) },
+            .roles = session->roles,
+            .role_names = g_stow_role_names,
+            .role_count = STOW_ROLE_COUNT,
+        },
     };
-    ret = stow_serde_encode_hello_response(response->encoder, response->tag, &hello);
+    ret = stow_msg_write(writer, &hello);
     STOW_RELEASE(STOW_ID_STOW_HASH, &hash);
     return ret;
 }
 
-static void handle_hello(struct protocol_session* session, struct response* response)
+static void handle_hello(struct protocol_session* session, const struct stow_msg* req, struct stow_msg_writer* writer)
 {
-    response_check(response, encode_hello(session, response), STOW_SERDE_ABSENT);
+    int ret = write_hello(session, writer, req->tag);
+    if (ret != SUCCESS)
+    {
+        reply_error(writer, req->tag, ret, STOW_MSG_ABSENT, STOW_MSG_ABSENT);
+    }
 }
 
 /**
- * @brief Encode a Describe Response whose chunk fills the response's budget with whole items
+ * @brief Find the next item to describe
  *
- * @details The chunk is encoded in place after room for the response's prefix, which is then encoded in front of it.
+ * @param filter Bitmap of item IDs to describe, or NULL for every item
+ * @param id First item ID to consider
  *
- * @param response Empty response to encode into
- * @param start_id First item ID to describe
- * @param filter Bitmap of the item IDs to describe, or NULL for every item
- * @param[out] next_id_out Populated with the next item ID to describe, or the item that does not fit
- *
- * @return SUCCESS when the response was encoded
- * @return -E2BIG when the first item to describe cannot be encoded into an otherwise empty response
+ * @return The first described item ID at or after @p id, or STOW_ID_COUNT when there is none
  */
-static int encode_describe(struct response* response, uint32_t start_id, const atomic_t* filter, uint32_t* next_id_out)
+static uint32_t next_described(const atomic_t* filter, uint32_t id)
 {
-    *next_id_out = start_id;
-    if (response->budget <= DESCRIBE_RESPONSE_OVERHEAD)
+    while (id < STOW_ID_COUNT && filter != NULL && !atomic_test_bit(filter, (int)id))
     {
-        return -E2BIG;
+        id++;
     }
-
-    uint8_t* chunk = response->start + DESCRIBE_RESPONSE_OVERHEAD;
-    zcbor_state_t inner[ZCBOR_STATES];
-    zcbor_new_encode_state(inner, ARRAY_SIZE(inner), chunk, response->budget - DESCRIBE_RESPONSE_OVERHEAD, 1);
-
-    int ret = stow_describe(start_id, filter, inner, next_id_out);
-    if (ret == -E2BIG)
-    {
-        return ret;
-    }
-
-    size_t chunk_len = inner[0].payload - chunk;
-    uint32_t next_id = (*next_id_out < STOW_ID_COUNT) ? *next_id_out : STOW_SERDE_ABSENT;
-    return stow_serde_encode_describe_response(response->encoder, response->tag, next_id, chunk, chunk_len);
+    return id;
 }
 
 #ifdef CONFIG_STOW_PROTOCOL_RESPONSE_CHECK
 /**
- * @brief Assert that every item's description and the Hello Response fit a session's transport
+ * @brief Assert that the Hello Response and every item's description fit a session's transport
  *
- * @details Encodes into scratch buffers from the transport's pool, and skips the check when none is free.
+ * @details Writes into a scratch buffer from the transport's pool, and skips the check when none is free.
  *
  * @param session Session whose transport is checked
  */
@@ -673,139 +539,133 @@ static void check_responses_fit(struct protocol_session* session)
         return;
     }
 
-    struct response response;
-    if (response_open(session, STOW_TAG_MAX, &response) != SUCCESS)
+    struct net_buf* buf = NULL;
+    size_t budget = 0;
+    if (stow_transport_alloc(session->transport, 0U, &buf, &budget) != SUCCESS)
     {
         LOG_WRN("Skipped the response check for session %u, no buffer free", session->session_id);
         return;
     }
-    int ret = encode_hello(session, &response);
-    struct net_buf* buf = response.buf;
-    net_buf_unref(buf);
-    ASSERT(ret == SUCCESS, "The Hello Response does not fit this transport (%d)", ret);
 
+    struct stow_msg_writer writer;
+    stow_msg_writer_init(&writer, net_buf_tail(buf), budget);
+    int ret = write_hello(session, &writer, STOW_TAG_MAX);
+    ASSERT(ret == SUCCESS, "The Hello Response does not fit this transport (%d)", ret);
     for (uint32_t id = 0; id < STOW_ID_COUNT; id++)
     {
-        if (response_open(session, STOW_TAG_MAX, &response) != SUCCESS)
-        {
-            LOG_WRN("Skipped the response check for session %u, no buffer free", session->session_id);
-            return;
-        }
-
-        ATOMIC_DEFINE(filter, STOW_ID_COUNT) = { 0 };
-        atomic_set_bit(filter, (int)id);
-        uint32_t next_id = 0;
-        ret = encode_describe(&response, id, filter, &next_id);
-        buf = response.buf;
-        net_buf_unref(buf);
+        (void)stow_msg_write(&writer, &(struct stow_msg){ .code = STOW_MSG_DESCRIBE_RESPONSE, .tag = STOW_TAG_MAX });
+        ret = stow_msg_put_description(&writer, &g_stow_const_metadata[id]);
         ASSERT(
             ret == SUCCESS, "Item %u's description does not fit a Describe Response on this transport (%d)", id, ret);
     }
+    net_buf_unref(buf);
 }
 #endif
 
-static void handle_describe(const struct stow_serde_request* request, struct response* response)
+static void handle_describe(struct stow_msg_reader* reader, const struct stow_msg* req, struct stow_msg_writer* writer)
 {
-    if (request->item_id >= STOW_ID_COUNT)
+    if (req->describe.start >= STOW_ID_COUNT)
     {
-        response_fail(response, -ENOENT, request->item_id, STOW_SERDE_ABSENT);
+        reply_error(writer, req->tag, -ENOENT, req->describe.start, STOW_MSG_ABSENT);
         return;
     }
 
-    uint32_t next_id = 0;
-    const atomic_t* filter = request->has_filter ? request->filter : NULL;
-    int ret = encode_describe(response, request->item_id, filter, &next_id);
-    if (ret == -E2BIG)
+    ATOMIC_DEFINE(named, STOW_ID_COUNT) = { 0 };
+    for (uint16_t i = 0; i < req->count; i++)
     {
-        response_fail(response, ret, next_id, STOW_SERDE_ABSENT);
-        return;
+        struct zcbor_string name;
+        (void)stow_msg_next_name(reader, &name);
+        for (uint32_t id = 0; id < STOW_ID_COUNT; id++)
+        {
+            const char* item_name = g_stow_const_metadata[id].name;
+            if (strlen(item_name) == name.len && memcmp(item_name, name.value, name.len) == 0)
+            {
+                atomic_set_bit(named, (int)id);
+                break;
+            }
+        }
     }
-    response_check(response, ret, STOW_SERDE_ABSENT);
+
+    (void)stow_msg_write(writer, &(struct stow_msg){ .code = STOW_MSG_DESCRIBE_RESPONSE, .tag = req->tag });
+    const atomic_t* filter = req->describe.named ? named : NULL;
+    uint32_t first = next_described(filter, req->describe.start);
+    for (uint32_t id = first; id < STOW_ID_COUNT; id = next_described(filter, id + 1))
+    {
+        if (stow_msg_put_description(writer, &g_stow_const_metadata[id]) != SUCCESS)
+        {
+            if (id == first)
+            {
+                reply_error(writer, req->tag, -E2BIG, id, STOW_MSG_ABSENT);
+            }
+            return;
+        }
+    }
+}
+
+/**
+ * @brief Read an item with the session's roles and put it as the next entry of a Get Response
+ *
+ * @param session Session whose roles the read is checked against
+ * @param writer Writer of the Get Response
+ * @param id Item to read
+ *
+ * @return SUCCESS, the error from @ref STOW_GET_EXTERNAL, or the writer's error
+ */
+static int put_value(struct protocol_session* session, struct stow_msg_writer* writer, uint16_t id)
+{
+    data_value_t value = { 0 };
+    int ret = STOW_GET_EXTERNAL(session->roles, (enum stow_item_id)id, &value);
+    if (ret != SUCCESS)
+    {
+        return ret;
+    }
+    const struct stow_msg_entry entry = { .id = id, .codec = g_stow_const_metadata[id].interface, .value = value };
+    ret = stow_msg_put_entry(writer, &entry);
+    STOW_RELEASE((enum stow_item_id)id, &value);
+    return ret;
 }
 
 static void handle_get(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
+    struct protocol_session* session, struct stow_msg_reader* reader, const struct stow_msg* req,
+    struct stow_msg_writer* writer)
 {
-    zcbor_state_t entries[ZCBOR_STATES];
-    stow_serde_entries_start(request, entries, ARRAY_SIZE(entries));
-
-    int ret = stow_serde_encode_get_start(response->encoder, response->tag, request->entry_count);
-    for (uint16_t i = 0; ret == SUCCESS && i < request->entry_count; i++)
+    (void)stow_msg_write(
+        writer, &(struct stow_msg){ .code = STOW_MSG_GET_RESPONSE, .tag = req->tag, .count = req->count });
+    for (uint16_t i = 0; i < req->count; i++)
     {
-        uint32_t id = 0;
-        ret = stow_serde_decode_entry(entries, &id);
-        if (ret != SUCCESS)
+        struct stow_msg_entry entry;
+        int ret = stow_msg_next_entry(reader, &entry);
+        if (ret == SUCCESS)
         {
-            response_fail(response, ret, id, i);
-            return;
+            ret = put_value(session, writer, entry.local);
+            stow_msg_entry_release(&entry);
         }
-
-        data_value_t value = { 0 };
-        ret = STOW_GET_EXTERNAL(session->roles, (enum stow_item_id)id, &value);
         if (ret != SUCCESS)
         {
-            response_fail(response, ret, id, i);
-            return;
-        }
-
-        ret = stow_serde_encode_get_entry(response->encoder, (enum stow_item_id)id, value);
-        STOW_RELEASE((enum stow_item_id)id, &value);
-        if (ret != SUCCESS)
-        {
-            response_check(response, ret, id);
+            reply_error(writer, req->tag, ret, entry.id, (ret == -E2BIG) ? STOW_MSG_ABSENT : i);
             return;
         }
     }
-    response_check(response, ret, STOW_SERDE_ABSENT);
 }
 
-static void handle_set(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
+static int apply_set(struct protocol_session* session, const struct stow_msg_entry* entry)
 {
-    zcbor_state_t entries[ZCBOR_STATES];
-    stow_serde_entries_start(request, entries, ARRAY_SIZE(entries));
-
-    for (uint16_t i = 0; i < request->entry_count; i++)
-    {
-        uint32_t id = 0;
-        int ret = stow_serde_decode_entry(entries, &id);
-        if (ret != SUCCESS)
-        {
-            response_fail(response, ret, id, i);
-            return;
-        }
-
-        data_value_t value = { 0 };
-        ret = stow_decode(entries, (enum stow_item_id)id, &value);
-        if (ret != SUCCESS)
-        {
-            response_fail(response, ret, id, i);
-            return;
-        }
-
-        ret = STOW_SET_EXTERNAL(session->roles, (enum stow_item_id)id, value);
-        STOW_RELEASE((enum stow_item_id)id, &value);
-        if (ret != SUCCESS)
-        {
-            response_fail(response, ret, id, i);
-            return;
-        }
-    }
-    response_ok(response);
+    return STOW_SET_EXTERNAL(session->roles, (enum stow_item_id)entry->local, entry->value);
 }
 
 /**
  * @brief Subscribe a session to one item
  *
  * @param session Session to subscribe
- * @param id Item to subscribe to
+ * @param entry Entry naming the item
  *
  * @return SUCCESS when the session is subscribed, including when it already was
  * @return -EACCES when the session's roles cannot read the item
  * @return the error from @ref stow_subscribe_external
  */
-static int add_subscription(struct protocol_session* session, enum stow_item_id id)
+static int apply_subscribe(struct protocol_session* session, const struct stow_msg_entry* entry)
 {
+    enum stow_item_id id = (enum stow_item_id)entry->local;
     if (atomic_test_bit(session->subscriptions, (int)id))
     {
         return SUCCESS;
@@ -829,79 +689,111 @@ static int add_subscription(struct protocol_session* session, enum stow_item_id 
     return SUCCESS;
 }
 
-static void handle_subscribe(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
+static int apply_unsubscribe(struct protocol_session* session, const struct stow_msg_entry* entry)
 {
-    zcbor_state_t entries[ZCBOR_STATES];
-    stow_serde_entries_start(request, entries, ARRAY_SIZE(entries));
-
-    for (uint16_t i = 0; i < request->entry_count; i++)
-    {
-        uint32_t id = 0;
-        int ret = stow_serde_decode_entry(entries, &id);
-        if (ret != SUCCESS)
-        {
-            response_fail(response, ret, id, i);
-            return;
-        }
-
-        ret = add_subscription(session, (enum stow_item_id)id);
-        if (ret != SUCCESS)
-        {
-            response_fail(response, ret, id, i);
-            return;
-        }
-    }
-    response_ok(response);
+    remove_subscription(session, (enum stow_item_id)entry->local);
+    return SUCCESS;
 }
 
-static void handle_unsubscribe(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
+/**
+ * @brief Apply each entry in order, answering OK or an Error naming the first entry that fails
+ *
+ * @details Entries before the failing one stay applied; the Error carries the failing entry's index.
+ *
+ * @param session Session the request arrived on
+ * @param reader Reader of the request
+ * @param req The request
+ * @param writer Writer of the answer
+ * @param apply Applies one entry
+ */
+static void apply_entries(
+    struct protocol_session* session, struct stow_msg_reader* reader, const struct stow_msg* req,
+    struct stow_msg_writer* writer, apply_fn apply)
 {
-    zcbor_state_t entries[ZCBOR_STATES];
-    stow_serde_entries_start(request, entries, ARRAY_SIZE(entries));
-
-    for (uint16_t i = 0; i < request->entry_count; i++)
+    for (uint16_t i = 0; i < req->count; i++)
     {
-        uint32_t id = 0;
-        int ret = stow_serde_decode_entry(entries, &id);
+        struct stow_msg_entry entry;
+        int ret = stow_msg_next_entry(reader, &entry);
+        if (ret == SUCCESS)
+        {
+            ret = apply(session, &entry);
+            stow_msg_entry_release(&entry);
+        }
         if (ret != SUCCESS)
         {
-            response_fail(response, ret, id, i);
+            reply_error(writer, req->tag, ret, entry.id, i);
             return;
         }
-        remove_subscription(session, (enum stow_item_id)id);
     }
-    response_ok(response);
+    (void)stow_msg_write(writer, &(struct stow_msg){ .code = STOW_MSG_OK, .tag = req->tag });
 }
 
 static void dispatch_request(
-    struct protocol_session* session, const struct stow_serde_request* request, struct response* response)
+    struct protocol_session* session, struct stow_msg_reader* reader, const struct stow_msg* req,
+    struct stow_msg_writer* writer)
 {
-    switch (request->message_code)
+    switch (req->code)
     {
         case STOW_MSG_HELLO:
-            handle_hello(session, response);
+            handle_hello(session, req, writer);
             break;
         case STOW_MSG_DESCRIBE:
-            handle_describe(request, response);
+            handle_describe(reader, req, writer);
             break;
         case STOW_MSG_GET:
-            handle_get(session, request, response);
+            handle_get(session, reader, req, writer);
             break;
         case STOW_MSG_SET:
-            handle_set(session, request, response);
+            apply_entries(session, reader, req, writer, apply_set);
             break;
         case STOW_MSG_SUBSCRIBE:
-            handle_subscribe(session, request, response);
+            apply_entries(session, reader, req, writer, apply_subscribe);
             break;
         case STOW_MSG_UNSUBSCRIBE:
-            handle_unsubscribe(session, request, response);
+            apply_entries(session, reader, req, writer, apply_unsubscribe);
             break;
         default:
-            ASSERT(false, "Unexpected message code");
+            ASSERT(false, "Unexpected message code %u", req->code);
             break;
     }
+}
+
+/**
+ * @brief Write the response or Error that a received message earns
+ *
+ * @details A message that is not a request earns an Error that carries its tag, if it has one.
+ *
+ * @param session Session the message arrived on
+ * @param rx The message
+ * @param writer Writer of the answer
+ *
+ * @return Tag of the answer
+ */
+static uint8_t answer(struct protocol_session* session, const struct net_buf* rx, struct stow_msg_writer* writer)
+{
+    uint32_t code = STOW_MSG_ABSENT;
+    uint8_t tag = STOW_TAG_NONE;
+    (void)stow_msg_peek(rx->data, rx->len, &code, &tag);
+    if (code != STOW_MSG_ABSENT && !stow_msg_is_request(code))
+    {
+        LOG_WRN("Message %u for session %u is not a request", code, session->session_id);
+        reply_error(writer, tag, (tag == STOW_TAG_NONE) ? -EBADMSG : -EPROTO, STOW_MSG_ABSENT, STOW_MSG_ABSENT);
+        return tag;
+    }
+
+    struct stow_msg_reader reader;
+    struct stow_msg req;
+    int ret = stow_msg_read(&reader, rx->data, rx->len, &server_items, &req);
+    if (ret == SUCCESS)
+    {
+        dispatch_request(session, &reader, &req, writer);
+    }
+    else
+    {
+        LOG_WRN("Request decode failed for session %u (%d)", session->session_id, ret);
+        reply_error(writer, req.tag, ret, req.error.item, STOW_MSG_ABSENT);
+    }
+    return req.tag;
 }
 
 static void handle_rx(const struct stow_protocol_event_payload* payload)
@@ -915,40 +807,38 @@ static void handle_rx(const struct stow_protocol_event_payload* payload)
         return;
     }
 
-    const uint8_t* data = payload->rx.buf->data;
-    size_t len = payload->rx.buf->len;
-
-    zcbor_state_t dec[ZCBOR_STATES];
-    zcbor_new_decode_state(dec, ARRAY_SIZE(dec), data, len, 1, NULL, 0);
-
-    struct stow_serde_request request = { 0 };
-    int ret = stow_serde_decode_request(dec, &request);
-    bool trailing = (ret == SUCCESS && dec[0].payload != data + len);
-
-    struct response response = { 0 };
-    int open_ret = response_open(session, request.tag, &response);
-    if (open_ret != SUCCESS)
+    struct net_buf* buf = NULL;
+    size_t budget = 0;
+    int ret = stow_transport_alloc(session->transport, 0U, &buf, &budget);
+    if (ret != SUCCESS)
     {
-        LOG_ERR("No response buffer for session %u (%d)", session->session_id, open_ret);
+        LOG_ERR("No response buffer for session %u (%d)", session->session_id, ret);
+        return;
+    }
+    struct stow_msg_writer writer;
+    stow_msg_writer_init(&writer, net_buf_tail(buf), budget);
+    uint8_t tag = answer(session, payload->rx.buf, &writer);
+
+    size_t len = 0;
+    ret = stow_msg_finish(&writer, &len);
+    if (ret != SUCCESS)
+    {
+        reply_error(&writer, tag, ret, STOW_MSG_ABSENT, STOW_MSG_ABSENT);
+        ret = stow_msg_finish(&writer, &len);
+    }
+    if (ret != SUCCESS)
+    {
+        LOG_ERR("Transport buffers cannot hold an Error, dropping the response");
+        net_buf_unref(buf);
         return;
     }
 
-    if (trailing)
+    net_buf_add(buf, len);
+    ret = send_message(session, buf);
+    if (ret != SUCCESS)
     {
-        LOG_WRN("Request for session %u has trailing bytes", session->session_id);
-        response_fail(&response, -EBADMSG, STOW_SERDE_ABSENT, STOW_SERDE_ABSENT);
+        LOG_WRN("Dropped a message to session %u (%d)", session->session_id, ret);
     }
-    else if (ret == SUCCESS)
-    {
-        dispatch_request(session, &request, &response);
-    }
-    else
-    {
-        LOG_WRN("Request decode failed for session %u (%d)", session->session_id, ret);
-        response_fail(&response, ret, request.error_item, STOW_SERDE_ABSENT);
-    }
-
-    response_send(session, &response);
 }
 
 static void handle_update(event_t* event)
@@ -1105,8 +995,7 @@ static int endpoint_session_opened(
     ARG_UNUSED(endpoint);
     ASSERT(CHECK_FLAG(stow_protocol_flags, INITIALIZED), "Not initialized");
 
-    if (transport == NULL || transport->send == NULL || transport->pool == NULL ||
-        transport->pool->alloc->cb != &net_buf_fixed_cb)
+    if (!stow_transport_usable(transport))
     {
         return -EINVAL;
     }

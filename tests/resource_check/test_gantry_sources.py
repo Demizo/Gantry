@@ -78,8 +78,8 @@ def test_sending_a_response_twice_is_reported(tmp_path, library_annotations):
         tmp_path,
         library_annotations,
         LIB / "stow" / "stow_protocol.c",
-        "int ret = send_message(session, buf);",
-        "(void)send_message(session, buf);\n    int ret = send_message(session, buf);",
+        "\n    ret = send_message(session, buf);",
+        "\n    (void)send_message(session, buf);\n    ret = send_message(session, buf);",
     )
 
     assert any("'buf' released twice" in f.text for f in findings)

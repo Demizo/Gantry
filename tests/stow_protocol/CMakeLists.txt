@@ -27,13 +27,13 @@ execute_process(
 if(NOT GEN_RESULT EQUAL 0)
     message(FATAL_ERROR "Failed to generate test stow items from ${TEST_STOW_YAML}")
 endif()
+gantry_stow_raise_depth(${GENERATED_DIR}/generated_stow_depth)
 
 file(GLOB GENERATED_STRUCT_SOURCES
     ${GENERATED_DIR}/src/stow/generated_struct_*.c)
 
 target_sources(app PRIVATE
     src/test_common.c
-    src/test_stow_protocol_serde.c
     src/test_stow_protocol_basic.c
     src/test_stow_protocol_describe.c
     src/test_stow_protocol_subscribe.c
@@ -53,9 +53,8 @@ target_sources(app PRIVATE
     ${GANTRY_LIB}/string_utils.c
     ${GANTRY_LIB}/cobs_framer.c
     ${GANTRY_LIB}/stow/stow.c
-    ${GANTRY_LIB}/stow/stow_describe.c
     ${GANTRY_LIB}/stow/stow_event.c
-    ${GANTRY_LIB}/stow/stow_serde.c
+    ${GANTRY_LIB}/stow/stow_msg.c
     ${GANTRY_LIB}/stow/stow_wire.c
     ${GANTRY_LIB}/stow/stow_protocol.c
     ${GANTRY_LIB}/stow/stow_cobs_transport.c

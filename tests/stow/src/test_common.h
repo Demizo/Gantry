@@ -8,7 +8,6 @@
 
 #include <gantry/memory.h>
 #include <gantry/stow/stow.h>
-#include <gantry/stow/stow_describe.h>
 #include <gantry/stow/types/stow_type_enum.h>
 #include <generated_stow_enums.h>
 #include <generated_stow_items.h>

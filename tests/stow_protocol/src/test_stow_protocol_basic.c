@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "gantry/stow/stow_serde.h"
 #include "test_common.h"
 
 #define SESSION_ID 11
@@ -421,7 +420,7 @@ ZTEST(stow_protocol_basic, test_trailing_bytes_are_malformed)
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
     zassert_not_null(cap.buf);
-    struct stow_serde_error error;
+    struct test_error error;
     zassert_true(test_decode_error(cap.buf, &error));
     zassert_equal(error.code, STOW_ERR_MALFORMED_MSG);
     zassert_equal(error.tag, 1);

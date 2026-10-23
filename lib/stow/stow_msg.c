@@ -320,23 +320,45 @@ static int decode_description(zcbor_state_t* decoder, struct stow_msg_descriptio
 }
 
 /**
- * @brief Check every entry of a message without keeping any, setting @p item_out to an item whose value is malformed
+ * @brief Check every entry of a message without keeping any, setting @p item_out to the item that failed
+ *
+ * @return SUCCESS, -EBADMSG, -ENOMEM, or -EINVAL for the first value that breaks its constraints in a well-formed list
  */
 static int read_entries(
     zcbor_state_t* decoder, const struct stow_msg_items* items, const struct kind* kind, struct stow_msg* msg,
     uint32_t* item_out)
 {
+    int invalid = SUCCESS;
     while (!zcbor_array_at_end(decoder))
     {
         if (msg->count == UINT16_MAX)
         {
+            *item_out = STOW_MSG_ABSENT;
             return -EBADMSG;
         }
+        zcbor_state_t saved[STOW_MSG_READER_STATES];
+        memcpy(saved, decoder, sizeof(saved));
         struct stow_msg_entry entry;
         int ret = decode_entry(decoder, items, kind->shape == SHAPE_PAIRS, &entry);
         if (ret == SUCCESS)
         {
             stow_msg_entry_release(&entry);
+        }
+        else if (ret == -EINVAL)
+        {
+            /* Constraints are a meaning check, so the rest of the message is checked first */
+            memcpy(decoder, saved, sizeof(saved));
+            uint32_t id = 0;
+            if (!zcbor_uint32_decode(decoder, &id) || !zcbor_any_skip(decoder, NULL))
+            {
+                *item_out = STOW_MSG_ABSENT;
+                return -EBADMSG;
+            }
+            if (invalid == SUCCESS)
+            {
+                invalid = ret;
+                *item_out = entry.id;
+            }
         }
         else if (ret != -ENOENT)
         {
@@ -345,7 +367,12 @@ static int read_entries(
         }
         msg->count++;
     }
-    return (msg->count == 0U || (kind->single && msg->count != 1U)) ? -EBADMSG : SUCCESS;
+    if (msg->count == 0U || (kind->single && msg->count != 1U))
+    {
+        *item_out = STOW_MSG_ABSENT;
+        return -EBADMSG;
+    }
+    return invalid;
 }
 
 static int read_hello(zcbor_state_t* decoder, struct stow_msg_hello* hello)
@@ -648,9 +675,10 @@ int stow_msg_read(
                 break;
         }
     }
-    if (ret == SUCCESS && (!zcbor_list_end_decode(decoder) || decoder->payload != data + len))
+    if ((ret == SUCCESS || ret == -EINVAL) && (!zcbor_list_end_decode(decoder) || decoder->payload != data + len))
     {
         ret = -EBADMSG;
+        item = STOW_MSG_ABSENT;
     }
     if (ret == SUCCESS && kind->shape == SHAPE_DESCRIBE_RESPONSE)
     {

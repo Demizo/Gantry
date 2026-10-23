@@ -8,8 +8,8 @@
 
 #include <gantry/memory.h>
 #include <gantry/stow/stow.h>
+#include <gantry/stow/stow_msg.h>
 #include <gantry/stow/stow_protocol.h>
-#include <gantry/stow/stow_serde.h>
 #include <gantry/stow/stow_transport.h>
 #include <generated_stow_items.h>
 #include <stdint.h>
@@ -63,6 +63,17 @@ struct test_capture
 {
     uint32_t session_id;
     struct net_buf* buf;
+};
+
+/**
+ * @brief A captured Error response
+ */
+struct test_error
+{
+    enum stow_error_code code; /**< Error code */
+    uint8_t tag;               /**< Tag, or @ref STOW_TAG_NONE */
+    uint32_t item;             /**< Item, or @ref STOW_MSG_ABSENT */
+    uint32_t index;            /**< Index, or @ref STOW_MSG_ABSENT */
 };
 
 /**
@@ -165,7 +176,7 @@ void test_settle(void);
  *
  * @param buf Captured response net_buf
  * @param[out] out_cmd Populated with the decoded message code
- * @param[out] out_tag Populated with the echoed tag, or @ref STOW_SERDE_ABSENT for null; may be NULL
+ * @param[out] out_tag Populated with the echoed tag, or @ref STOW_MSG_ABSENT for null; may be NULL
  * @param[out] dec Initialized decoder, positioned after the header.
  *                 Caller is responsible for finishing the list decode.
  * @param dec_states Number of states in @p dec
@@ -183,7 +194,7 @@ bool test_decode_response_header(
  *
  * @return true when @p buf holds a well-formed Error
  */
-bool test_decode_error(struct net_buf* buf, struct stow_serde_error* out_error);
+bool test_decode_error(struct net_buf* buf, struct test_error* out_error);
 
 /**
  * @brief Encode a request with no arguments [cmd, tag] into out_buf

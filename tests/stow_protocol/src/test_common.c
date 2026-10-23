@@ -231,7 +231,7 @@ bool test_decode_response_header(
     return true;
 }
 
-bool test_decode_error(struct net_buf* buf, struct stow_serde_error* out_error)
+bool test_decode_error(struct net_buf* buf, struct test_error* out_error)
 {
     zcbor_state_t dec[4];
     uint32_t cmd = 0;
@@ -248,8 +248,8 @@ bool test_decode_error(struct net_buf* buf, struct stow_serde_error* out_error)
         return false;
     }
     out_error->code = (enum stow_error_code)code;
-    out_error->item = STOW_SERDE_ABSENT;
-    out_error->index = STOW_SERDE_ABSENT;
+    out_error->item = STOW_MSG_ABSENT;
+    out_error->index = STOW_MSG_ABSENT;
 
     if (!zcbor_array_at_end(dec) && !zcbor_uint32_decode(dec, &out_error->item) && !zcbor_nil_expect(dec, NULL))
     {

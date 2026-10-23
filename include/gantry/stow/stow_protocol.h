@@ -44,8 +44,8 @@
 /**
  * @brief The protocol server's side of the transport contract
  *
- * @details Opening a session fails with -EINVAL for an incomplete transport or a pool that is not fixed-size,
- * -EALREADY for an ID in use and -ENOMEM when every slot is taken.
+ * @details Opening a session fails with -EINVAL for a transport stow_transport_usable() rejects, -EALREADY for an ID
+ * in use and -ENOMEM when every slot is taken.
  */
 extern const struct stow_endpoint stow_protocol_endpoint;
 

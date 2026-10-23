@@ -303,6 +303,20 @@ malformed:
       - client: '[11 /error/, null, 1 /malformed-msg/]'
       - server: '[11 /error/, null, 1 /malformed-msg/]'
 
+  - name: set_malformed_after_invalid_value
+    meaning: A Set that is malformed after a value that breaks its constraints is MALFORMED
+    roles: [Guest]
+    steps:
+      - client: '[6 /set/, 1, 11 /TestRecord/, [50, h''''], 1 /TestInt/]'
+      - server: '[11 /error/, 1, 1 /malformed-msg/, 1]'
+
+  - name: set_trailing_after_invalid_value
+    meaning: A Set with trailing bytes after a value that breaks its constraints is MALFORMED
+    roles: [Guest]
+    steps:
+      - client: '[6 /set/, 2, 11 /TestRecord/, [50, h'''']], 0'
+      - server: '[11 /error/, 2, 1 /malformed-msg/]'
+
   - name: trailing_bytes
     meaning: Bytes after the message make it malformed
     roles: [Guest]

@@ -202,6 +202,14 @@ ZTEST(stow_protocol_transport, test_open_with_variable_size_pool_is_rejected)
     zassert_equal(test_endpoint_open(SESSION_A, STOW_ROLE_GUEST, &variable), -EINVAL);
 }
 
+ZTEST(stow_protocol_transport, test_open_with_no_room_after_headroom_and_tailroom_is_rejected)
+{
+    struct stow_transport cramped = test_transport;
+    cramped.headroom = TEST_BUF_DATA_SIZE;
+    cramped.tailroom = 1U;
+    zassert_equal(test_endpoint_open(SESSION_A, STOW_ROLE_GUEST, &cramped), -EINVAL);
+}
+
 ZTEST(stow_protocol_transport, test_endpoint_drives_the_session_lifecycle)
 {
     const struct stow_endpoint* endpoint = &stow_protocol_endpoint;

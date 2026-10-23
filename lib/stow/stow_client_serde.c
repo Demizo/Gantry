@@ -16,7 +16,6 @@
 #include <gantry/memory.h>
 #include <gantry/stow/stow_cbor.h>
 #include <gantry/stow/stow_client_serde.h>
-#include <gantry/stow/stow_describe.h>
 #include <gantry/stow/stow_wire.h>
 #include <string.h>
 #include <sys/errno.h>

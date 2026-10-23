@@ -50,7 +50,7 @@ menuconfig STOW_PROTOCOL
     default n
     select NET_BUF
     help
-      Enables the Stow protocol thread and serde layer. The protocol
+      Enables the Stow protocol thread. The protocol
       orchestrates external sessions, mapping CBOR-encoded protocol
       messages to internal Stow API calls. Outgoing messages are
       produced as net_bufs so the consuming application can prepend
@@ -60,10 +60,6 @@ if STOW_PROTOCOL
 
 config STOW_PROTOCOL_LOG_LEVEL
     int "Stow protocol log level"
-    default 3
-
-config STOW_SERDE_LOG_LEVEL
-    int "Stow serde log level"
     default 3
 
 config STOW_PROTOCOL_THREAD_STACK_SIZE

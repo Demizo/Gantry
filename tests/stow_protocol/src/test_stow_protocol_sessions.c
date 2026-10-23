@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "gantry/stow/stow_serde.h"
 #include "test_common.h"
 
 #define SESSION_BASE 41

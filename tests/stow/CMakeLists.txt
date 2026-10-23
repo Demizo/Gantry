@@ -42,7 +42,6 @@ target_sources(app PRIVATE
     src/test_stow_access.c
     src/test_stow_subscribe.c
     src/test_stow_static_subscribe.c
-    src/test_stow_describe.c
     src/test_stow_struct.c
     src/test_stow_nested_struct.c
     src/test_stow_custom.c
@@ -58,7 +57,6 @@ target_sources(app PRIVATE
     ${GANTRY_LIB}/event.c
     ${GANTRY_LIB}/string_utils.c
     ${GANTRY_LIB}/stow/stow.c
-    ${GANTRY_LIB}/stow/stow_describe.c
     ${GANTRY_LIB}/stow/stow_event.c
     ${GANTRY_LIB}/stow/types/stow_type_enum.c
     ${GANTRY_LIB}/stow/types/stow_type_int.c
