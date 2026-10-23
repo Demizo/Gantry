@@ -266,6 +266,7 @@ requires-dist = [{ name = "cbor2", specifier = ">=5.6.0" }]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "protocol-spec", editable = "../protocol_spec" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
 ]
