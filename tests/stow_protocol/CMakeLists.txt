@@ -10,7 +10,7 @@ set(GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/gantry_generated)
 
 find_program(UV_CMD NAMES uv REQUIRED)
 
-set(TEST_STOW_YAML ${CMAKE_CURRENT_SOURCE_DIR}/stow_test.yaml)
+set(TEST_STOW_YAML ${GANTRY_ROOT}/protocols/stow/schema.yaml)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${TEST_STOW_YAML})
 
 file(MAKE_DIRECTORY ${GENERATED_DIR}/inc/stow)

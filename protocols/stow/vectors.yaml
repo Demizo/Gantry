@@ -1,4 +1,4 @@
-# Golden vectors for the Stow protocol, recorded against tests/stow_protocol/stow_test.yaml.
+# Golden vectors for the Stow protocol, recorded against schema.yaml.
 #
 # Each vector opens a session with `roles`, sends each `setup` request, which must answer OK,
 # then sends `request` and expects exactly `response`. Messages are CBOR diagnostic notation
