@@ -58,7 +58,7 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
   endif()
 
   if(CONFIG_STOW_PROTOCOL OR CONFIG_STOW_CLIENT)
-    zephyr_library_sources(lib/stow/stow_msg.c lib/stow/stow_wire.c)
+    zephyr_library_sources(lib/stow/stow_msg.c)
   endif()
 
   if(CONFIG_STOW_COBS_TRANSPORT)
@@ -67,7 +67,6 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
 
   if(CONFIG_STOW_CLIENT)
     zephyr_library_sources(
-      lib/stow/stow_client_serde.c
       lib/stow/stow_client.c
       lib/stow/stow_client_slots.c
       lib/stow/stow_client_verify.c

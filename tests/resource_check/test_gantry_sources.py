@@ -90,7 +90,7 @@ def test_leaving_a_client_call_unfinished_is_reported(tmp_path, library_annotati
         tmp_path,
         library_annotations,
         LIB / "stow" / "stow_client.c",
-        "complete_request(peer, slot, code, decoder);\n        return;",
+        "complete_request(peer, slot, err, &reader, &msg);\n        return;",
         "return;",
     )
 

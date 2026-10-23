@@ -216,8 +216,9 @@ void z_stow_client_receive(const struct stow_endpoint* endpoint, uint32_t sessio
 /**
  * @brief Define a client endpoint for peers with the given schema
  *
- * @details Opening a session fails with -EINVAL for an incomplete transport, -EALREADY when the session is open and
- * -ENOMEM when every one of the CONFIG_STOW_CLIENT_MAX_PEERS peers is open or still referenced, or no memory is free.
+ * @details Opening a session fails with -EINVAL for a transport stow_transport_usable() rejects or an empty schema,
+ * -EALREADY when the session is open and -ENOMEM when every one of the CONFIG_STOW_CLIENT_MAX_PEERS peers is open or
+ * still referenced, or no memory is free.
  *
  * @param _name Name of the @ref stow_client_endpoint
  * @param _schema The generated schema, for example `&device_stow_client_schema`

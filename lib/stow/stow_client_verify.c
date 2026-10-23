@@ -16,10 +16,11 @@
  */
 
 #include <gantry/error.h>
-#include <gantry/stow/stow_client_serde.h>
+#include <gantry/memory.h>
+#include <gantry/stow/stow_msg.h>
 #include <string.h>
 #include <sys/errno.h>
-#include <zcbor_decode.h>
+#include <zcbor_encode.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/net_buf.h>
@@ -33,27 +34,42 @@
 LOG_MODULE_DECLARE(stow_client, CONFIG_STOW_CLIENT_LOG_LEVEL);
 
 //**********************************************************
-//* Local Definitions
-//**********************************************************
-
-/**
- * @brief Largest item ID a Describe may start from, used to size each group of names
- */
-#define DESCRIBE_START_MAX UINT16_MAX
-
-//**********************************************************
 //* Static Function Declarations
 //**********************************************************
 
+static void put_names(struct stow_client_peer* peer, struct stow_msg_writer* writer);
 static int send_verify_request(struct stow_client_peer* peer, enum stow_message_code code, uint32_t start_id);
 static void send_describe(struct stow_client_peer* peer, uint32_t start_id);
 static void verify_finished(struct stow_client_peer* peer);
 static void describe_too_large(struct stow_client_peer* peer);
-static int check_chunk(struct stow_client_peer* peer, const struct zcbor_string* chunk);
+static int check_item(const struct stow_client_item* item, const struct stow_msg_description* description);
+static int check_descriptions(struct stow_client_peer* peer, struct stow_msg_reader* reader, uint16_t count);
 
 //**********************************************************
 //* Static Function Definitions
 //**********************************************************
+
+/**
+ * @brief Put the names of the current Describe group, choosing the group when none is being read
+ *
+ * @details A group holds as many names as fit the peer's limit and the client's buffers; the rest go to the next group.
+ */
+static void put_names(struct stow_client_peer* peer, struct stow_msg_writer* writer)
+{
+    uint16_t start = peer->verify.start;
+    uint16_t limit = peer->verify.count;
+    if (limit == 0U)
+    {
+        limit = (start < peer->verify.singly_until) ? 1U : (uint16_t)(peer_item_count(peer) - start);
+    }
+
+    uint16_t put = 0;
+    while (put < limit && stow_msg_put_name(writer, peer_item(peer, start + put)->name) == SUCCESS)
+    {
+        put++;
+    }
+    peer->verify.count = put;
+}
 
 /**
  * @brief Send a Hello, or a Describe of the current group of names, from the client thread
@@ -71,64 +87,66 @@ static int send_verify_request(struct stow_client_peer* peer, enum stow_message_
     }
 
     struct net_buf* buf = NULL;
-    zcbor_state_t encoder[ZCBOR_STATES];
-    int ret = stow_wire_message_alloc(peer->transport, peer->info.max_message, &buf, encoder, ARRAY_SIZE(encoder));
+    size_t budget = 0;
+    int ret = stow_transport_alloc(peer->transport, peer->info.max_message, &buf, &budget);
     if (ret != SUCCESS)
     {
         (void)z_stow_client_slot_cancel(peer, slot, slot->seq);
         return ret;
     }
 
-    ret = (code == STOW_MSG_HELLO)
-              ? stow_client_serde_encode_start(encoder, STOW_MSG_HELLO, slot->tag, 0U)
-              : stow_client_serde_encode_describe(
-                    encoder, slot->tag, start_id, peer_item(peer, peer->verify.start), peer->verify.count);
+    struct stow_msg_writer writer;
+    stow_msg_writer_init(&writer, net_buf_tail(buf), budget);
+    bool describe = (code == STOW_MSG_DESCRIBE);
+    const struct stow_msg msg = { .code = code,
+                                  .tag = slot->tag,
+                                  .describe = { .start = start_id, .named = describe } };
+    (void)stow_msg_write(&writer, &msg);
+    if (describe)
+    {
+        put_names(peer, &writer);
+    }
+
+    size_t len = 0;
+    ret = stow_msg_finish(&writer, &len);
     if (ret != SUCCESS)
     {
         net_buf_unref(buf);
         (void)z_stow_client_slot_cancel(peer, slot, slot->seq);
         return ret;
     }
-    stow_wire_message_end(buf, encoder);
+    net_buf_add(buf, len);
     return z_stow_client_slot_send(peer, slot, buf);
 }
 
 /**
  * @brief Describe the current group of names from @p start_id, or start the next group when none is being read
- *
- * @details Names are grouped so each Describe fits both the peer's limit and the client's own buffers.
  */
 static void send_describe(struct stow_client_peer* peer, uint32_t start_id)
 {
-    uint16_t item_count = peer_item_count(peer);
-    while (peer->verify.count == 0U)
+    while (true)
     {
-        if (peer->verify.start >= item_count)
+        if (peer->verify.count == 0U && peer->verify.start >= peer_item_count(peer))
         {
             verify_finished(peer);
             return;
         }
 
-        const struct stow_transport* transport = peer->transport;
-        size_t budget = MIN(
-            peer->info.max_message, transport->pool->alloc->max_alloc_size - transport->headroom - transport->tailroom);
-        size_t fit = stow_client_serde_describe_fit(
-            budget, DESCRIBE_START_MAX, peer_item(peer, peer->verify.start), item_count - peer->verify.start);
-        peer->verify.count = (uint16_t)((peer->verify.start < peer->verify.singly_until) ? MIN(fit, 1U) : fit);
-        if (peer->verify.count == 0U)
+        peer->verify.describe_from = start_id;
+        int ret = send_verify_request(peer, STOW_MSG_DESCRIBE, start_id);
+        if (ret == -E2BIG && peer->verify.count == 0U)
         {
             LOG_ERR("Item %s cannot be named in a Describe request", peer_item(peer, peer->verify.start)->name);
             peer->items[peer->verify.start].availability = STOW_CLIENT_INCOMPATIBLE;
             peer->verify.start++;
+            continue;
         }
-    }
-
-    peer->verify.describe_from = start_id;
-    int ret = send_verify_request(peer, STOW_MSG_DESCRIBE, start_id);
-    if (ret != SUCCESS)
-    {
-        LOG_ERR("Describe to session %u failed (%d)", peer->session_id, ret);
-        z_stow_client_verify_failed(peer, ret);
+        if (ret != SUCCESS)
+        {
+            LOG_ERR("Describe to session %u failed (%d)", peer->session_id, ret);
+            z_stow_client_verify_failed(peer, ret);
+        }
+        return;
     }
 }
 
@@ -165,24 +183,54 @@ static void describe_too_large(struct stow_client_peer* peer)
 }
 
 /**
- * @brief Check every item description in a Describe chunk against the expected items
+ * @brief Check a peer's item description against the expected item of the same name
  *
- * @return SUCCESS, -ENOMSG for a malformed description, or -ENOBUFS when no memory is free to check one
+ * @details The expected constraints are encoded with the item's own codec and compared byte for byte.
+ *
+ * @return SUCCESS when the type and constraints match, -EINVAL when they differ, or -ENOMEM
  */
-static int check_chunk(struct stow_client_peer* peer, const struct zcbor_string* chunk)
+static int check_item(const struct stow_client_item* item, const struct stow_msg_description* description)
 {
-    zcbor_state_t decoder[ZCBOR_STATES];
-    zcbor_new_decode_state(decoder, ARRAY_SIZE(decoder), chunk->value, chunk->len, ZCBOR_MAX_ELEM_COUNT, NULL, 0);
-
-    while (decoder[0].payload < decoder[0].payload_end)
+    if (description->type != (uint32_t)item->type)
     {
-        struct stow_client_serde_description description;
-        if (stow_client_serde_decode_description(decoder, &description) != SUCCESS)
-        {
-            LOG_WRN("Malformed description from session %u", peer->session_id);
-            return -ENOMSG;
-        }
+        return -EINVAL;
+    }
 
+    size_t len = description->constraints.len;
+    void* expected = NULL;
+    int ret = MEM_ALLOC(len, &expected);
+    if (ret != SUCCESS)
+    {
+        return -ENOMEM;
+    }
+
+    zcbor_state_t encoder[STOW_MSG_WRITER_STATES];
+    zcbor_new_encode_state(encoder, ARRAY_SIZE(encoder), expected, len, 1);
+    ret = item->interface->encode_constraints(encoder, &item->constraints);
+    if (ret == SUCCESS && ((size_t)(encoder[0].payload - (const uint8_t*)expected) != len ||
+                           memcmp(expected, description->constraints.value, len) != 0))
+    {
+        ret = -EINVAL;
+    }
+    MEM_UNREF(&expected);
+    return (ret == -ENOMEM) ? -EINVAL : ret;
+}
+
+/**
+ * @brief Match each description to a bound item by name, marking the item available or incompatible
+ *
+ * @param peer Peer being verified
+ * @param reader Reader of the Describe Response
+ * @param count Number of descriptions in the response
+ *
+ * @return SUCCESS, or -ENOBUFS when no memory is free to check one
+ */
+static int check_descriptions(struct stow_client_peer* peer, struct stow_msg_reader* reader, uint16_t count)
+{
+    for (uint16_t i = 0; i < count; i++)
+    {
+        struct stow_msg_description description;
+        (void)stow_msg_next_description(reader, &description);
         for (uint16_t id = 0; id < peer_item_count(peer); id++)
         {
             const struct stow_client_item* item = peer_item(peer, id);
@@ -192,7 +240,7 @@ static int check_chunk(struct stow_client_peer* peer, const struct zcbor_string*
                 continue;
             }
 
-            int ret = (description.id <= UINT16_MAX) ? stow_client_serde_check(item, &description) : -EINVAL;
+            int ret = (description.id <= UINT16_MAX) ? check_item(item, &description) : -EINVAL;
             if (ret == -ENOMEM)
             {
                 LOG_ERR("No memory to check item %s", item->name);
@@ -234,43 +282,39 @@ void z_stow_client_verify_start(struct stow_client_peer* peer)
 }
 
 void z_stow_client_verify_response(
-    struct stow_client_peer* peer, enum stow_message_code request_code, uint32_t code, zcbor_state_t* decoder)
+    struct stow_client_peer* peer, enum stow_message_code request_code, int err, struct stow_msg_reader* reader,
+    const struct stow_msg* msg)
 {
-    if (code == STOW_MSG_ERROR)
+    if (err == SUCCESS && msg->code == STOW_MSG_ERROR)
     {
-        uint32_t index = 0;
-        int err = stow_client_serde_decode_error(decoder, &index);
-        if (request_code == STOW_MSG_DESCRIBE && err == -E2BIG)
+        if (request_code == STOW_MSG_DESCRIBE && msg->error.err == -E2BIG)
         {
             describe_too_large(peer);
             return;
         }
+        err = msg->error.err;
+    }
+    else if (err == SUCCESS && msg->code != stow_msg_answer(request_code))
+    {
+        err = -ENOMSG;
+    }
+    if (err != SUCCESS)
+    {
         z_stow_client_verify_failed(peer, err);
         return;
     }
 
     if (request_code == STOW_MSG_HELLO)
     {
-        struct stow_client_serde_hello hello;
-        int ret = (code == STOW_MSG_HELLO_RESPONSE) ? stow_client_serde_decode_hello(decoder, &hello) : -ENOMSG;
-        if (ret != SUCCESS)
-        {
-            z_stow_client_verify_failed(peer, (ret == -EBADMSG) ? -ENOMSG : ret);
-            return;
-        }
-        peer->info.max_message = hello.max_message;
-        peer->info.roles = hello.roles;
+        peer->info.max_message = msg->hello.max_message;
+        peer->info.roles = msg->hello.roles;
         send_describe(peer, 0U);
         return;
     }
 
-    uint32_t next_id = 0;
-    struct zcbor_string chunk;
-    int ret =
-        (code == STOW_MSG_DESCRIBE_RESPONSE && stow_client_serde_decode_describe(decoder, &next_id, &chunk) == SUCCESS)
-            ? check_chunk(peer, &chunk)
-            : -ENOMSG;
-    if (ret == SUCCESS && next_id != STOW_SERDE_ABSENT && next_id <= peer->verify.describe_from)
+    uint32_t next_id = msg->describe_response.next;
+    int ret = check_descriptions(peer, reader, msg->count);
+    if (ret == SUCCESS && next_id != STOW_MSG_ABSENT && next_id <= peer->verify.describe_from)
     {
         ret = -ENOMSG;
     }
@@ -279,7 +323,7 @@ void z_stow_client_verify_response(
         z_stow_client_verify_failed(peer, ret);
         return;
     }
-    if (next_id == STOW_SERDE_ABSENT)
+    if (next_id == STOW_MSG_ABSENT)
     {
         peer->verify.start += peer->verify.count;
         peer->verify.count = 0U;

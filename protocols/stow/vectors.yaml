@@ -45,6 +45,13 @@ exchanges:
             {0: 11, 1: "TestRecord", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 6, 7: [0, h''], 8: [
               {0: "Count", 1: 1, 2: {0: 0, 1: 10}},
               {0: "Data", 1: 5, 2: {0: 0, 1: 4}}
+            ]},
+            {0: 12, 1: "TestNestedRecord", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 6, 7: [[0, h''], 0], 8: [
+              {0: "Pair", 1: 6, 2: [
+                {0: "Count", 1: 1, 2: {0: 0, 1: 10}},
+                {0: "Data", 1: 5, 2: {0: 0, 1: 4}}
+              ]},
+              {0: "Flag", 1: 1, 2: {0: 0, 1: 1}}
             ]}
           >>]
 
@@ -129,6 +136,15 @@ exchanges:
       - server: '[10 /ok/, 3]'
       - client: '[4 /get/, 4, 5 /TestBuffer/]'
       - server: '[5 /get-response/, 4, 5 /TestBuffer/, h''0102'']'
+
+  - name: get_after_set_nested
+    meaning: A Struct item with a Struct field is set and read back
+    roles: [Guest]
+    steps:
+      - client: '[6 /set/, 5, 12 /TestNestedRecord/, [[3, h''01''], 1]]'
+      - server: '[10 /ok/, 5]'
+      - client: '[4 /get/, 6, 12 /TestNestedRecord/]'
+      - server: '[5 /get-response/, 6, 12 /TestNestedRecord/, [[3, h''01''], 1]]'
 
   - name: set_int
     meaning: Set answers OK with the request tag

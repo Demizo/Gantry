@@ -137,10 +137,14 @@ static inline void stow_mux_init(
  *
  * @param mux The mux
  *
- * @return SUCCESS, or the server endpoint's error
+ * @return SUCCESS, -EINVAL for a transport stow_transport_usable() rejects, or the server endpoint's error
  */
 static inline int stow_mux_open(struct stow_mux* mux)
 {
+    if (!stow_transport_usable(mux->transport))
+    {
+        return -EINVAL;
+    }
 #ifdef CONFIG_STOW_CLIENT
     atomic_set(&mux->open, 1);
 #endif

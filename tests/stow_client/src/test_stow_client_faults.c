@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <gantry/stow/stow_wire.h>
+#include <gantry/stow/stow_msg.h>
 
 #include "test_common.h"
 

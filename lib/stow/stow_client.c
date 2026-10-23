@@ -18,14 +18,11 @@
 #include <gantry/error.h>
 #include <gantry/memory.h>
 #include <gantry/stow/stow_client.h>
-#include <gantry/stow/stow_client_serde.h>
+#include <gantry/stow/stow_msg.h>
 #include <gantry/stow/stow_transport.h>
-#include <gantry/stow/stow_wire.h>
 #include <stddef.h>
 #include <string.h>
 #include <sys/errno.h>
-#include <zcbor_decode.h>
-#include <zcbor_encode.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/net_buf.h>
@@ -108,13 +105,14 @@ static int request(
     struct sync_call* sync);
 static int request_sync(struct stow_client_peer* peer, const struct request* req, struct stow_client_value* values_out);
 
-static int find_local(struct stow_client_peer* peer, uint32_t remote_id);
+static int resolve_item(const struct stow_msg_items* items, struct stow_msg_entry* entry);
 static void release_values(struct stow_client_peer* peer, struct stow_client_value* values, size_t count);
-static int decode_values(
-    struct stow_client_peer* peer, zcbor_state_t* decoder, size_t count, struct stow_client_value* values);
-static void complete_get(struct stow_client_peer* peer, struct slot* slot, zcbor_state_t* decoder);
-static void complete_request(struct stow_client_peer* peer, struct slot* slot, uint32_t code, zcbor_state_t* decoder);
-static void handle_update(struct stow_client_peer* peer, zcbor_state_t* decoder);
+static void complete_get(
+    struct stow_client_peer* peer, struct slot* slot, struct stow_msg_reader* reader, const struct stow_msg* msg);
+static void complete_request(
+    struct stow_client_peer* peer, struct slot* slot, int err, struct stow_msg_reader* reader,
+    const struct stow_msg* msg);
+static void handle_update(struct stow_client_peer* peer, struct stow_msg_reader* reader);
 static void handle_rx(struct stow_client_peer* peer, struct net_buf* buf, uint32_t opens);
 static void handle_send(const struct client_event* event, struct net_buf* buf);
 
@@ -237,30 +235,34 @@ static int encode_request(
     struct net_buf** buf_out)
 {
     struct net_buf* buf = NULL;
-    zcbor_state_t encoder[ZCBOR_STATES];
-    int ret = stow_wire_message_alloc(transport, peer->info.max_message, &buf, encoder, ARRAY_SIZE(encoder));
+    size_t budget = 0;
+    int ret = stow_transport_alloc(transport, peer->info.max_message, &buf, &budget);
     if (ret != SUCCESS)
     {
         return ret;
     }
 
-    uint32_t elements = (uint32_t)((req->values != NULL) ? 2U * req->count : req->count);
-    ret = stow_client_serde_encode_start(encoder, req->code, tag, elements);
-    for (size_t i = 0; ret == SUCCESS && i < req->count; i++)
+    struct stow_msg_writer writer;
+    stow_msg_writer_init(&writer, net_buf_tail(buf), budget);
+    (void)stow_msg_write(&writer, &(struct stow_msg){ .code = req->code, .tag = tag, .count = (uint16_t)req->count });
+    for (size_t i = 0; i < req->count; i++)
     {
-        ret = stow_client_serde_encode_id(encoder, peer->items[req->ids[i]].remote_id);
-        if (ret == SUCCESS && req->values != NULL)
-        {
-            ret = peer_item(peer, req->ids[i])->interface->encode(encoder, req->values[i]);
-        }
+        const struct stow_msg_entry entry = {
+            .id = peer->items[req->ids[i]].remote_id,
+            .codec = peer_item(peer, req->ids[i])->interface,
+            .value = (req->values != NULL) ? req->values[i] : (data_value_t){ 0 },
+        };
+        (void)stow_msg_put_entry(&writer, &entry);
     }
+
+    size_t len = 0;
+    ret = stow_msg_finish(&writer, &len);
     if (ret != SUCCESS)
     {
         net_buf_unref(buf);
-        return (ret == -ENOMEM) ? -EMSGSIZE : ret;
+        return (ret == -E2BIG) ? -EMSGSIZE : ret;
     }
-
-    stow_wire_message_end(buf, encoder);
+    net_buf_add(buf, len);
     *buf_out = buf;
     PASS_OWNERSHIP(buf);
     return SUCCESS;
@@ -486,17 +488,18 @@ static int request_sync(struct stow_client_peer* peer, const struct request* req
 }
 
 /**
- * @brief Find the available item a peer's item ID belongs to
- *
- * @return The generated item ID, or -ENOENT
+ * @brief Resolver for a peer's messages: a wire item ID is the available item that peer's Describe gave that ID
  */
-static int find_local(struct stow_client_peer* peer, uint32_t remote_id)
+static int resolve_item(const struct stow_msg_items* items, struct stow_msg_entry* entry)
 {
+    const struct stow_client_peer* peer = CONTAINER_OF(items, struct stow_client_peer, resolver);
     for (uint16_t id = 0; id < peer_item_count(peer); id++)
     {
-        if (peer->items[id].availability == STOW_CLIENT_AVAILABLE && peer->items[id].remote_id == remote_id)
+        if (peer->items[id].availability == STOW_CLIENT_AVAILABLE && peer->items[id].remote_id == entry->id)
         {
-            return id;
+            entry->local = id;
+            entry->codec = peer_item(peer, id)->interface;
+            return SUCCESS;
         }
     }
     return -ENOENT;
@@ -517,126 +520,94 @@ static void release_values(struct stow_client_peer* peer, struct stow_client_val
 }
 
 /**
- * @brief Decode the id/value pairs of a Get Response or an Update
- *
- * @return SUCCESS, -ENOMSG for a malformed pair or an item that is not available, or -ENOBUFS
- * @acquires memory values on-success
- */
-static int decode_values(
-    struct stow_client_peer* peer, zcbor_state_t* decoder, size_t count, struct stow_client_value* values)
-{
-    for (size_t i = 0; i < count; i++)
-    {
-        uint32_t remote_id = 0;
-        int id = zcbor_uint32_decode(decoder, &remote_id) ? find_local(peer, remote_id) : -ENOENT;
-        if (id < 0)
-        {
-            release_values(peer, values, i);
-            return -ENOMSG;
-        }
-        data_value_t value = { 0 };
-        int ret = stow_item_decode(peer_item(peer, (uint16_t)id)->interface, decoder, &value);
-        if (ret != SUCCESS)
-        {
-            release_values(peer, values, i);
-            return (ret == -ENOMEM) ? -ENOBUFS : -ENOMSG;
-        }
-        values[i] = (struct stow_client_value){ .id = (uint16_t)id, .value = value };
-        PASS_OWNERSHIP(value);
-    }
-    PASS_OWNERSHIP(values);
-    return SUCCESS;
-}
-
-/**
  * @brief Finish a Get with the values in its response, which must name the requested items in order
  *
  * @releases slot slot
  */
-static void complete_get(struct stow_client_peer* peer, struct slot* slot, zcbor_state_t* decoder)
+static void complete_get(
+    struct stow_client_peer* peer, struct slot* slot, struct stow_msg_reader* reader, const struct stow_msg* msg)
 {
-    size_t count = slot->count;
     struct stow_client_result_payload* result =
         (slot->event != NULL) ? (struct stow_client_result_payload*)slot->event->data.buf : NULL;
     struct stow_client_value* values = (result != NULL) ? result->values : slot->sync->values;
-    int ret = decode_values(peer, decoder, count, values);
-    if (ret != SUCCESS)
+    if (msg->count != slot->count)
     {
-        z_stow_client_slot_fail(peer, slot, ret);
+        z_stow_client_slot_fail(peer, slot, -ENOMSG);
         return;
     }
 
-    bool matches = zcbor_list_end_decode(decoder);
-    for (size_t i = 0; matches && i < count; i++)
+    for (uint16_t i = 0; i < msg->count; i++)
     {
-        matches = (values[i].id == slot->ids[i]);
-    }
-    if (!matches)
-    {
-        release_values(peer, values, count);
-        z_stow_client_slot_fail(peer, slot, -ENOMSG);
+        struct stow_msg_entry entry;
+        int ret = stow_msg_next_entry(reader, &entry);
+        if (ret == SUCCESS)
+        {
+            if (entry.local == slot->ids[i])
+            {
+                values[i] = (struct stow_client_value){ .id = entry.local, .value = entry.value };
+                PASS_OWNERSHIP(entry);
+                continue;
+            }
+            stow_msg_entry_release(&entry);
+            ret = -ENOMSG;
+        }
+        release_values(peer, values, i);
+        z_stow_client_slot_fail(peer, slot, (ret == -ENOMEM) ? -ENOBUFS : -ENOMSG);
         return;
     }
 
     if (result != NULL)
     {
-        result->count = (uint16_t)count;
+        result->count = msg->count;
     }
-    PASS_OWNERSHIP(values);
     z_stow_client_slot_finish(peer, slot, SUCCESS, STOW_CLIENT_NO_INDEX);
 }
 
 /**
- * @brief Finish an application request with its response
+ * @brief Finish an application request with its response, or with why the response could not be read
  *
  * @releases slot slot
  */
-static void complete_request(struct stow_client_peer* peer, struct slot* slot, uint32_t code, zcbor_state_t* decoder)
+static void complete_request(
+    struct stow_client_peer* peer, struct slot* slot, int err, struct stow_msg_reader* reader,
+    const struct stow_msg* msg)
 {
-    int err = SUCCESS;
-    uint16_t index = STOW_CLIENT_NO_INDEX;
-
-    if (code == STOW_MSG_ERROR)
+    if (err != SUCCESS)
     {
-        uint32_t entry = STOW_SERDE_ABSENT;
-        err = stow_client_serde_decode_error(decoder, &entry);
-        if (entry < slot->count)
-        {
-            index = (uint16_t)entry;
-        }
-    }
-    else if (slot->code == STOW_MSG_GET && code == STOW_MSG_GET_RESPONSE)
-    {
-        complete_get(peer, slot, decoder);
+        z_stow_client_slot_fail(peer, slot, err);
         return;
     }
-    else if (slot->code == STOW_MSG_GET || code != STOW_MSG_OK || !zcbor_list_end_decode(decoder))
+    if (msg->code == STOW_MSG_ERROR)
     {
-        err = -ENOMSG;
+        uint16_t index = (msg->error.index < slot->count) ? (uint16_t)msg->error.index : STOW_CLIENT_NO_INDEX;
+        z_stow_client_slot_finish(peer, slot, msg->error.err, index);
+        return;
     }
-
-    z_stow_client_slot_finish(peer, slot, err, index);
+    if (msg->code != stow_msg_answer(slot->code))
+    {
+        z_stow_client_slot_fail(peer, slot, -ENOMSG);
+        return;
+    }
+    if (msg->code == STOW_MSG_GET_RESPONSE)
+    {
+        complete_get(peer, slot, reader, msg);
+        return;
+    }
+    z_stow_client_slot_finish(peer, slot, SUCCESS, STOW_CLIENT_NO_INDEX);
 }
 
-static void handle_update(struct stow_client_peer* peer, zcbor_state_t* decoder)
+static void handle_update(struct stow_client_peer* peer, struct stow_msg_reader* reader)
 {
     if (peer->state != PEER_READY)
     {
         return;
     }
 
-    struct stow_client_value update = { 0 };
-    struct stow_client_value* values = &update;
-    int ret = decode_values(peer, decoder, 1U, values);
+    struct stow_msg_entry entry;
+    int ret = stow_msg_next_entry(reader, &entry);
     if (ret != SUCCESS)
     {
         LOG_WRN("Dropped an Update from session %u (%d)", peer->session_id, ret);
-        return;
-    }
-    if (!zcbor_list_end_decode(decoder))
-    {
-        LOG_WRN("Dropped a malformed Update from session %u", peer->session_id);
-        release_values(peer, values, 1U);
         return;
     }
 
@@ -644,16 +615,16 @@ static void handle_update(struct stow_client_peer* peer, zcbor_state_t* decoder)
     if (EVENT_ALLOC(&stow_client_update_event, sizeof(struct stow_client_update_payload), &event) != SUCCESS)
     {
         LOG_WRN("Dropped an Update from session %u, no event was free", peer->session_id);
-        release_values(peer, values, 1U);
+        stow_msg_entry_release(&entry);
         return;
     }
     struct stow_client_peer* held = stow_client_peer_ref(peer);
     *(struct stow_client_update_payload*)event->data.buf = (struct stow_client_update_payload){
         .peer = held,
-        .value = update,
+        .value = { .id = entry.local, .value = entry.value },
     };
     PASS_OWNERSHIP(held);
-    PASS_OWNERSHIP(values);
+    PASS_OWNERSHIP(entry);
 
     CALL_HOOKS(update, event);
     EVENT_UNREF(&event);
@@ -701,47 +672,41 @@ static void handle_rx(struct stow_client_peer* peer, struct net_buf* buf, uint32
         return;
     }
 
-    zcbor_state_t decoder[ZCBOR_STATES];
-    zcbor_new_decode_state(decoder, ARRAY_SIZE(decoder), buf->data, buf->len, 1, NULL, 0);
-
-    uint32_t code = 0;
-    uint8_t tag = STOW_TAG_NONE;
-    if (stow_wire_decode_start(decoder, &code, &tag) != SUCCESS)
+    struct stow_msg_reader reader;
+    struct stow_msg msg;
+    int ret = stow_msg_read(&reader, buf->data, buf->len, &peer->resolver, &msg);
+    if (ret == SUCCESS && msg.code == STOW_MSG_UPDATE)
     {
-        LOG_WRN("Malformed message from session %u", peer->session_id);
+        handle_update(peer, &reader);
+        return;
+    }
+    if (msg.tag == STOW_TAG_NONE)
+    {
+        LOG_WRN("Dropped a message without a tag from session %u (%d)", peer->session_id, ret);
         return;
     }
 
-    if (code == STOW_MSG_UPDATE)
-    {
-        handle_update(peer, decoder);
-        return;
-    }
-    if (tag == STOW_TAG_NONE)
-    {
-        LOG_WRN("Message %u without a tag from session %u", code, peer->session_id);
-        return;
-    }
-
-    struct slot* slot = z_stow_client_slot_find_sent(peer, tag);
+    struct slot* slot = z_stow_client_slot_find_sent(peer, msg.tag);
     if (slot == NULL)
     {
-        bool late = z_stow_client_tag_answered(peer, tag);
+        bool late = z_stow_client_tag_answered(peer, msg.tag);
         LOG_WRN(
-            "Dropped %s response with tag %u from session %u", late ? "a late" : "an unexpected", tag,
+            "Dropped %s response with tag %u from session %u", late ? "a late" : "an unexpected", msg.tag,
             peer->session_id);
         return;
     }
 
+    /* A response that cannot be read still answers the request its tag names */
+    int err = (ret == SUCCESS) ? SUCCESS : (ret == -ENOMEM) ? -ENOBUFS : -ENOMSG;
     if (!slot->internal)
     {
-        complete_request(peer, slot, code, decoder);
+        complete_request(peer, slot, err, &reader, &msg);
         return;
     }
 
     enum stow_message_code request_code = slot->code;
     z_stow_client_slot_finish(peer, slot, SUCCESS, STOW_CLIENT_NO_INDEX);
-    z_stow_client_verify_response(peer, request_code, code, decoder);
+    z_stow_client_verify_response(peer, request_code, (ret == -EPROTONOSUPPORT) ? ret : err, &reader, &msg);
 }
 
 /**
@@ -873,8 +838,7 @@ int z_stow_client_session_opened(
 {
     ARG_UNUSED(roles);
     const struct stow_client_endpoint* client = CONTAINER_OF(endpoint, struct stow_client_endpoint, endpoint);
-    if (transport == NULL || transport->send == NULL || transport->pool == NULL ||
-        transport->pool->alloc->cb != &net_buf_fixed_cb || client->schema == NULL || client->schema->item_count == 0U)
+    if (!stow_transport_usable(transport) || client->schema == NULL || client->schema->item_count == 0U)
     {
         return -EINVAL;
     }
@@ -909,6 +873,7 @@ int z_stow_client_session_opened(
         peer->session_id = session_id;
         peer->timeout_ms = (client->timeout_ms != 0U) ? client->timeout_ms : CONFIG_STOW_CLIENT_TIMEOUT_MS;
         peer->items = items;
+        peer->resolver = (struct stow_msg_items){ .resolve = resolve_item };
         peer->transport = transport;
         atomic_set_bit(peer->signals, PEER_SIGNAL_OPEN);
     }

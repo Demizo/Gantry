@@ -15,11 +15,10 @@
 #pragma once
 
 #include <gantry/stow/stow_client.h>
+#include <gantry/stow/stow_msg.h>
 #include <gantry/stow/stow_transport.h>
-#include <gantry/stow/stow_wire.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <zcbor_common.h>
 #include <zephyr/kernel.h>
 #include <zephyr/net_buf.h>
 #include <zephyr/sys/atomic.h>
@@ -28,11 +27,6 @@
 //**********************************************************
 //* Definitions
 //**********************************************************
-
-/**
- * @brief Number of zcbor encoder/decoder state slots
- */
-#define ZCBOR_STATES 4
 
 /**
  * @brief Number of request tags
@@ -158,6 +152,7 @@ struct stow_client_peer
     uint32_t session_id;                         /**< ID the transport gave the session */
     uint32_t timeout_ms;                         /**< Request timeout */
     struct item_state* items;                    /**< One entry per expected item */
+    struct stow_msg_items resolver;              /**< Maps the peer's item IDs to available items */
     struct stow_transport* transport;            /**< Transport of the open session, or NULL */
     enum peer_state state;                       /**< Connection state */
     ATOMIC_DEFINE(signals, PEER_SIGNAL_COUNT);   /**< Pending @ref peer_signal bits */
@@ -330,11 +325,13 @@ void z_stow_client_verify_start(struct stow_client_peer* peer);
  *
  * @param peer The peer
  * @param request_code Message code of the request answered
- * @param code Message code of the response
- * @param decoder Decoder positioned after the response's tag
+ * @param err SUCCESS, or why the response could not be read
+ * @param reader Reader of the response
+ * @param msg The response
  */
 void z_stow_client_verify_response(
-    struct stow_client_peer* peer, enum stow_message_code request_code, uint32_t code, zcbor_state_t* decoder);
+    struct stow_client_peer* peer, enum stow_message_code request_code, int err, struct stow_msg_reader* reader,
+    const struct stow_msg* msg);
 
 /**
  * @brief Stop verifying a peer and report why through the connected hooks

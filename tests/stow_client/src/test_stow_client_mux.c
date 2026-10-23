@@ -6,7 +6,7 @@
 
 #include <gantry/error.h>
 #include <gantry/stow/stow_cobs_transport.h>
-#include <gantry/stow/stow_wire.h>
+#include <gantry/stow/stow_msg.h>
 
 #include "test_common.h"
 
@@ -129,6 +129,17 @@ ZTEST(stow_client_mux, test_a_request_with_no_server_is_answered_at_once)
 
     close_ends();
     stow_client_peer_unref(&peer);
+}
+
+ZTEST(stow_client_mux, test_a_request_before_the_link_opens_is_dropped)
+{
+    end_init(&left, &right, 508, false);
+    end_init(&right, &left, 509, false);
+
+    static const uint8_t get_frame[] = { 0x05, 0x83, STOW_MSG_GET, 0x01, 0x01, 0x00 }; /* [4, 1, 1] */
+    zassert_equal(stow_cobs_transport_feed(&left.cobs, get_frame, sizeof(get_frame)), 0);
+    test_settle();
+    zassert_equal(atomic_get(&left.written), 0, "a closed link answered a request");
 }
 
 ZTEST(stow_client_mux, test_a_client_session_needs_an_open_link)

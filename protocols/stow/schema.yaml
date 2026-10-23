@@ -161,6 +161,26 @@ items:
     constraints:
       - struct: TestPair
 
+  - name: TestNestedRecord
+    description: "Struct item with a struct field"
+    categories: [General]
+    type: STRUCT
+    storage: EPHEMERAL
+    permissions:
+      - read: ANY
+      - write: ANY
+    default:
+      - field: Pair
+        value:
+          - field: Count
+            value: 0
+          - field: Data
+            value: []
+      - field: Flag
+        value: 0
+    constraints:
+      - struct: TestNest
+
 # ==============================================================================
 # Enums
 # ==============================================================================
@@ -190,3 +210,16 @@ structs:
         constraints:
           - min_len: 0
           - max_len: 4
+
+  - name: TestNest
+    description: "Struct with a struct field"
+    fields:
+      - name: Pair
+        type: STRUCT
+        constraints:
+          - struct: TestPair
+      - name: Flag
+        type: INT
+        constraints:
+          - min: 0
+          - max: 1
