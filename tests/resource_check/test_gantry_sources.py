@@ -85,6 +85,30 @@ def test_sending_a_response_twice_is_reported(tmp_path, library_annotations):
     assert any("'buf' released twice" in f.text for f in findings)
 
 
+def test_a_response_neither_sent_nor_dropped_is_reported(tmp_path, library_annotations):
+    findings = _check_mutated(
+        tmp_path,
+        library_annotations,
+        LIB / "stow" / "stow_protocol.c",
+        'dropping the response");\n        net_buf_unref(buf);',
+        'dropping the response");',
+    )
+
+    assert any("'buf'" in f.text and "not released" in f.text for f in findings)
+
+
+def test_keeping_a_set_entry_is_reported(tmp_path, library_annotations):
+    findings = _check_mutated(
+        tmp_path,
+        library_annotations,
+        LIB / "stow" / "stow_protocol.c",
+        "ret = apply(session, &entry);\n            stow_msg_entry_release(&entry);",
+        "ret = apply(session, &entry);",
+    )
+
+    assert any("'entry'" in f.text and "not released" in f.text for f in findings)
+
+
 def test_leaving_a_client_call_unfinished_is_reported(tmp_path, library_annotations):
     findings = _check_mutated(
         tmp_path,
