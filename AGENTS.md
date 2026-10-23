@@ -33,6 +33,7 @@ The rest of this document is guidance for contributing to and using the repo. Th
 - **Editing a generated file.** Instead, edit the source and regenerate.
 - **Committing a derived file.** Anything a build can produce should not live in git history.
 - **Changing wire bytes without the protocol folder.** A wire change starts in `protocols/stow/stow.cddl`. Otherwise, the vectors fall out-of-date.
+- **Editing the fixture schema without re-recording `connect`.** A change to `protocols/stow/schema.yaml` can move the Describe chunk boundaries of the `connect` exchange.
 - **Hiding a resource from the checker.** Apply the resource checker annotation to any resources that must be acquired and released. Carry them in a form the resource checker can validate or provide clear doc comments.
 
 ## Build, flash, test

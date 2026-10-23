@@ -8,6 +8,46 @@ values:
   stow_hash: [uv, run, ../../tools/stow/generate_stow.py, --print-hash, --yaml, schema.yaml]
 
 exchanges:
+  - name: connect
+    meaning: A client connects with Hello, then reads every description from the first item on
+    roles: [Guest]
+    steps:
+      - client: '[0 /hello/, 0]'
+      - server: |
+          [1 /hello-response/, 0, 1, {
+            0: 308,
+            1: $stow_hash,
+            2: 1,
+            3: ["Guest", "Session", "Dev"]
+          }]
+      - client: '[2 /describe/, 1, 0]'
+      - server: |
+          [3 /describe-response/, 1, 5, <<
+            {0: 0, 1: "StowHash", 2: [], 3: 0, 4: 65535, 5: 0, 6: 3, 7: $stow_hash, 8: {0: 64, 1: 64}},
+            {0: 1, 1: "TestInt", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 1, 7: 0, 8: {0: -100, 1: 100}},
+            {0: 2, 1: "TestString", 2: ["General"], 3: 0, 4: 65535, 5: 2, 6: 3, 7: "hello", 8: {0: 0, 1: 32}},
+            {0: 3, 1: "TestSessionInt", 2: ["General"], 3: 0, 4: 2, 5: 2, 6: 1, 7: 7, 8: {0: 0, 1: 1000}},
+            {0: 4, 1: "TestDevInt", 2: ["General"], 3: 0, 4: 4, 5: 4, 6: 1, 7: 99, 8: {0: 0, 1: 9999}}
+          >>]
+      - client: '[2 /describe/, 2, 5]'
+      - server: |
+          [3 /describe-response/, 2, 10, <<
+            {0: 5, 1: "TestBuffer", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 5, 7: h'', 8: {0: 0, 1: 16}},
+            {0: 6, 1: "TestTofu", 2: ["General"], 3: 2, 4: 65535, 5: 65535, 6: 3, 7: "", 8: {0: 0, 1: 16}},
+            {0: 7, 1: "TestLongString", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 3, 7: "", 8: {0: 0, 1: 400}},
+            {0: 8, 1: "TestFloat", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 2, 7: 21.5_2, 8: {0: 15.0_2, 1: 30.0_2}},
+            {0: 9, 1: "TestEnum", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 0, 7: 0, 8: [{0: 0, 1: "OFF"}, {0: 1, 1: "ON"}]}
+          >>]
+      - client: '[2 /describe/, 3, 10]'
+      - server: |
+          [3 /describe-response/, 3, null, <<
+            {0: 10, 1: "TestBytes", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 4, 7: h'01020304', 8: {0: 4, 1: 4}},
+            {0: 11, 1: "TestRecord", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 6, 7: [0, h''], 8: [
+              {0: "Count", 1: 1, 2: {0: 0, 1: 10}},
+              {0: "Data", 1: 5, 2: {0: 0, 1: 4}}
+            ]}
+          >>]
+
   - name: hello
     meaning: Hello reports the version, the largest message, the StowHash and the session's roles
     roles: [Guest, Dev]
@@ -29,23 +69,6 @@ exchanges:
       - server: |
           [3 /describe-response/, 16, null, <<
             {0: 1, 1: "TestInt", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 1, 7: 0, 8: {0: -100, 1: 100}}
-          >>]
-
-  - name: describe_last_chunk
-    meaning: Describe from a later item returns the remaining whole items in the last chunk
-    roles: [Guest]
-    steps:
-      - client: '[2 /describe/, 20, 7]'
-      - server: |
-          [3 /describe-response/, 20, null, <<
-            {0: 7, 1: "TestLongString", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 3, 7: "", 8: {0: 0, 1: 400}},
-            {0: 8, 1: "TestFloat", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 2, 7: 21.5_2, 8: {0: 15.0_2, 1: 30.0_2}},
-            {0: 9, 1: "TestEnum", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 0, 7: 0, 8: [{0: 0, 1: "OFF"}, {0: 1, 1: "ON"}]},
-            {0: 10, 1: "TestBytes", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 4, 7: h'01020304', 8: {0: 4, 1: 4}},
-            {0: 11, 1: "TestRecord", 2: ["General"], 3: 0, 4: 65535, 5: 65535, 6: 6, 7: [0, h''], 8: [
-              {0: "Count", 1: 1, 2: {0: 0, 1: 10}},
-              {0: "Data", 1: 5, 2: {0: 0, 1: 4}}
-            ]}
           >>]
 
   - name: describe_types
@@ -98,6 +121,15 @@ exchanges:
       - client: '[4 /get/, 3, 3 /TestSessionInt/]'
       - server: '[11 /error/, 3, 5 /permission-denied/, 3, 0]'
 
+  - name: get_after_set
+    meaning: Get returns the value a Set stored
+    roles: [Guest]
+    steps:
+      - client: '[6 /set/, 3, 5 /TestBuffer/, h''0102'']'
+      - server: '[10 /ok/, 3]'
+      - client: '[4 /get/, 4, 5 /TestBuffer/]'
+      - server: '[5 /get-response/, 4, 5 /TestBuffer/, h''0102'']'
+
   - name: set_int
     meaning: Set answers OK with the request tag
     roles: [Guest]
@@ -116,7 +148,7 @@ exchanges:
     meaning: Set with several items applies every entry and answers OK
     roles: [Guest]
     steps:
-      - client: '[6 /set/, 17, 1 /TestInt/, 5, 1 /TestInt/, 6]'
+      - client: '[6 /set/, 17, 1 /TestInt/, 5, 9 /TestEnum/, 1]'
       - server: '[10 /ok/, 17]'
 
   - name: set_unknown_item
@@ -137,8 +169,10 @@ exchanges:
     meaning: A failing Set entry is named by item and index; the entries before it took effect
     roles: [Guest]
     steps:
-      - client: '[6 /set/, 8, 1 /TestInt/, 5, 1 /TestInt/, 500]'
-      - server: '[11 /error/, 8, 7 /invalid-value/, 1, 1]'
+      - client: '[6 /set/, 8, 1 /TestInt/, 5, 8 /TestFloat/, 99.0_2]'
+      - server: '[11 /error/, 8, 7 /invalid-value/, 8, 1]'
+      - client: '[4 /get/, 9, 1 /TestInt/]'
+      - server: '[5 /get-response/, 9, 1 /TestInt/, 5]'
 
   - name: set_already_set
     meaning: A trust-on-first-use item that is already set is ALREADY_SET
@@ -172,6 +206,17 @@ exchanges:
     steps:
       - client: '[8 /unsubscribe/, 10, 1 /TestInt/]'
       - server: '[10 /ok/, 10]'
+
+  - name: no_update_after_unsubscribe
+    meaning: After Unsubscribe, a Set of the item sends no Update
+    roles: [Guest]
+    steps:
+      - client: '[7 /subscribe/, 5, 1 /TestInt/]'
+      - server: '[10 /ok/, 5]'
+      - client: '[8 /unsubscribe/, 6, 1 /TestInt/]'
+      - server: '[10 /ok/, 6]'
+      - client: '[6 /set/, 7, 1 /TestInt/, 9]'
+      - server: '[10 /ok/, 7]'
 
   - name: tag_max
     meaning: The largest tag, 23, is echoed
