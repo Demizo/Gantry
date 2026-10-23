@@ -290,6 +290,11 @@ static void on_stow_update(event_t* event)
     PASS_OWNERSHIP(event);
 }
 
+/**
+ * @brief Queue an event for the protocol thread, dropping it when the queue is full
+ *
+ * @releases memory event
+ */
 static int push_event(event_t* event)
 {
     if (k_msgq_put(&stow_protocol_queue, (void*)&event, K_NO_WAIT) != 0)
@@ -302,6 +307,11 @@ static int push_event(event_t* event)
     return SUCCESS;
 }
 
+/**
+ * @brief Allocate a protocol event with a zeroed payload
+ *
+ * @acquires memory out_event on-success
+ */
 static int alloc_protocol_event(
     enum stow_protocol_event_type kind, event_t** out_event, struct stow_protocol_event_payload** out_payload)
 {
@@ -391,6 +401,7 @@ static int signal_session(uint32_t session_id, enum session_signal signal)
  *
  * @return SUCCESS when the transport took the message
  * @return the transport's error when it did not, the message is dropped
+ * @releases net_buf buf
  */
 static int send_message(struct protocol_session* session, struct net_buf* buf)
 {
@@ -518,9 +529,10 @@ static void response_send(struct protocol_session* session, struct response* res
         return;
     }
 
-    net_buf_add(response->buf, response->encoder[0].payload - response->start);
-    int ret = send_message(session, response->buf);
+    struct net_buf* buf = response->buf;
     response->buf = NULL;
+    net_buf_add(buf, response->encoder[0].payload - response->start);
+    int ret = send_message(session, buf);
     if (ret != SUCCESS)
     {
         LOG_WRN("Dropped a message to session %u (%d)", session->session_id, ret);

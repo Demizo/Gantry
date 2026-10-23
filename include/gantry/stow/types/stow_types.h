@@ -300,5 +300,42 @@ static inline void stow_value_ref_block(data_value_t* value)
 static inline void stow_value_ref_none(data_value_t* value) { ARG_UNUSED(value); }
 
 /**
+ * @brief Decode an item value from CBOR with its type's codec
+ *
+ * @param codec The item type's interface
+ * @param decoder Decoder positioned at the value
+ * @param[out] out_value The decoded value
+ *
+ * @return SUCCESS, or the codec's negative errno
+ * @acquires memory out_value on-success
+ */
+static inline int stow_item_decode(
+    const struct stow_item_interface* codec, zcbor_state_t* decoder, data_value_t* out_value)
+{
+    return codec->decode(decoder, out_value);
+}
+
+/**
+ * @brief Add a reference to an item value with its type's codec
+ *
+ * @param codec The item type's interface
+ * @param value The value to keep
+ * @acquires memory value
+ */
+static inline void stow_item_ref(const struct stow_item_interface* codec, data_value_t* value) { codec->ref(value); }
+
+/**
+ * @brief Release an item value with its type's codec
+ *
+ * @param codec The item type's interface
+ * @param value The value to release
+ * @releases memory value
+ */
+static inline void stow_item_release(const struct stow_item_interface* codec, data_value_t* value)
+{
+    codec->release(value);
+}
+
+/**
  * @}
  */

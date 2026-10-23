@@ -102,6 +102,7 @@ static int encode_request(
     struct net_buf** buf_out);
 static int check_request(const struct stow_client_schema* schema, const struct request* req);
 static int check_available(struct stow_client_peer* peer, const struct request* req);
+static void abandon_request(struct stow_client_peer* peer, void* ids, event_t* result, bool waited);
 static int request(
     struct stow_client_peer* peer, const struct request* req, stow_client_cb_t cb, void* user_data,
     struct sync_call* sync);
@@ -115,7 +116,7 @@ static void complete_get(struct stow_client_peer* peer, struct slot* slot, zcbor
 static void complete_request(struct stow_client_peer* peer, struct slot* slot, uint32_t code, zcbor_state_t* decoder);
 static void handle_update(struct stow_client_peer* peer, zcbor_state_t* decoder);
 static void handle_rx(struct stow_client_peer* peer, struct net_buf* buf, uint32_t opens);
-static void handle_send(const struct client_event* event);
+static void handle_send(const struct client_event* event, struct net_buf* buf);
 
 static void close_peer(struct stow_client_peer* peer);
 static void handle_signals(void);
@@ -312,6 +313,26 @@ static int check_available(struct stow_client_peer* peer, const struct request* 
 }
 
 /**
+ * @brief Release what a request that never got a slot holds
+ *
+ * @param peer The peer
+ * @param ids The request's copy of its item IDs
+ * @param result The result event of an asynchronous request, otherwise NULL
+ * @param waited Whether the caller took a slot-free wakeup, which is passed on to the next waiter
+ * @releases memory ids
+ * @releases memory result
+ */
+static void abandon_request(struct stow_client_peer* peer, void* ids, event_t* result, bool waited)
+{
+    MEM_UNREF(&ids);
+    EVENT_UNREF(&result);
+    if (waited)
+    {
+        k_sem_give(&peer->slot_free);
+    }
+}
+
+/**
  * @brief Queue a request for the client thread to send
  *
  * @details A blocking caller waits for a free slot and tag; an asynchronous one gets -EAGAIN.
@@ -376,41 +397,39 @@ static int request(
     struct stow_transport* transport = NULL;
     uint32_t seq = 0;
     bool waited = false;
-    while (slot == NULL)
+    while (true)
     {
         int64_t retry_at = INT64_MAX;
-        bool more_free = false;
         k_spinlock_key_t key = k_spin_lock(&peer->lock);
         ret = check_available(peer, req);
-        if (ret == SUCCESS)
+        if (ret != SUCCESS)
         {
-            slot = z_stow_client_slot_take(peer, &pending, &retry_at);
-            transport = peer->transport;
-            seq = (slot != NULL) ? slot->seq : 0U;
-            more_free = z_stow_client_slot_any_free(peer);
+            k_spin_unlock(&peer->lock, key);
+            abandon_request(peer, ids_copy, result, waited);
+            return ret;
         }
+        slot = z_stow_client_slot_take(peer, &pending, &retry_at);
+        transport = peer->transport;
+        seq = (slot != NULL) ? slot->seq : 0U;
+        bool more_free = z_stow_client_slot_any_free(peer);
         k_spin_unlock(&peer->lock, key);
 
-        if (ret != SUCCESS || (slot == NULL && sync == NULL))
+        if (slot != NULL)
         {
-            MEM_UNREF(&ids_copy);
-            EVENT_UNREF(&result);
-            if (waited)
+            if (more_free)
             {
                 k_sem_give(&peer->slot_free);
             }
-            return (ret != SUCCESS) ? ret : -EAGAIN;
+            break;
         }
-        if (slot == NULL)
+        if (sync == NULL)
         {
-            k_timeout_t wait = (retry_at == INT64_MAX) ? K_FOREVER : K_MSEC(MAX(retry_at - k_uptime_get(), 0));
-            (void)k_sem_take(&peer->slot_free, wait);
-            waited = true;
+            abandon_request(peer, ids_copy, result, waited);
+            return -EAGAIN;
         }
-        else if (more_free)
-        {
-            k_sem_give(&peer->slot_free);
-        }
+        k_timeout_t wait = (retry_at == INT64_MAX) ? K_FOREVER : K_MSEC(MAX(retry_at - k_uptime_get(), 0));
+        (void)k_sem_take(&peer->slot_free, wait);
+        waited = true;
     }
     PASS_OWNERSHIP(ids_copy);
     PASS_OWNERSHIP(result);
@@ -435,6 +454,7 @@ static int request(
         return z_stow_client_slot_cancel(peer, slot, seq) ? -EBUSY : SUCCESS;
     }
     PASS_OWNERSHIP(buf);
+    PASS_OWNERSHIP(slot);
     return SUCCESS;
 }
 
@@ -509,13 +529,20 @@ static int decode_values(
     {
         uint32_t remote_id = 0;
         int id = zcbor_uint32_decode(decoder, &remote_id) ? find_local(peer, remote_id) : -ENOENT;
-        int ret = (id >= 0) ? peer_item(peer, (uint16_t)id)->interface->decode(decoder, &values[i].value) : -ENOENT;
+        if (id < 0)
+        {
+            release_values(peer, values, i);
+            return -ENOMSG;
+        }
+        data_value_t value = { 0 };
+        int ret = stow_item_decode(peer_item(peer, (uint16_t)id)->interface, decoder, &value);
         if (ret != SUCCESS)
         {
             release_values(peer, values, i);
             return (ret == -ENOMEM) ? -ENOBUFS : -ENOMSG;
         }
-        values[i].id = (uint16_t)id;
+        values[i] = (struct stow_client_value){ .id = (uint16_t)id, .value = value };
+        PASS_OWNERSHIP(value);
     }
     PASS_OWNERSHIP(values);
     return SUCCESS;
@@ -523,6 +550,8 @@ static int decode_values(
 
 /**
  * @brief Finish a Get with the values in its response, which must name the requested items in order
+ *
+ * @releases slot slot
  */
 static void complete_get(struct stow_client_peer* peer, struct slot* slot, zcbor_state_t* decoder)
 {
@@ -559,6 +588,8 @@ static void complete_get(struct stow_client_peer* peer, struct slot* slot, zcbor
 
 /**
  * @brief Finish an application request with its response
+ *
+ * @releases slot slot
  */
 static void complete_request(struct stow_client_peer* peer, struct slot* slot, uint32_t code, zcbor_state_t* decoder)
 {
@@ -713,11 +744,15 @@ static void handle_rx(struct stow_client_peer* peer, struct net_buf* buf, uint32
     z_stow_client_verify_response(peer, request_code, code, decoder);
 }
 
-static void handle_send(const struct client_event* event)
+/**
+ * @brief Send a queued request, or drop it when its slot was cancelled or the session closed
+ *
+ * @releases net_buf buf
+ */
+static void handle_send(const struct client_event* event, struct net_buf* buf)
 {
     struct stow_client_peer* peer = &peers[event->peer];
     struct slot* slot = &peer->slots.entries[event->slot];
-    struct net_buf* buf = event->buf;
 
     k_spinlock_key_t key = k_spin_lock(&peer->lock);
     bool current = (slot->state == SLOT_QUEUED && slot->seq == event->seq && peer->transport != NULL);
@@ -817,8 +852,7 @@ static void client_thread(void* p1, void* p2, void* p3)
             struct net_buf* buf = event.buf;
             if (event.type == CLIENT_EVENT_SEND)
             {
-                handle_send(&event);
-                PASS_OWNERSHIP(buf);
+                handle_send(&event, buf);
                 continue;
             }
             handle_rx(&peers[event.peer], buf, event.opens);
@@ -1047,7 +1081,8 @@ void stow_client_release(const struct stow_client_endpoint* endpoint, struct sto
 {
     if (value->id < endpoint->schema->item_count)
     {
-        endpoint->schema->items[value->id].interface->release(&value->value);
+        data_value_t* item_value = &value->value;
+        stow_item_release(endpoint->schema->items[value->id].interface, item_value);
     }
 }
 
@@ -1055,6 +1090,8 @@ void stow_client_ref(const struct stow_client_endpoint* endpoint, struct stow_cl
 {
     if (value->id < endpoint->schema->item_count)
     {
-        endpoint->schema->items[value->id].interface->ref(&value->value);
+        data_value_t* item_value = &value->value;
+        stow_item_ref(endpoint->schema->items[value->id].interface, item_value);
+        PASS_OWNERSHIP(item_value);
     }
 }

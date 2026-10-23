@@ -208,6 +208,7 @@ static inline uint16_t peer_item_count(const struct stow_client_peer* peer)
  * @param[out] retry_at When no tag is free, uptime in ms when one frees, otherwise INT64_MAX
  *
  * @return The queued slot, or NULL when no slot or tag is free
+ * @acquires slot return on-non-null
  */
 struct slot* z_stow_client_slot_take(struct stow_client_peer* peer, const struct slot* pending, int64_t* retry_at);
 
@@ -230,6 +231,7 @@ bool z_stow_client_slot_any_free(const struct stow_client_peer* peer);
  * @param seq Sequence number the slot had when it was taken
  *
  * @return true when the slot was freed, false when the client thread already finished the request
+ * @releases slot slot
  */
 bool z_stow_client_slot_cancel(struct stow_client_peer* peer, struct slot* slot, uint32_t seq);
 
@@ -240,6 +242,7 @@ bool z_stow_client_slot_cancel(struct stow_client_peer* peer, struct slot* slot,
  * @param slot The request's slot
  * @param err SUCCESS or a negative errno
  * @param index Entry that failed, or @ref STOW_CLIENT_NO_INDEX
+ * @releases slot slot
  */
 void z_stow_client_slot_finish(struct stow_client_peer* peer, struct slot* slot, int err, uint16_t index);
 
@@ -249,6 +252,7 @@ void z_stow_client_slot_finish(struct stow_client_peer* peer, struct slot* slot,
  * @param peer The peer
  * @param slot The request's slot
  * @param err Negative errno
+ * @releases slot slot
  */
 void z_stow_client_slot_fail(struct stow_client_peer* peer, struct slot* slot, int err);
 
@@ -270,6 +274,7 @@ void z_stow_client_slot_fail_all(struct stow_client_peer* peer);
  *
  * @return SUCCESS, or -EBUSY when the transport refused the request
  * @releases net_buf buf
+ * @releases slot slot
  */
 int z_stow_client_slot_send(struct stow_client_peer* peer, struct slot* slot, struct net_buf* buf);
 
@@ -280,6 +285,7 @@ int z_stow_client_slot_send(struct stow_client_peer* peer, struct slot* slot, st
  * @param tag Tag of the response
  *
  * @return The request's slot, or NULL
+ * @acquires slot return on-non-null
  */
 struct slot* z_stow_client_slot_find_sent(struct stow_client_peer* peer, uint8_t tag);
 
