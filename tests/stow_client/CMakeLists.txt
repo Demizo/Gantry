@@ -12,7 +12,8 @@ find_program(UV_CMD NAMES uv REQUIRED)
 
 set(TEST_STOW_YAML ${CMAKE_CURRENT_SOURCE_DIR}/stow_test.yaml)
 set(VARIANT_STOW_YAML ${CMAKE_CURRENT_SOURCE_DIR}/variant.stow.yaml)
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${TEST_STOW_YAML} ${VARIANT_STOW_YAML})
+set(VECTORS_STOW_YAML ${GANTRY_ROOT}/protocols/stow/schema.yaml)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${TEST_STOW_YAML} ${VARIANT_STOW_YAML} ${VECTORS_STOW_YAML})
 
 file(MAKE_DIRECTORY ${GENERATED_DIR}/inc/stow)
 file(MAKE_DIRECTORY ${GENERATED_DIR}/src/stow)
@@ -20,7 +21,8 @@ file(MAKE_DIRECTORY ${GENERATED_DIR}/src/stow)
 foreach(_gen
     "generate_stow.py;--yaml;${TEST_STOW_YAML}"
     "generate_stow_client.py;--yaml;${TEST_STOW_YAML};--prefix;peer;--local-yaml;${GENERATED_DIR}/merged.stow.yaml"
-    "generate_stow_client.py;--yaml;${VARIANT_STOW_YAML};--prefix;variant;--local-yaml;${GENERATED_DIR}/merged.stow.yaml")
+    "generate_stow_client.py;--yaml;${VARIANT_STOW_YAML};--prefix;variant;--local-yaml;${GENERATED_DIR}/merged.stow.yaml"
+    "generate_stow_client.py;--yaml;${VECTORS_STOW_YAML};--prefix;vec;--local-yaml;${GENERATED_DIR}/merged.stow.yaml")
   list(POP_FRONT _gen _script)
   execute_process(
       COMMAND ${UV_CMD} run ${GANTRY_ROOT}/tools/stow/${_script} ${_gen} --output-dir ${GENERATED_DIR}
@@ -32,21 +34,6 @@ foreach(_gen
       message(FATAL_ERROR "Failed to run ${_script} ${_gen}")
   endif()
 endforeach()
-
-set(VECTORS_FILE ${GANTRY_ROOT}/protocols/stow/vectors.json)
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${VECTORS_FILE})
-
-execute_process(
-    COMMAND ${UV_CMD} run ${GANTRY_ROOT}/tests/stow_protocol/generate_vectors.py
-            --vectors ${VECTORS_FILE}
-            --output  ${GENERATED_DIR}/inc/stow/generated_vectors.h
-    WORKING_DIRECTORY ${GANTRY_ROOT}
-    RESULT_VARIABLE VECTOR_RESULT
-    OUTPUT_QUIET
-)
-if(NOT VECTOR_RESULT EQUAL 0)
-    message(FATAL_ERROR "Failed to generate golden vectors from ${VECTORS_FILE}")
-endif()
 
 file(GLOB GENERATED_SOURCES ${GENERATED_DIR}/src/stow/*.c)
 
@@ -87,3 +74,6 @@ target_include_directories(app PRIVATE
     ${GENERATED_DIR}/inc/stow
     ${GANTRY_INC}
 )
+
+include(${GANTRY_ROOT}/tests/common/protocol_vectors.cmake)
+protocol_vectors_generate(app ${GANTRY_ROOT}/protocols/stow stow)

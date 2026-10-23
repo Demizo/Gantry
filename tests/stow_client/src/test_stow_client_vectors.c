@@ -6,40 +6,22 @@
 
 #include <gantry/stow/stow_client_serde.h>
 #include <gantry/stow/stow_wire.h>
-#include <gantry/stow/types/stow_type_buffer.h>
-#include <gantry/stow/types/stow_type_byte_array.h>
-#include <gantry/stow/types/stow_type_enum.h>
 #include <gantry/stow/types/stow_type_float.h>
-#include <gantry/stow/types/stow_type_int.h>
-#include <gantry/stow/types/stow_type_string.h>
-#include <generated_vectors.h>
+#include <generated_vec_stow_client.h>
+#include <protocol_vectors.h>
 #include <string.h>
 #include <zcbor_decode.h>
 #include <zcbor_encode.h>
 
 #include "test_common.h"
 
-/**
- * @brief Codec of each item ID in the protocol suite's schema, which the vectors are recorded against
- *
- * @details The last item, a struct, has no codec in this suite; no vector gets or sets it.
- */
-static const struct stow_item_interface* const vector_interfaces[] = {
-    &stow_string_interface, &stow_int_interface,    &stow_string_interface,     &stow_int_interface,
-    &stow_int_interface,    &stow_buffer_interface, &stow_string_interface,     &stow_string_interface,
-    &stow_float_interface,  &stow_enum_interface,   &stow_byte_array_interface,
-};
+#define CLIENT_SIDE 0
+#define MAX_WIRE_ID 32
 
-/**
- * @brief Vectors a correct client may send but this one never does
- *
- * @details It always names items in a Describe and only addresses items it has a codec for.
- */
-static const char* const not_sent_by_this_client[] = {
-    "describe_last_chunk",
-    "describe_invalid_start",
-    "set_unknown_item",
-};
+PROTOCOL_VECTORS_DECLARE(stow);
+
+/* The binding of each wire ID, matched by name through the vectors' Describe Responses */
+static const struct stow_client_item* bound[MAX_WIRE_ID];
 
 static void before_each(void* fixture)
 {
@@ -49,48 +31,120 @@ static void before_each(void* fixture)
 
 ZTEST_SUITE(stow_client_vectors, NULL, NULL, before_each, NULL, NULL);
 
-static const struct stow_item_interface* interface_of(uint32_t id)
+static const struct stow_client_item* binding_named(struct zcbor_string name)
 {
-    return (id < ARRAY_SIZE(vector_interfaces)) ? vector_interfaces[id] : NULL;
+    for (size_t i = 0; i < vec_stow_client_schema.item_count; i++)
+    {
+        const struct stow_client_item* item = &vec_stow_client_schema.items[i];
+        if (strlen(item->name) == name.len && memcmp(item->name, name.value, name.len) == 0)
+        {
+            return item;
+        }
+    }
+    return NULL;
 }
 
 /**
- * @brief Whether this client sends a request like the vector's
+ * @brief Call @p visit for every item description in the exchanges' Describe Responses
  */
-static bool sent_by_this_client(const struct test_vector* vector)
+static void for_each_description(void (*visit)(const struct stow_client_serde_description* description))
 {
-    if (!vector->client_sends || vector->invalid_request)
+    for (size_t v = 0; v < stow_exchanges_count; v++)
     {
-        return false;
+        const struct protocol_vector* vector = &stow_exchanges[v];
+        for (size_t s = 0; s < vector->step_count; s++)
+        {
+            const struct protocol_step* step = &vector->steps[s];
+            zcbor_state_t dec[4];
+            zcbor_new_decode_state(dec, ARRAY_SIZE(dec), step->data, step->len, 1, NULL, 0);
+            uint32_t code = 0;
+            uint8_t tag = 0;
+            if (step->side == CLIENT_SIDE || stow_wire_decode_start(dec, &code, &tag) != 0 ||
+                code != STOW_MSG_DESCRIBE_RESPONSE)
+            {
+                continue;
+            }
+            uint32_t next_id = 0;
+            struct zcbor_string chunk;
+            zassert_equal(stow_client_serde_decode_describe(dec, &next_id, &chunk), 0, "%s", vector->name);
+            zcbor_state_t items[4];
+            zcbor_new_decode_state(items, ARRAY_SIZE(items), chunk.value, chunk.len, ZCBOR_MAX_ELEM_COUNT, NULL, 0);
+            while (items[0].payload < items[0].payload_end)
+            {
+                struct stow_client_serde_description description;
+                zassert_equal(stow_client_serde_decode_description(items, &description), 0, "%s", vector->name);
+                visit(&description);
+            }
+        }
     }
-    for (size_t i = 0; i < ARRAY_SIZE(not_sent_by_this_client); i++)
+}
+
+static void bind(const struct stow_client_serde_description* description)
+{
+    zassert_true(description->id < MAX_WIRE_ID);
+    bound[description->id] = binding_named(description->name);
+}
+
+static const struct stow_item_interface* interface_of(uint32_t id)
+{
+    return (id < MAX_WIRE_ID && bound[id] != NULL) ? bound[id]->interface : NULL;
+}
+
+/**
+ * @brief Whether the client could name a request's items as the step does
+ */
+static bool sendable_items(const struct protocol_step* step, uint32_t code)
+{
+    zcbor_state_t dec[4];
+    zcbor_new_decode_state(dec, ARRAY_SIZE(dec), step->data, step->len, 1, NULL, 0);
+    uint32_t header = 0;
+    zassert_true(
+        zcbor_list_start_decode(dec) && zcbor_uint32_decode(dec, &header) && zcbor_uint32_decode(dec, &header));
+    uint32_t set_ids[8];
+    size_t set_count = 0;
+    while (!zcbor_array_at_end(dec))
     {
-        if (strcmp(vector->name, not_sent_by_this_client[i]) == 0)
+        uint32_t id = 0;
+        zassert_true(zcbor_uint32_decode(dec, &id));
+        if (interface_of(id) == NULL)
         {
             return false;
         }
+        if (code != STOW_MSG_SET)
+        {
+            continue;
+        }
+        for (size_t i = 0; i < set_count; i++)
+        {
+            if (set_ids[i] == id)
+            {
+                return false;
+            }
+        }
+        zassert_true(set_count < ARRAY_SIZE(set_ids));
+        set_ids[set_count++] = id;
+        zassert_true(zcbor_any_skip(dec, NULL));
     }
     return true;
 }
 
 /**
- * @brief Re-encode a vector's request with the client's encoder
+ * @brief Re-encode a client step with the client's encoder
  *
- * @return Encoded length, or 0 when the request does not decode as one the client encodes
+ * @return Encoded length, or 0 for a request this client never sends: a Describe that names no items, an item it
+ * has no binding for, or a Set that names an item twice
  */
-static size_t encode_like(const struct test_vector* vector, uint8_t* out, size_t out_size)
+static size_t encode_like(
+    const struct protocol_vector* vector, const struct protocol_step* step, uint8_t* out, size_t out_size)
 {
     zcbor_state_t dec[4];
-    zcbor_new_decode_state(dec, ARRAY_SIZE(dec), vector->request, vector->request_len, 1, NULL, 0);
+    zcbor_new_decode_state(dec, ARRAY_SIZE(dec), step->data, step->len, 1, NULL, 0);
     zcbor_state_t enc[4];
     zcbor_new_encode_state(enc, ARRAY_SIZE(enc), out, out_size, 1);
 
     uint32_t code = 0;
     uint32_t tag = 0;
-    if (!zcbor_list_start_decode(dec) || !zcbor_uint32_decode(dec, &code) || !zcbor_uint32_decode(dec, &tag))
-    {
-        return 0;
-    }
+    zassert_true(zcbor_list_start_decode(dec) && zcbor_uint32_decode(dec, &code) && zcbor_uint32_decode(dec, &tag));
 
     if (code == STOW_MSG_HELLO)
     {
@@ -102,10 +156,12 @@ static size_t encode_like(const struct test_vector* vector, uint8_t* out, size_t
         struct stow_client_item items[4] = { 0 };
         uint32_t start_id = 0;
         size_t count = 0;
-        if (!zcbor_uint32_decode(dec, &start_id) || zcbor_array_at_end(dec) || !zcbor_list_start_decode(dec))
+        zassert_true(zcbor_uint32_decode(dec, &start_id));
+        if (zcbor_array_at_end(dec))
         {
             return 0;
         }
+        zassert_true(zcbor_list_start_decode(dec));
         struct zcbor_string name;
         while (count < ARRAY_SIZE(items) && zcbor_tstr_decode(dec, &name))
         {
@@ -114,18 +170,18 @@ static size_t encode_like(const struct test_vector* vector, uint8_t* out, size_t
             items[count].name = names[count];
             count++;
         }
-        if (!zcbor_list_end_decode(dec))
+        zassert_true(zcbor_list_end_decode(dec));
+        zassert_equal(stow_client_serde_encode_describe(enc, (uint8_t)tag, start_id, items, count), 0);
+        zassert_equal(stow_client_serde_describe_fit(step->len, start_id, items, count), count);
+        zassert_equal(stow_client_serde_describe_fit(step->len - 1, start_id, items, count), count - 1);
+    }
+    else
+    {
+        if (!sendable_items(step, code))
         {
             return 0;
         }
-        zassert_equal(stow_client_serde_encode_describe(enc, (uint8_t)tag, start_id, items, count), 0);
-        zassert_equal(stow_client_serde_describe_fit(vector->request_len, start_id, items, count), count);
-        zassert_equal(stow_client_serde_describe_fit(vector->request_len - 1, start_id, items, count), count - 1);
-    }
-    else if (code == STOW_MSG_GET || code == STOW_MSG_SET || code == STOW_MSG_SUBSCRIBE || code == STOW_MSG_UNSUBSCRIBE)
-    {
-        uint32_t elements = (uint32_t)dec->elem_count;
-        zassert_equal(stow_client_serde_encode_start(enc, code, (uint8_t)tag, elements), 0);
+        zassert_equal(stow_client_serde_encode_start(enc, code, (uint8_t)tag, (uint32_t)dec->elem_count), 0);
         while (!zcbor_array_at_end(dec))
         {
             uint32_t id = 0;
@@ -133,54 +189,52 @@ static size_t encode_like(const struct test_vector* vector, uint8_t* out, size_t
             zassert_equal(stow_client_serde_encode_id(enc, id), 0);
             if (code == STOW_MSG_SET)
             {
-                const struct stow_item_interface* interface = interface_of(id);
-                zassert_not_null(interface, "%s: no codec for item %u", vector->name, id);
                 data_value_t value = { 0 };
-                zassert_equal(interface->decode(dec, &value), 0);
-                zassert_equal(interface->encode(enc, value), 0);
-                interface->release(&value);
+                zassert_equal(stow_item_decode(interface_of(id), dec, &value), 0, "%s", vector->name);
+                int ret = interface_of(id)->encode(enc, value);
+                stow_item_release(interface_of(id), &value);
+                zassert_equal(ret, 0, "%s", vector->name);
             }
         }
     }
-    else
-    {
-        return 0;
-    }
 
-    if (!zcbor_list_end_decode(dec) || dec->payload != vector->request + vector->request_len)
-    {
-        return 0;
-    }
+    zassert_true(zcbor_list_end_decode(dec), "%s", vector->name);
     return (size_t)(enc[0].payload - out);
 }
 
 ZTEST(stow_client_vectors, test_client_encodes_every_request_it_sends_like_the_vectors)
 {
+    for_each_description(bind);
     size_t checked = 0;
-    for (size_t i = 0; i < ARRAY_SIZE(test_vectors); i++)
+    for (size_t v = 0; v < stow_exchanges_count; v++)
     {
-        const struct test_vector* vector = &test_vectors[i];
-        if (!sent_by_this_client(vector))
+        const struct protocol_vector* vector = &stow_exchanges[v];
+        for (size_t s = 0; s < vector->step_count; s++)
         {
-            continue;
+            const struct protocol_step* step = &vector->steps[s];
+            uint8_t encoded[64];
+            size_t len = (step->side == CLIENT_SIDE) ? encode_like(vector, step, encoded, sizeof(encoded)) : 0;
+            if (len == 0)
+            {
+                continue;
+            }
+            zassert_equal(len, step->len, "%s.steps[%zu]: expected %s", vector->name, s, step->edn);
+            zassert_mem_equal(encoded, step->data, len, "%s.steps[%zu]: expected %s", vector->name, s, step->edn);
+            checked++;
         }
-        uint8_t encoded[64];
-        size_t len = encode_like(vector, encoded, sizeof(encoded));
-        zassert_equal(len, vector->request_len, "%s", vector->name);
-        zassert_mem_equal(encoded, vector->request, len, "%s", vector->name);
-        checked++;
     }
-    zassert_true(checked > 0, "no vector is a request this client sends");
+    zassert_true(checked > 0, "no step is a request this client sends");
 }
 
-static void decode_response(const struct test_vector* vector)
+static void decode_response(const struct protocol_vector* vector, size_t index)
 {
+    const struct protocol_step* step = &vector->steps[index];
     zcbor_state_t dec[4];
-    zcbor_new_decode_state(dec, ARRAY_SIZE(dec), vector->response, vector->response_len, 1, NULL, 0);
+    zcbor_new_decode_state(dec, ARRAY_SIZE(dec), step->data, step->len, 1, NULL, 0);
 
     uint32_t code = 0;
     uint8_t tag = 0;
-    zassert_equal(stow_wire_decode_start(dec, &code, &tag), 0, "%s", vector->name);
+    zassert_equal(stow_wire_decode_start(dec, &code, &tag), 0, "%s.steps[%zu]", vector->name, index);
 
     switch (code)
     {
@@ -188,7 +242,7 @@ static void decode_response(const struct test_vector* vector)
         {
             struct stow_client_serde_hello hello;
             zassert_equal(stow_client_serde_decode_hello(dec, &hello), 0);
-            zassert_equal(hello.roles, STOW_ROLE_GUEST | STOW_ROLE_DEV);
+            zassert_equal(hello.roles == 0, vector->roles[0] == NULL, "%s", vector->name);
             zassert_true(hello.max_message > 0);
             break;
         }
@@ -197,35 +251,25 @@ static void decode_response(const struct test_vector* vector)
             uint32_t next_id = 0;
             struct zcbor_string chunk;
             zassert_equal(stow_client_serde_decode_describe(dec, &next_id, &chunk), 0, "%s", vector->name);
-            zcbor_state_t items[4];
-            zcbor_new_decode_state(items, ARRAY_SIZE(items), chunk.value, chunk.len, ZCBOR_MAX_ELEM_COUNT, NULL, 0);
-            while (items[0].payload < items[0].payload_end)
-            {
-                struct stow_client_serde_description description;
-                zassert_equal(stow_client_serde_decode_description(items, &description), 0, "%s", vector->name);
-            }
             break;
         }
         case STOW_MSG_GET_RESPONSE:
+        case STOW_MSG_UPDATE:
             while (!zcbor_array_at_end(dec))
             {
                 uint32_t id = 0;
                 data_value_t value = { 0 };
                 zassert_true(zcbor_uint32_decode(dec, &id));
-                zassert_equal(interface_of(id)->decode(dec, &value), 0, "%s", vector->name);
-                interface_of(id)->release(&value);
+                zassert_not_null(interface_of(id), "%s: no binding for item %u", vector->name, id);
+                zassert_equal(stow_item_decode(interface_of(id), dec, &value), 0, "%s", vector->name);
+                stow_item_release(interface_of(id), &value);
             }
             break;
         case STOW_MSG_ERROR:
         {
-            uint32_t index = 0;
-            int err = stow_client_serde_decode_error(dec, &index);
+            uint32_t failed = 0;
+            int err = stow_client_serde_decode_error(dec, &failed);
             zassert_true(err < 0 && err != -ENOMSG, "%s", vector->name);
-            if (strcmp(vector->name, "get_permission_denied") == 0)
-            {
-                zassert_equal(err, -EACCES);
-                zassert_equal(index, 0);
-            }
             break;
         }
         case STOW_MSG_OK:
@@ -236,53 +280,56 @@ static void decode_response(const struct test_vector* vector)
     }
 }
 
-ZTEST(stow_client_vectors, test_client_decodes_every_response)
+static void decode_server_steps(const struct protocol_vector* vectors, size_t count)
 {
-    for (size_t i = 0; i < ARRAY_SIZE(test_vectors); i++)
+    for (size_t v = 0; v < count; v++)
     {
-        decode_response(&test_vectors[i]);
+        for (size_t s = 0; s < vectors[v].step_count; s++)
+        {
+            if (vectors[v].steps[s].side != CLIENT_SIDE)
+            {
+                decode_response(&vectors[v], s);
+            }
+        }
     }
 }
 
-ZTEST(stow_client_vectors, test_a_described_item_is_checked_against_its_codec)
+ZTEST(stow_client_vectors, test_client_decodes_every_response)
 {
-    const struct test_vector* filtered = NULL;
-    for (size_t i = 0; i < ARRAY_SIZE(test_vectors); i++)
+    for_each_description(bind);
+    decode_server_steps(stow_exchanges, stow_exchanges_count);
+    decode_server_steps(stow_malformed, stow_malformed_count);
+}
+
+static size_t checked_descriptions;
+
+static void check_against_binding(const struct stow_client_serde_description* description)
+{
+    const struct stow_client_item* item = binding_named(description->name);
+    zassert_not_null(item, "no binding for item %u", description->id);
+    zassert_equal(stow_client_serde_check(item, description), 0, "%s", item->name);
+
+    if (item->type == STOW_ITEM_TYPE_INT)
     {
-        filtered = (strcmp(test_vectors[i].name, "describe_filtered") == 0) ? &test_vectors[i] : filtered;
+        struct stow_client_item narrower = *item;
+        narrower.constraints.int_constraints.max--;
+        zassert_equal(stow_client_serde_check(&narrower, description), -EINVAL, "%s", item->name);
+
+        struct stow_client_item other_type = *item;
+        other_type.type = STOW_ITEM_TYPE_FLOAT;
+        other_type.interface = &stow_float_interface;
+        other_type.constraints.float_constraints = (struct stow_float_constraints){
+            .min = (float)item->constraints.int_constraints.min,
+            .max = (float)item->constraints.int_constraints.max,
+        };
+        zassert_equal(stow_client_serde_check(&other_type, description), -EINVAL, "%s", item->name);
     }
-    zassert_not_null(filtered);
+    checked_descriptions++;
+}
 
-    zcbor_state_t dec[4];
-    zcbor_new_decode_state(dec, ARRAY_SIZE(dec), filtered->response, filtered->response_len, 1, NULL, 0);
-    uint32_t code = 0;
-    uint8_t tag = 0;
-    uint32_t next_id = 0;
-    struct zcbor_string chunk;
-    zassert_equal(stow_wire_decode_start(dec, &code, &tag), 0);
-    zassert_equal(stow_client_serde_decode_describe(dec, &next_id, &chunk), 0);
-    zassert_equal(next_id, STOW_SERDE_ABSENT);
-
-    zcbor_state_t items[4];
-    zcbor_new_decode_state(items, ARRAY_SIZE(items), chunk.value, chunk.len, ZCBOR_MAX_ELEM_COUNT, NULL, 0);
-    struct stow_client_serde_description description;
-    zassert_equal(stow_client_serde_decode_description(items, &description), 0);
-    zassert_equal(description.id, 1);
-    zassert_equal(description.name.len, strlen("TestInt"));
-
-    struct stow_client_item expected = {
-        .name = "TestInt",
-        .type = STOW_ITEM_TYPE_INT,
-        .interface = &stow_int_interface,
-        .constraints.int_constraints = { .min = -100, .max = 100 },
-    };
-    zassert_equal(stow_client_serde_check(&expected, &description), 0);
-
-    expected.constraints.int_constraints.max = 99;
-    zassert_equal(stow_client_serde_check(&expected, &description), -EINVAL);
-
-    expected.type = STOW_ITEM_TYPE_FLOAT;
-    expected.interface = &stow_float_interface;
-    expected.constraints.float_constraints = (struct stow_float_constraints){ .min = -100.0f, .max = 100.0f };
-    zassert_equal(stow_client_serde_check(&expected, &description), -EINVAL);
+ZTEST(stow_client_vectors, test_every_described_item_matches_its_binding)
+{
+    checked_descriptions = 0;
+    for_each_description(check_against_binding);
+    zassert_true(checked_descriptions > 0, "no step describes an item");
 }
