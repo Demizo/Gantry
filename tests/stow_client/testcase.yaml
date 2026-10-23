@@ -4,3 +4,10 @@ tests:
   stow_client.native:
     tags: unit_testing
     platform_allow: native_sim
+  stow_client.release:
+    tags: unit_testing
+    platform_allow: native_sim
+    build_only: true
+    extra_configs:
+      - CONFIG_ASSERT=n
+      - CONFIG_COMPILER_WARNINGS_AS_ERRORS=y

@@ -41,15 +41,60 @@ def test_library_and_sample_are_clean():
     assert _check_tree(SAMPLE_SRC, registry) == []
 
 
-def test_removing_a_pass_ownership_marker_is_reported(tmp_path, library_annotations):
-    source = (LIB / "event.c").read_text()
-    assert "PASS_OWNERSHIP(event_block);" in source
-    mutated = tmp_path / "event.c"
-    mutated.write_text(source.replace("PASS_OWNERSHIP(event_block);", ""))
+def _check_mutated(tmp_path, annotations, source: Path, old: str, new: str) -> list:
+    text = source.read_text()
+    assert text.count(old) == 1
+    mutated = tmp_path / source.name
+    mutated.write_text(text.replace(old, new))
+    return check_file(mutated, annotations, make_parser())
 
-    findings = check_file(mutated, library_annotations, make_parser())
+
+def test_removing_a_pass_ownership_marker_is_reported(tmp_path, library_annotations):
+    findings = _check_mutated(
+        tmp_path,
+        library_annotations,
+        LIB / "event.c",
+        "PASS_OWNERSHIP(event_block);",
+        "",
+    )
 
     assert any("'event_block'" in f.text for f in findings)
+
+
+def test_dropping_a_protocol_event_is_reported(tmp_path, library_annotations):
+    findings = _check_mutated(
+        tmp_path,
+        library_annotations,
+        LIB / "stow" / "stow_protocol.c",
+        "return push_event(event);",
+        "return SUCCESS;",
+    )
+
+    assert any("'event'" in f.text and "not released" in f.text for f in findings)
+
+
+def test_sending_a_response_twice_is_reported(tmp_path, library_annotations):
+    findings = _check_mutated(
+        tmp_path,
+        library_annotations,
+        LIB / "stow" / "stow_protocol.c",
+        "int ret = send_message(session, buf);",
+        "(void)send_message(session, buf);\n    int ret = send_message(session, buf);",
+    )
+
+    assert any("'buf' released twice" in f.text for f in findings)
+
+
+def test_leaving_a_client_call_unfinished_is_reported(tmp_path, library_annotations):
+    findings = _check_mutated(
+        tmp_path,
+        library_annotations,
+        LIB / "stow" / "stow_client.c",
+        "complete_request(peer, slot, code, decoder);\n        return;",
+        "return;",
+    )
+
+    assert any("'slot'" in f.text and "not released" in f.text for f in findings)
 
 
 def test_removing_the_release_annotation_is_reported(tmp_path):
