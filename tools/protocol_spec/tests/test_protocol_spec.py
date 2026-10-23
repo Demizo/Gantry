@@ -7,8 +7,9 @@ from pathlib import Path
 import cbor_diag
 import pytest
 
-from protocol_spec import load
+from protocol_spec import constants, load
 from protocol_spec.cddl import Cddl
+from protocol_spec.constants import to_header
 from protocol_spec.encodings import cbor_edn
 from protocol_spec.output import to_c, to_json
 from protocol_spec.vectors import uncovered
@@ -316,3 +317,109 @@ def test_c_output_compiles_and_holds_the_vectors(tmp_path: Path):
 )
 def test_repo_vectors_load_and_cover_every_message(folder: Path):
     assert uncovered(folder) == []
+
+
+CONSTANT_CDDL = """
+question = [op-ping, tag] / [op-sum, tag, uint]
+op-ping = 0
+op-sum = 1   ; adds
+version = 3
+tag = 0..23
+int8 = -128..127
+"""
+
+CONSTANT_NAMES = """cddl: test.cddl
+constants:
+  version: {c: TOY_VERSION}
+  tag: {c: TOY_TAG_MAX, bound: max}
+  op-: {c_enum: toy_op, c_prefix: TOY_OP_, c_count: TOY_OP_COUNT, python: Op}
+"""
+
+
+def _constants_folder(tmp_path: Path, names: str = CONSTANT_NAMES) -> Path:
+    (tmp_path / "test.cddl").write_text(CONSTANT_CDDL)
+    (tmp_path / "constants.yaml").write_text(names)
+    return tmp_path
+
+
+def test_constants_take_their_values_from_the_cddl(tmp_path: Path):
+    groups = constants(_constants_folder(tmp_path)).groups
+    assert [(g.cddl, g.members) for g in groups] == [
+        ("version", (("version", 3),)),
+        ("tag", (("tag", 23),)),
+        ("op-", (("op-ping", 0), ("op-sum", 1))),
+    ]
+    assert groups[2].entry["python"] == "Op"
+    assert groups[2].suffix("op-sum") == "SUM"
+
+
+def test_a_cddl_integer_the_mapping_misses_is_reported(tmp_path: Path):
+    folder = _constants_folder(tmp_path, CONSTANT_NAMES.replace("  version:", "  v:"))
+    with pytest.raises(ValueError, match="v names no CDDL integer"):
+        constants(folder)
+    names = CONSTANT_NAMES.replace("  version: {c: TOY_VERSION}\n", "")
+    with pytest.raises(ValueError, match="doesn't name version"):
+        constants(_constants_folder(tmp_path, names))
+
+
+BASE_INSTALL = """
+import sys
+from protocol_spec.cli import main
+
+sys.argv = ["protocol-spec", "constants", sys.argv[1], "--output", sys.argv[2]]
+try:
+    main()
+except SystemExit as exit:
+    assert exit.code == 0
+assert "cbor2" not in sys.modules and "zcbor" not in sys.modules
+"""
+
+
+def test_a_counted_group_with_a_gap_is_reported(tmp_path: Path):
+    folder = _constants_folder(tmp_path)
+    (folder / "test.cddl").write_text(CONSTANT_CDDL.replace("op-sum = 1", "op-sum = 2"))
+    with pytest.raises(ValueError, match="op- has a c_count"):
+        to_header(constants(folder))
+
+
+def test_constants_need_only_the_base_install(tmp_path: Path):
+    folder = _constants_folder(tmp_path)
+    header = folder / "toy.h"
+    subprocess.run(
+        [sys.executable, "-c", BASE_INSTALL, str(folder), str(header)], check=True
+    )
+    assert "TOY_OP_COUNT," in header.read_text()
+
+
+HOST_CONSTANTS = r"""
+#include "toy.h"
+#include <stdio.h>
+
+int main(void)
+{
+    printf("%d|%d|%d|%d|%d\n", TOY_VERSION, TOY_TAG_MAX, TOY_OP_PING, TOY_OP_SUM, TOY_OP_COUNT);
+    return 0;
+}
+"""
+
+
+@pytest.mark.skipif(COMPILER is None, reason="no host C compiler")
+def test_constants_header_compiles(tmp_path: Path):
+    folder = _constants_folder(tmp_path)
+    (folder / "toy.h").write_text(to_header(constants(folder)))
+    (folder / "main.c").write_text(HOST_CONSTANTS)
+    program = folder / "host_test"
+    subprocess.run(
+        [
+            COMPILER,
+            "-std=c11",
+            "-Wall",
+            "-Werror",
+            str(folder / "main.c"),
+            "-o",
+            str(program),
+        ],
+        check=True,
+    )
+    output = subprocess.run([str(program)], capture_output=True, text=True, check=True)
+    assert output.stdout.strip() == "3|23|0|1|2"

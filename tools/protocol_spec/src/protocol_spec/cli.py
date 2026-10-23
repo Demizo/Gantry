@@ -1,11 +1,10 @@
-"""Command line that checks a protocol folder's vectors or renders them for other consumers."""
+"""Command line that checks a protocol folder's vectors, or renders them or its constants for other consumers."""
 
 import argparse
 import sys
 from pathlib import Path
 
-from .output import to_c, to_json
-from .vectors import load, uncovered
+from .constants import constants, to_header
 
 
 def _write(path: Path, text: str) -> None:
@@ -16,6 +15,12 @@ def _write(path: Path, text: str) -> None:
 def run(args: argparse.Namespace) -> bool:
     """Run one command, printing problems to stderr; False when there were any."""
     try:
+        if args.command == "constants":
+            _write(args.output, to_header(constants(args.folder)))
+            return True
+        from .output import to_c, to_json
+        from .vectors import load, uncovered
+
         if args.command == "check":
             missing = uncovered(args.folder)
             for line in missing:
@@ -48,6 +53,11 @@ def parser() -> argparse.ArgumentParser:
     export = commands.add_parser("json", help="export the vectors as JSON")
     export.add_argument("folder", type=Path)
     export.add_argument("--output", required=True, type=Path)
+    header = commands.add_parser(
+        "constants", help="render the CDDL integers constants.yaml names as a C header"
+    )
+    header.add_argument("folder", type=Path)
+    header.add_argument("--output", required=True, type=Path)
     return parser
 
 

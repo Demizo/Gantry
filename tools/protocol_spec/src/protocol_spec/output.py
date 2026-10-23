@@ -2,8 +2,7 @@
 
 import json
 
-import jinja2
-
+from .rendering import render
 from .vectors import SECTIONS, SOURCE, Step, Vectors
 
 
@@ -41,16 +40,9 @@ def _c_bytes(data: bytes) -> str:
 
 def to_c(vectors: Vectors, prefix: str) -> str:
     """C data for ``protocol_vectors.h``: ``<prefix>_sides``, ``_exchanges`` and ``_malformed``."""
-    environment = jinja2.Environment(
-        loader=jinja2.PackageLoader("protocol_spec"),
-        trim_blocks=True,
-        lstrip_blocks=True,
-        keep_trailing_newline=True,
-        undefined=jinja2.StrictUndefined,
-    )
-    environment.filters["c_string"] = _c_string
-    environment.filters["c_bytes"] = _c_bytes
-    return environment.get_template("vectors.c.j2").render(
+    return render(
+        "vectors.c.j2",
+        {"c_string": _c_string, "c_bytes": _c_bytes},
         source=SOURCE,
         prefix=prefix,
         sides=vectors.sides,

@@ -63,7 +63,7 @@ analyze:
 
 # Validate the protocol golden vectors and check every message kind has one
 vectors:
-  uv run --project tools/protocol_spec protocol-spec check protocols/stow
+  uv run --project tools/protocol_spec --extra vectors protocol-spec check protocols/stow
 
 # Lint and format-check the repo's Python with the pinned ruff
 lint:

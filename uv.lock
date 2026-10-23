@@ -368,24 +368,30 @@ name = "protocol-spec"
 version = "0.1.0"
 source = { editable = "tools/protocol_spec" }
 dependencies = [
-    { name = "cbor-diag" },
-    { name = "cbor2" },
     { name = "jinja2" },
     { name = "pyyaml" },
+]
+
+[package.optional-dependencies]
+vectors = [
+    { name = "cbor-diag" },
+    { name = "cbor2" },
     { name = "zcbor" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "cbor-diag", specifier = ">=1.2.0" },
-    { name = "cbor2", specifier = ">=5.6,<6" },
+    { name = "cbor-diag", marker = "extra == 'vectors'", specifier = ">=1.2.0" },
+    { name = "cbor2", marker = "extra == 'vectors'", specifier = ">=5.6,<6" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "zcbor", specifier = "==0.9.1" },
+    { name = "zcbor", marker = "extra == 'vectors'", specifier = "==0.9.1" },
 ]
+provides-extras = ["vectors"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "protocol-spec", extras = ["vectors"] },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = "==0.15.14" },
 ]
@@ -762,7 +768,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "protocol-spec" },
+    { name = "protocol-spec", extra = ["vectors"] },
     { name = "pytest" },
     { name = "pytest-asyncio" },
 ]
@@ -777,7 +783,7 @@ requires-dist = [{ name = "cbor2", specifier = ">=5.6.0" }]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "protocol-spec", editable = "tools/protocol_spec" },
+    { name = "protocol-spec", extras = ["vectors"], editable = "tools/protocol_spec" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
 ]

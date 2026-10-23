@@ -10,7 +10,7 @@ function(protocol_vectors_generate target folder prefix)
   file(GLOB inputs ${folder}/* ${tool}/src/protocol_spec/*.py ${tool}/src/protocol_spec/templates/*)
   add_custom_command(
     OUTPUT ${output}
-    COMMAND ${UV_CMD} run --project ${tool}
+    COMMAND ${UV_CMD} run --project ${tool} --extra vectors
             protocol-spec c ${folder} --prefix ${prefix} --output ${output}
     DEPENDS ${inputs}
     COMMENT "Rendering the ${prefix} protocol vectors"

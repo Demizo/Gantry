@@ -53,6 +53,25 @@ Every consumer follows the same rules:
 2. The side under test produces exactly the bytes of its steps, in order.
 3. After the last step, the side under test sends nothing more.
 
+## Constants
+
+`constants.yaml` names the integers of the folder's CDDL; the values come only from the CDDL.
+
+```yaml
+cddl: stow.cddl
+constants:
+  protocol-version: {c: STOW_PROTOCOL_VERSION}           # one `name = <integer>` line
+  tag: {c: STOW_TAG_MAX, bound: max}                     # a bound of a `name = <min>..<max>` line
+  msg-: {c_enum: stow_message_code, c_prefix: STOW_MSG_, c_count: STOW_MSG_COUNT}
+```
+
+- A key ending in `-` is a group of every `<key><suffix> = <integer>` line. In C it is an enum whose members are `c_prefix` and the suffix in upper case, with `-` as `_`, then `c_count` if given.
+- Any other key is one constant, a `#define` in C.
+- Every `name = <integer>` line of the CDDL must belong to an entry, so a new constant can't be dropped silently. Range lines are rendered only when named.
+- Other keys, such as `python`, pass through to `protocol_spec.constants(folder)` for consumers that check their own copies.
+
+The constants need only the base install. Checking, rendering and exporting vectors need the `vectors` extra.
+
 ## Command line
 
 | Command | Does |
@@ -60,5 +79,6 @@ Every consumer follows the same rules:
 | `protocol-spec check FOLDER` | Validates every vector and fails when an alternative of a side's rule has no step |
 | `protocol-spec c FOLDER --prefix P --output FILE` | Renders C data, `P_sides`, `P_exchanges` and `P_malformed` with their counts, declared by `tests/common/protocol_vectors.h` |
 | `protocol-spec json FOLDER --output FILE` | Exports the vectors in the shape of `vectors.yaml`, each message as `{"hex": ..., "edn": ...}` |
+| `protocol-spec constants FOLDER --output FILE` | Renders the constants `constants.yaml` names as a C header |
 
 Python consumers call `protocol_spec.load(folder)`, which reads and validates the folder without writing a file. A load error names every bad step, such as `set_already_set.steps[1]: does not match response: ...`.
