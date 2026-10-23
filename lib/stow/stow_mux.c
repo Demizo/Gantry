@@ -73,15 +73,16 @@ static void reply_error(struct stow_mux* mux, enum stow_error_code code, uint8_t
     if (ret == SUCCESS)
     {
         stow_wire_message_end(buf, encoder);
-        ret = transport->send(transport, mux->session_id, buf);
+        ret = stow_transport_send(transport, mux->session_id, buf);
+    }
+    else
+    {
+        net_buf_unref(buf);
     }
     if (ret != SUCCESS)
     {
         LOG_WRN("Dropped the answer to a request for session %u that has no server (%d)", mux->session_id, ret);
-        net_buf_unref(buf);
-        return;
     }
-    PASS_OWNERSHIP(buf);
 }
 
 //**********************************************************

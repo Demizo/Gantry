@@ -394,12 +394,7 @@ static int signal_session(uint32_t session_id, enum session_signal signal)
  */
 static int send_message(struct protocol_session* session, struct net_buf* buf)
 {
-    int ret = session->transport->send(session->transport, session->session_id, buf);
-    if (ret != SUCCESS)
-    {
-        net_buf_unref(buf);
-    }
-    return ret;
+    return stow_transport_send(session->transport, session->session_id, buf);
 }
 
 /**

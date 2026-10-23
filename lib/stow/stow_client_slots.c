@@ -259,15 +259,13 @@ void z_stow_client_slot_fail_all(struct stow_client_peer* peer)
 
 int z_stow_client_slot_send(struct stow_client_peer* peer, struct slot* slot, struct net_buf* buf)
 {
-    int ret = peer->transport->send(peer->transport, peer->session_id, buf);
+    int ret = stow_transport_send(peer->transport, peer->session_id, buf);
     if (ret != SUCCESS)
     {
         LOG_WRN("Transport refused a request to session %u (%d)", peer->session_id, ret);
-        net_buf_unref(buf);
         z_stow_client_slot_fail(peer, slot, -EBUSY);
         return -EBUSY;
     }
-    PASS_OWNERSHIP(buf);
     mark_sent(peer, slot);
     return SUCCESS;
 }

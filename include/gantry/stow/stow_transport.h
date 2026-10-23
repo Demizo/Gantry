@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <gantry/error.h>
 #include <gantry/stow/types/stow_types.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -96,6 +97,30 @@ struct stow_endpoint
      */
     void (*receive)(const struct stow_endpoint* endpoint, uint32_t session_id, struct net_buf* buf);
 };
+
+//**********************************************************
+//* Functions
+//**********************************************************
+
+/**
+ * @brief Send one complete Stow message, dropping it when the transport refuses it
+ *
+ * @param transport The transport to send on
+ * @param session_id Session the message belongs to
+ * @param buf The message, ownership is always taken
+ *
+ * @return SUCCESS when the transport took the message, otherwise the transport's error
+ * @releases net_buf buf
+ */
+static inline int stow_transport_send(struct stow_transport* transport, uint32_t session_id, struct net_buf* buf)
+{
+    int ret = transport->send(transport, session_id, buf);
+    if (ret != SUCCESS)
+    {
+        net_buf_unref(buf);
+    }
+    return ret;
+}
 
 /**
  * @}
