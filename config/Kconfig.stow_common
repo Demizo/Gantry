@@ -17,3 +17,8 @@ config STOW_COBS_TRANSPORT
     select COBS
     help
       An interim transport that carries Stow messages as COBS frames over a byte stream.
+
+config STOW_MSG_LOG_LEVEL
+    int "Stow message codec log level"
+    default 3
+    depends on GANTRY_STOW_TYPES

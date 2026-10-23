@@ -53,6 +53,7 @@ Never commit spec, plans, or scratch files. These should be placed in the .scrat
 ## Taste
 
 - Comments describe how something is used, not what its lines do. A comment says what the code can't: a reason, or a workaround with its cause. Comments are concise, not prose, and code should mostly describe itself. Never leave a train of thought or a note about what changed; write every change as if it were the first implementation.
+- Names are words, not letters. Variables and parameters say what they hold (`reader`, `writer`, `entry`), never `r`, `w` or `e`. Loop counters (`i`) are the only single-letter exception.
 - Try to define a single source of truth for code and documentation.
 - An acquired resource is released in the same function, or passed to a function annotated `@releases`. `PASS_OWNERSHIP` marks an exception. It flags that the reviewer must take care to understand the ownership model and lifecycle.
 - When possible, Modules read from and publish to the Stow rather than exposing a direct function API to each other.

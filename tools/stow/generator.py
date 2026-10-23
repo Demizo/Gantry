@@ -9,6 +9,7 @@ from preprocess import (
     preprocess_structs,
     template_environment,
     to_snake,
+    write_depth,
 )
 
 
@@ -129,6 +130,7 @@ def generate(
     enums_c_out = output_dir / "src" / "stow" / "generated_stow_enums.c"
 
     h_out.write_text(env.get_template("generated_stow_items.h.j2").render(**context))
+    write_depth(output_dir / "generated_stow_depth", items, structs)
     c_out.write_text(env.get_template("generated_stow_items.c.j2").render(**context))
     enums_h_out.write_text(
         env.get_template("generated_stow_enums.h.j2").render(**context)

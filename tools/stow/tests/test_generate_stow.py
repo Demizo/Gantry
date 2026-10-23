@@ -44,3 +44,13 @@ def test_printed_hash_is_the_generated_stow_hash(tmp_path: Path):
     items = (out / "src" / "stow" / "generated_stow_items.c").read_text()
     assert len(printed) == 64
     assert f'"{printed}"' in items
+
+
+def test_the_depth_of_a_schema_without_structs_is_zero(tmp_path: Path):
+    schema = tmp_path / "stow.yaml"
+    schema.write_text(yaml.safe_dump(SCHEMA))
+    out = tmp_path / "out"
+    for sub in ("inc", "src"):
+        (out / sub / "stow").mkdir(parents=True)
+    _run("--yaml", str(schema), "--output-dir", str(out))
+    assert (out / "generated_stow_depth").read_text() == "0\n"

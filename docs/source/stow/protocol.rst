@@ -31,6 +31,8 @@ Each transport message carries exactly one Stow message. A transport must delive
 
 An application that authenticates a peer in-band can change a session's roles with ``stow_protocol_session_set_roles``. Subscriptions the new roles can no longer read are revoked.
 
+Stow assumes its clients are trusted, so authenticate a peer before it reaches the Stow. A receiver skips the content it does not decode, such as an unknown item's value, with recursion that grows with the nesting. A malicious message of deeply nested containers can overflow the stack and crash the device.
+
 Messages
 ========
 

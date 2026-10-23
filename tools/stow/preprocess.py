@@ -191,6 +191,23 @@ def preprocess_structs(structs_list: list, enums: dict, prefix: str = "") -> dic
     return result
 
 
+def write_depth(path: Path, items: list, structs: dict) -> None:
+    """Write the deepest struct nesting of the items' values, which sizes the decoders that read them."""
+
+    def depth(struct: str) -> int:
+        fields = structs[struct]["fields"]
+        return 1 + max(
+            (depth(f["nested_struct_name"]) for f in fields if f["type"] == "STRUCT"),
+            default=0,
+        )
+
+    deepest = max(
+        (depth(item["struct_name"]) for item in items if item["type"] == "STRUCT"),
+        default=0,
+    )
+    path.write_text(f"{deepest}\n")
+
+
 def _build_struct_default(prefix: str, struct_def: dict, default_list, structs: dict):
     """Return (field_entries, pre_decls) for a struct default; pre_decls go before the variable."""
     default_map = {}

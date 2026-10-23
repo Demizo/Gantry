@@ -5,6 +5,10 @@ endif()
 
 if(CONFIG_GANTRY_STOW_TYPES)
   gantry_protocol_constants(${CMAKE_CURRENT_LIST_DIR}/protocols/stow stow_wire_codes.h)
+
+  # STOW_DEPTH_MAX is read when the build is generated, after every deferred Stow generator call has raised it
+  add_custom_target(gantry_stow_depth)
+  zephyr_compile_definitions(STOW_DEPTH_MAX=$<TARGET_PROPERTY:gantry_stow_depth,STOW_DEPTH_MAX>)
 endif()
 
 if(CONFIG_GANTRY_STOW)
@@ -54,7 +58,7 @@ if(CONFIG_GANTRY_BUILD_LIBRARY)
   endif()
 
   if(CONFIG_STOW_PROTOCOL OR CONFIG_STOW_CLIENT)
-    zephyr_library_sources(lib/stow/stow_wire.c)
+    zephyr_library_sources(lib/stow/stow_msg.c lib/stow/stow_wire.c)
   endif()
 
   if(CONFIG_STOW_COBS_TRANSPORT)

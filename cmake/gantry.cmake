@@ -22,6 +22,18 @@ function(gantry_protocol_constants folder header)
   zephyr_include_directories(${_dir})
 endfunction()
 
+# gantry_stow_raise_depth(<file>)
+#
+# Raises STOW_DEPTH_MAX to the depth a Stow generator wrote to <file>.
+function(gantry_stow_raise_depth file)
+  file(READ ${file} _depth)
+  string(STRIP "${_depth}" _depth)
+  get_property(_max TARGET gantry_stow_depth PROPERTY STOW_DEPTH_MAX)
+  if("${_max}" STREQUAL "" OR _depth GREATER _max)
+    set_property(TARGET gantry_stow_depth PROPERTY STOW_DEPTH_MAX ${_depth})
+  endif()
+endfunction()
+
 # gantry_stow_add_fragment(<path>)
 #
 # Registers an additional stow YAML fragment to be merged into the app's
@@ -41,13 +53,13 @@ function(gantry_stow_add_fragment path)
 endfunction()
 
 # _gantry_stow_run(WHAT <what> SCRIPT <script> OUTPUT_DIR <dir> YAML <path>
-#                  [FRAGMENTS <path>...] [ARGS <arg>...])
+#                  DEPTH <file> [FRAGMENTS <path>...] [ARGS <arg>...])
 #
 # Runs a Stow generator script over a stow.yaml and its fragments, which
-# become configure dependencies, and adds the generated headers to the
-# include path.
+# become configure dependencies, adds the generated headers to the include
+# path, and raises STOW_DEPTH_MAX to the depth file it wrote.
 function(_gantry_stow_run)
-  cmake_parse_arguments(ARG "" "WHAT;SCRIPT;OUTPUT_DIR;YAML" "FRAGMENTS;ARGS" ${ARGN})
+  cmake_parse_arguments(ARG "" "WHAT;SCRIPT;OUTPUT_DIR;YAML;DEPTH" "FRAGMENTS;ARGS" ${ARGN})
 
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ARG_YAML} ${ARG_FRAGMENTS})
   set(_fragment_args)
@@ -73,6 +85,7 @@ function(_gantry_stow_run)
   endif()
 
   zephyr_include_directories(${ARG_OUTPUT_DIR}/inc/stow)
+  gantry_stow_raise_depth(${ARG_OUTPUT_DIR}/${ARG_DEPTH})
 endfunction()
 
 # gantry_stow_generate([YAML <path>] [OUTPUT_DIR <dir>])
@@ -129,6 +142,7 @@ function(gantry_stow_generate)
     WHAT       stow
     SCRIPT     generate_stow.py
     OUTPUT_DIR ${ARG_OUTPUT_DIR}
+    DEPTH      generated_stow_depth
     YAML       ${ARG_YAML}
     FRAGMENTS  ${_fragments}
     ARGS       ${_board_args} --app-dir ${APPLICATION_SOURCE_DIR}
@@ -208,6 +222,7 @@ function(_gantry_stow_client_run)
     WHAT       "Stow client"
     SCRIPT     generate_stow_client.py
     OUTPUT_DIR ${ARG_OUTPUT_DIR}
+    DEPTH      generated_${ARG_PREFIX}_stow_depth
     YAML       ${ARG_YAML}
     FRAGMENTS  ${ARG_FRAGMENTS}
     ARGS       ${_args}

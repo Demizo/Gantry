@@ -8,6 +8,7 @@ from preprocess import (
     preprocess_items,
     preprocess_structs,
     template_environment,
+    write_depth,
 )
 
 PREFIX_RE = re.compile(r"^[a-z](?:[a-z0-9_]*[a-z0-9])?$")
@@ -172,3 +173,4 @@ def generate_client(
     for path, (template, template_context) in outputs.items():
         path.write_text(env.get_template(template).render(**template_context))
         print(f"Generated {path}")
+    write_depth(output_dir / f"generated_{p}stow_depth", items, used_structs)

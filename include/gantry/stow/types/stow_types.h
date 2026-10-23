@@ -24,6 +24,11 @@
 #include <zcbor_encode.h>
 #include <zephyr/kernel.h>
 
+#if (0 - STOW_DEPTH_MAX - 1) >= 0
+#error \
+    "STOW_DEPTH_MAX is empty: run gantry_stow_generate or gantry_stow_client_generate, or call gantry_stow_raise_depth"
+#endif
+
 /**
  * @addtogroup stow
  * @{

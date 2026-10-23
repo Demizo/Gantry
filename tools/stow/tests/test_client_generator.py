@@ -169,3 +169,10 @@ def test_an_identical_nested_struct_is_reused_inside_a_differing_struct(tmp_path
 
     assert "} peer_Outer_t;" in files["generated_peer_struct_Outer.h"]
     assert "typedef Inner_t peer_Inner_t;" in files["generated_peer_struct_Inner.h"]
+
+
+@pytest.mark.parametrize("names, depth", [(["Level"], 0), (["Shape"], 2)])
+def test_the_depth_is_the_deepest_struct_nesting_of_the_bound_items(
+    tmp_path, names, depth
+):
+    assert generated(tmp_path, names)["generated_peer_stow_depth"] == f"{depth}\n"
