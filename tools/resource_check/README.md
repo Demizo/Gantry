@@ -1,6 +1,6 @@
 # Resource Checker
 
-Reports a resource that is acquired in a function and not released on every path to a `return`. It reads C syntax via [tree-sitter](https://tree-sitter.github.io/tree-sitter/). What counts as an acquire or a release is declared in doc comment tags:
+Reports a resource that is acquired in a function and not released exactly once on every path to a `return`, or that is used after its release. It reads C syntax via [tree-sitter](https://tree-sitter.github.io/tree-sitter/). What counts as an acquire or a release is declared in doc comment tags:
 
 ```c
 /** @acquires memory block_ptr on-success */
