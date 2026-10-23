@@ -53,6 +53,25 @@ class Cddl:
             )
         self._rules = translator.my_types
 
+    def has_rule(self, rule: str) -> bool:
+        return rule in self._rules
+
+    def alternatives(self, rule: str) -> list[str]:
+        """The rules a choice rule such as ``a = b / c`` names, or just rule when it is no choice."""
+        if rule not in self._rules:
+            raise ValueError(f"the CDDL has no rule {rule!r}")
+        node = self._rules[rule]
+        if node.type == "UNION" and all(child.type == "OTHER" for child in node.value):
+            return [child.value for child in node.value]
+        return [rule]
+
+    def matches(self, rule: str, data: bytes) -> bool:
+        try:
+            self.validate(rule, data)
+        except ValueError:
+            return False
+        return True
+
     def validate(self, rule: str, data: bytes) -> None:
         """Raise ValueError unless data is a single CBOR item that matches rule."""
         if rule not in self._rules:

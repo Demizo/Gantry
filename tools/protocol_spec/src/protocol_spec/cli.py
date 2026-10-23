@@ -1,46 +1,55 @@
-"""Command line that generates or checks the golden vectors of protocol spec folders."""
+"""Command line that checks a protocol folder's vectors or renders them for other consumers."""
 
 import argparse
 import sys
 from pathlib import Path
 
-from .spec import OUTPUT, build
+from .output import to_c, to_json
+from .vectors import load, uncovered
 
 
-def run(command: str, folders: list[Path]) -> bool:
-    """Generate or check the vectors of each folder, returning False on any failure."""
-    ok = True
-    for folder in folders:
-        try:
-            text = build(folder)
-        except (OSError, ValueError) as error:
-            print(f"{folder}: {error}", file=sys.stderr)
-            ok = False
-            continue
-        output = folder / OUTPUT
-        if command == "generate":
-            output.write_text(text, encoding="utf-8", newline="\n")
-        elif not output.is_file() or output.read_text(encoding="utf-8") != text:
-            print(
-                f"{output} is out of date; run protocol-spec generate", file=sys.stderr
-            )
-            ok = False
-    return ok
+def _write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8", newline="\n")
+
+
+def run(args: argparse.Namespace) -> bool:
+    """Run one command, printing problems to stderr; False when there were any."""
+    try:
+        if args.command == "check":
+            missing = uncovered(args.folder)
+            for line in missing:
+                print(f"{args.folder}: {line}", file=sys.stderr)
+            return not missing
+        vectors = load(args.folder)
+    except (OSError, ValueError) as error:
+        print(f"{args.folder}: {error}", file=sys.stderr)
+        return False
+    if args.command == "c":
+        _write(args.output, to_c(vectors, args.prefix))
+    else:
+        _write(args.output, to_json(vectors))
+    return True
+
+
+def parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="protocol-spec", description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    check = commands.add_parser(
+        "check", help="validate every vector and check every message kind has one"
+    )
+    check.add_argument(
+        "folder", type=Path, help="protocol folder, such as protocols/stow"
+    )
+    c = commands.add_parser("c", help="render the vectors as C data")
+    c.add_argument("folder", type=Path)
+    c.add_argument("--prefix", required=True, help="prefix of the C names")
+    c.add_argument("--output", required=True, type=Path)
+    export = commands.add_parser("json", help="export the vectors as JSON")
+    export.add_argument("folder", type=Path)
+    export.add_argument("--output", required=True, type=Path)
+    return parser
 
 
 def main() -> None:
-    """Run protocol-spec generate or check over the given folders."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "command",
-        choices=["generate", "check"],
-        help="write vectors.json, or fail when it differs from what would be written",
-    )
-    parser.add_argument(
-        "folders",
-        nargs="+",
-        type=Path,
-        help="protocol spec folders, such as protocols/stow",
-    )
-    args = parser.parse_args()
-    sys.exit(0 if run(args.command, args.folders) else 1)
+    sys.exit(0 if run(parser().parse_args()) else 1)

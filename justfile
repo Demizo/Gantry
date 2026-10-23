@@ -61,12 +61,8 @@ analyze:
   uv run --project tools/resource_check resource-check lib/ {{sample}}/src/ --annotations include --annotations {{sample}}/inc
   cppcheck --quiet --inline-suppr --enable=warning,performance,portability --check-level=exhaustive --error-exitcode=1 --inconclusive lib/ {{sample}}/src/
 
-# Regenerate the protocol golden vectors from their specs
+# Validate the protocol golden vectors and check every message kind has one
 vectors:
-  uv run --project tools/protocol_spec protocol-spec generate protocols/stow
-
-# Fail when a protocol's golden vectors differ from its spec
-check-vectors:
   uv run --project tools/protocol_spec protocol-spec check protocols/stow
 
 # Lint and format-check the repo's Python with the pinned ruff
@@ -83,11 +79,11 @@ build-test component:
   west build -p -b native_sim -d tests/build tests/{{component}} -- -DCONF_FILE='prj.conf;../test_prj.conf'
 
 # Run all unit tests
-test-all: check-vectors
+test-all:
   west twister -T tests/ -p native_sim --clobber-output -i -v
 
 # Run tests for a specific component (e.g. `just test memory`)
-test component: check-vectors
+test component:
   west twister -T tests/{{component}} -p native_sim --clobber-output -i -vv
 
 alias ti := test-integration

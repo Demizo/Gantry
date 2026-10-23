@@ -254,7 +254,7 @@ Once subscribed, the server pushes ``Update`` messages to the client whenever th
 Golden Vectors
 --------------
 
-``protocols/stow/vectors.yaml`` holds request and response pairs, written in CBOR diagnostic notation, that both the firmware and the Python client are tested against. ``just vectors`` checks every message against the CDDL and regenerates ``vectors.json``, the hex-encoded bytes the tests read, and ``just check-vectors`` fails when it is out of date. Client authors can use them to check their encoding and add the interactions their client relies on.
+``protocols/stow/vectors.yaml`` holds request and response pairs, written in CBOR diagnostic notation, that both the firmware and the Python client are tested against. ``just vectors`` checks every message against the CDDL and that every request and response kind has a vector; ``tools/protocol_spec/README.md`` describes the format. Client authors can use them to check their encoding and add the interactions their client relies on.
 
 Stow Description
 ================
