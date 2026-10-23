@@ -56,7 +56,7 @@ struct stow_serde_request
 {
     enum stow_message_code message_code; /**< Message code */
     uint8_t tag;                         /**< Request tag, or @ref STOW_TAG_NONE when it could not be decoded */
-    enum stow_item_id item_id;           /**< Start ID of a Describe request */
+    uint32_t item_id;                    /**< Start ID of a Describe request */
 
     const uint8_t* payload; /**< The encoded request, kept to decode its entries again */
     size_t payload_len;     /**< Length of @ref payload */
@@ -83,7 +83,6 @@ struct stow_serde_request
  * @return SUCCESS when the request was decoded
  * @return -EBADMSG when the request is malformed
  * @return -ENOTSUP when the message code is unknown
- * @return -ENOENT when a Describe start ID is not valid
  * @return -ENOMEM when memory cannot be allocated to check a value
  */
 int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request* request_out);

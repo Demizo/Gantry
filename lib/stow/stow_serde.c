@@ -206,13 +206,7 @@ int stow_serde_decode_request(zcbor_state_t* decoder, struct stow_serde_request*
                 LOG_WRN("Failed to decode start id for describe");
                 return -EBADMSG;
             }
-            if (start_id >= STOW_ID_COUNT)
-            {
-                LOG_WRN("Invalid start id %u for describe", start_id);
-                request_out->error_item = start_id;
-                return -ENOENT;
-            }
-            request_out->item_id = (enum stow_item_id)start_id;
+            request_out->item_id = start_id;
 
             if (!zcbor_array_at_end(decoder))
             {

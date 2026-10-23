@@ -165,6 +165,13 @@ exchanges:
       - client: '[6 /set/, 5, 1 /TestInt/, 500]'
       - server: '[11 /error/, 5, 7 /invalid-value/, 1, 0]'
 
+  - name: set_invalid_struct
+    meaning: A Struct value with a field outside its constraints is INVALID_VALUE and names the item
+    roles: [Guest]
+    steps:
+      - client: '[6 /set/, 1, 11 /TestRecord/, [50, h'''']]'
+      - server: '[11 /error/, 1, 7 /invalid-value/, 11]'
+
   - name: set_partial
     meaning: A failing Set entry is named by item and index; the entries before it took effect
     roles: [Guest]
@@ -267,6 +274,34 @@ malformed:
     steps:
       - client: '[99, 11]'
       - server: '[11 /error/, 11, 2 /unknown-msg/]'
+
+  - name: describe_malformed_before_unknown_start
+    meaning: A Describe that is malformed is MALFORMED, even when its start item is unknown
+    roles: [Guest]
+    steps:
+      - client: '[2 /describe/, 20, 100, [1]]'
+      - server: '[11 /error/, 20, 1 /malformed-msg/]'
+
+  - name: response_sent_to_server
+    meaning: A response sent to a server is UNKNOWN_MSG with its tag, whatever follows the tag
+    roles: [Guest]
+    steps:
+      - client: '[1 /hello-response/, 6]'
+      - server: '[11 /error/, 6, 2 /unknown-msg/]'
+
+  - name: update_sent_to_server
+    meaning: An Update sent to a server with a tag is UNKNOWN_MSG with that tag
+    roles: [Guest]
+    steps:
+      - client: '[9 /update/, 7, 1 /TestInt/, 5]'
+      - server: '[11 /error/, 7, 2 /unknown-msg/]'
+
+  - name: error_sent_to_server
+    meaning: A message with a null tag sent to a server is MALFORMED with a null tag, even when it isn't a request
+    roles: [Guest]
+    steps:
+      - client: '[11 /error/, null, 1 /malformed-msg/]'
+      - server: '[11 /error/, null, 1 /malformed-msg/]'
 
   - name: trailing_bytes
     meaning: Bytes after the message make it malformed

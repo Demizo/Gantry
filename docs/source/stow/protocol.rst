@@ -139,6 +139,8 @@ Sent in response to failed operations. See :ref:`error-codes` for possible error
 
 ``item`` names the item that failed, when there is one. ``index`` is the zero-based position of an entry that failed as it was applied; the entries before it took effect and the rest did not. A request that fails before anything is applied, for example because it is malformed, carries no ``index`` and took no effect. Optional elements that do not apply are omitted. The tag is ``null`` when the server could not read the request's tag.
 
+A request that doesn't match the CDDL is ``err-malformed-msg``, before any check of its meaning, such as an unknown item, an unknown Describe ``start``, a permission or a value's constraints. A message that isn't a request is ``err-unknown-msg`` when its tag is ``0`` to ``23``, and ``err-malformed-msg`` with a ``null`` tag otherwise.
+
 .. _error-codes:
 
 Error Codes

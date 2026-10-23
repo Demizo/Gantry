@@ -706,9 +706,15 @@ static void check_responses_fit(struct protocol_session* session)
 
 static void handle_describe(const struct stow_serde_request* request, struct response* response)
 {
+    if (request->item_id >= STOW_ID_COUNT)
+    {
+        response_fail(response, -ENOENT, request->item_id, STOW_SERDE_ABSENT);
+        return;
+    }
+
     uint32_t next_id = 0;
     const atomic_t* filter = request->has_filter ? request->filter : NULL;
-    int ret = encode_describe(response, (uint32_t)request->item_id, filter, &next_id);
+    int ret = encode_describe(response, request->item_id, filter, &next_id);
     if (ret == -E2BIG)
     {
         response_fail(response, ret, next_id, STOW_SERDE_ABSENT);

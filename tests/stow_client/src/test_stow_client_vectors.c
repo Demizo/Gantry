@@ -132,7 +132,7 @@ static bool sendable_items(const struct protocol_step* step, uint32_t code)
  * @brief Re-encode a client step with the client's encoder
  *
  * @return Encoded length, or 0 for a request this client never sends: a Describe that names no items, an item it
- * has no binding for, or a Set that names an item twice
+ * has no binding for, a Set that names an item twice, or a value that breaks its item's constraints
  */
 static size_t encode_like(
     const struct protocol_vector* vector, const struct protocol_step* step, uint8_t* out, size_t out_size)
@@ -190,8 +190,13 @@ static size_t encode_like(
             if (code == STOW_MSG_SET)
             {
                 data_value_t value = { 0 };
-                zassert_equal(stow_item_decode(interface_of(id), dec, &value), 0, "%s", vector->name);
-                int ret = interface_of(id)->encode(enc, value);
+                int ret = stow_item_decode(interface_of(id), dec, &value);
+                if (ret == -EINVAL)
+                {
+                    return 0;
+                }
+                zassert_equal(ret, 0, "%s", vector->name);
+                ret = interface_of(id)->encode(enc, value);
                 stow_item_release(interface_of(id), &value);
                 zassert_equal(ret, 0, "%s", vector->name);
             }
