@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from functools import partial
 from typing import Protocol
 
 from tree_sitter import Node
@@ -14,7 +15,7 @@ from .ast_nodes import (
 )
 from .cfg import CFG
 from .conditions import find_failure_edges
-from .dataflow import Event, Key, find_unmatched_exits
+from .dataflow import Event, Key, affects, find_released_calls, find_unmatched_exits
 from .findings import Finding
 
 
@@ -35,29 +36,30 @@ def _tracked_identifier(call_node: Node, spec: Spec, tag: Tag) -> Node | None:
     return unwrap_identifier_reference(arg) if arg is not None else None
 
 
+def call_events(annotations: Annotations, call_node: Node) -> list[Event]:
+    spec = annotations.get(call_name(call_node))
+    if spec is None:
+        return []
+    events = []
+    for kind, tags in (("release", spec.releases), ("acquire", spec.acquires)):
+        for tag in tags:
+            identifier = _tracked_identifier(call_node, spec, tag)
+            if identifier is not None:
+                events.append(
+                    Event(
+                        kind,
+                        text(identifier),
+                        tag.resource_class,
+                        call_node,
+                        tag.condition,
+                    )
+                )
+    return events
+
+
 class LeakRuleKind:
     def __init__(self, annotations: Annotations):
-        self.annotations = annotations
-
-    def events_of(self, call_node: Node) -> list[Event]:
-        spec = self.annotations.get(call_name(call_node))
-        if spec is None:
-            return []
-        events = []
-        for kind, tags in (("release", spec.releases), ("acquire", spec.acquires)):
-            for tag in tags:
-                identifier = _tracked_identifier(call_node, spec, tag)
-                if identifier is not None:
-                    events.append(
-                        Event(
-                            kind,
-                            text(identifier),
-                            tag.resource_class,
-                            call_node,
-                            tag.condition,
-                        )
-                    )
-        return events
+        self.events_of = partial(call_events, annotations)
 
     def check(self, cfg: CFG, file_path: str) -> Iterable[Finding]:
         starts: dict[Key, Node] = {}
@@ -85,6 +87,60 @@ class LeakRuleKind:
                         f"Leaked at line {leak_line}"
                     ),
                 )
+
+
+class ReleasedRuleKind:
+    """Reports a release, or a call taking the identifier, after it is released on every path."""
+
+    def __init__(self, annotations: Annotations):
+        self.events_of = partial(call_events, annotations)
+
+    def check(self, cfg: CFG, file_path: str) -> Iterable[Finding]:
+        keys = dict.fromkeys(
+            Key(event.identifier, event.resource_class)
+            for block in cfg.blocks
+            for call in block.calls
+            for event in self.events_of(call)
+            if event.kind == "release"
+        )
+        findings: dict[tuple[int, str], Finding] = {}
+        for key in keys:
+            for call in find_released_calls(cfg, key, self.events_of):
+                kinds = {e.kind for e in self.events_of(call) if affects(e, key)}
+                call_line = line(call)
+                if "release" in kinds:
+                    findings[(call_line, key.identifier)] = _released_finding(
+                        file_path, call_line, key, "released twice"
+                    )
+                elif "acquire" not in kinds and key.identifier in _argument_identifiers(
+                    call
+                ):
+                    findings.setdefault(
+                        (call_line, key.identifier),
+                        _released_finding(
+                            file_path, call_line, key, "used after release"
+                        ),
+                    )
+        return findings.values()
+
+
+def _released_finding(file_path: str, call_line: int, key: Key, problem: str):
+    return Finding(
+        file=file_path,
+        line=call_line,
+        text=(
+            f"[{file_path}:{call_line}] ERROR: Variable '{key.identifier}' "
+            f"{problem} at line {call_line}"
+        ),
+    )
+
+
+def _argument_identifiers(call_node: Node) -> set[str]:
+    return {
+        text(identifier)
+        for arg in call_args(call_node)
+        if (identifier := unwrap_identifier_reference(arg)) is not None
+    }
 
 
 class IdentifierArgumentRuleKind:
@@ -146,6 +202,7 @@ class UncapturedResultRuleKind:
 def build_rule_kinds(annotations: Annotations) -> list[RuleKind]:
     return [
         LeakRuleKind(annotations),
+        ReleasedRuleKind(annotations),
         IdentifierArgumentRuleKind(annotations),
         UncapturedResultRuleKind(annotations),
     ]

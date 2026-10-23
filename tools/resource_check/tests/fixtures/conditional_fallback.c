@@ -288,7 +288,7 @@ int leak_polarity_null_check_on_an_integer_result(void)
     return 0;
 }
 
-int leak_other_event_on_the_identifier_between_call_and_test(void)
+int leak_other_event_on_the_identifier_between_call_and_test(void** kept)
 {
     void* buf = NULL;
     int ret = MEM_ALLOC(4, &buf);
@@ -297,7 +297,7 @@ int leak_other_event_on_the_identifier_between_call_and_test(void)
     {
         return ret; // LEAK: buf
     }
-    MEM_UNREF(&buf);
+    *kept = buf;
     MEM_UNREF(&buf);
     return 0;
 }

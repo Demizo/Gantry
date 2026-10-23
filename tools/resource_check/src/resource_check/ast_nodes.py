@@ -24,6 +24,24 @@ def find_calls(node: Node | None) -> list[Node]:
     return calls
 
 
+def written_identifier(node: Node) -> Node | None:
+    if node.type == "init_declarator":
+        return declarator_identifier(node.child_by_field_name("declarator"))
+    if (
+        node.type == "assignment_expression"
+        and text(node.child_by_field_name("operator")) == "="
+    ):
+        left = strip_parentheses(node.child_by_field_name("left"))
+        return left if left is not None and left.type == "identifier" else None
+    return None
+
+
+def find_writes(node: Node | None) -> list[Node]:
+    if node is None:
+        return []
+    return [n for n in iter_nodes(node) if written_identifier(n) is not None]
+
+
 def call_name(call_node: Node) -> str | None:
     callee = call_node.child_by_field_name("function")
     return text(callee) if callee is not None and callee.type == "identifier" else None

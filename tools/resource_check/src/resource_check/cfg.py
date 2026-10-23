@@ -3,7 +3,7 @@ from typing import Literal
 
 from tree_sitter import Node
 
-from .ast_nodes import contains_label, find_calls
+from .ast_nodes import contains_label, find_calls, find_writes
 
 
 @dataclass
@@ -17,6 +17,7 @@ class Branch:
 class BasicBlock:
     id: int
     calls: list[Node] = field(default_factory=list)
+    writes: list[Node] = field(default_factory=list)
     is_return: bool = False
     return_node: Node | None = None
     branch: Branch | None = None
@@ -51,6 +52,11 @@ class _CFGBuilder:
         return block
 
     @staticmethod
+    def record(block: BasicBlock, node: Node | None) -> None:
+        block.calls.extend(find_calls(node))
+        block.writes.extend(find_writes(node))
+
+    @staticmethod
     def add_edge(a: BasicBlock | None, b: BasicBlock | None) -> None:
         if a is None or b is None:
             return
@@ -78,7 +84,7 @@ class _CFGBuilder:
             return handler(self, node, current)
         if current is None:
             return None
-        current.calls.extend(find_calls(node))
+        self.record(current, node)
         return current
 
     def build_return(self, node: Node, current: BasicBlock | None) -> BasicBlock | None:
@@ -86,7 +92,7 @@ class _CFGBuilder:
             return None
         return_block = self.new_block()
         self.add_edge(current, return_block)
-        return_block.calls.extend(find_calls(node))
+        self.record(return_block, node)
         return_block.is_return = True
         return_block.return_node = node
         return None
@@ -137,7 +143,7 @@ class _CFGBuilder:
                 return None
             current = self.new_block()
         condition = node.child_by_field_name("condition")
-        current.calls.extend(find_calls(condition))
+        self.record(current, condition)
 
         then_entry = self.new_block()
         self.add_edge(current, then_entry)
@@ -171,7 +177,7 @@ class _CFGBuilder:
             return None
         condition_block = self.new_block()
         self.add_edge(current, condition_block)
-        condition_block.calls.extend(find_calls(node.child_by_field_name("condition")))
+        self.record(condition_block, node.child_by_field_name("condition"))
 
         after = self.new_block()
         self.frames.append(
@@ -201,7 +207,7 @@ class _CFGBuilder:
         self.frames.pop()
 
         self.add_edge(body_exit, condition_block)
-        condition_block.calls.extend(find_calls(node.child_by_field_name("condition")))
+        self.record(condition_block, node.child_by_field_name("condition"))
         self.add_edge(condition_block, body_entry)
         self.add_edge(condition_block, after)
         return after
@@ -212,16 +218,16 @@ class _CFGBuilder:
         if current is None:
             current = self.new_block()
         initializer = node.child_by_field_name("initializer")
-        current.calls.extend(find_calls(initializer))
+        self.record(current, initializer)
 
         condition_block = self.new_block()
         self.add_edge(current, condition_block)
         condition = node.child_by_field_name("condition")
-        condition_block.calls.extend(find_calls(condition))
+        self.record(condition_block, condition)
 
         after = self.new_block()
         update_block = self.new_block()
-        update_block.calls.extend(find_calls(node.child_by_field_name("update")))
+        self.record(update_block, node.child_by_field_name("update"))
         self.add_edge(update_block, condition_block)
 
         self.frames.append(
@@ -242,7 +248,7 @@ class _CFGBuilder:
             return None
         if current is None:
             current = self.new_block()
-        current.calls.extend(find_calls(node.child_by_field_name("condition")))
+        self.record(current, node.child_by_field_name("condition"))
         body = node.child_by_field_name("body")
         case_nodes = [c for c in body.named_children if c.type == "case_statement"]
 

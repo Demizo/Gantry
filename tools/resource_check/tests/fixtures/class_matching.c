@@ -25,12 +25,12 @@ int leak_memory_released_with_irq_unlock(void)
     return 0; // LEAK: buf
 }
 
-int clean_one_identifier_two_classes(void)
+int one_identifier_two_classes(void)
 {
     unsigned int res = irq_lock();
     MEM_ALLOC(4, &res);
     MEM_UNREF(&res);
-    irq_unlock(res);
+    irq_unlock(res); // USED AFTER RELEASE: res
     return 0;
 }
 

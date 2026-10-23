@@ -8,25 +8,34 @@ from resource_check.parser import make_parser
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
-_LEAK_COMMENT = re.compile(r"//\s*LEAK:\s*(\w+)")
-_IDENTIFIER_IN_FINDING = re.compile(r"Variable '(\w+)'")
+_EXPECTED_COMMENT = re.compile(
+    r"//\s*(LEAK|RELEASED TWICE|USED AFTER RELEASE):\s*(\w+)"
+)
+_FINDING = re.compile(
+    r"Variable '(\w+)' .*(was not released|released twice|used after release)"
+)
+_KINDS = {
+    "was not released": "LEAK",
+    "released twice": "RELEASED TWICE",
+    "used after release": "USED AFTER RELEASE",
+}
 
 
-def _expected_findings(path: Path) -> set[tuple[int, str]]:
+def _expected_findings(path: Path) -> set[tuple[int, str, str]]:
     expected = set()
     for lineno, line in enumerate(path.read_text().splitlines(), start=1):
-        match = _LEAK_COMMENT.search(line)
+        match = _EXPECTED_COMMENT.search(line)
         if match:
-            expected.add((lineno, match.group(1)))
+            expected.add((lineno, match.group(1), match.group(2)))
     return expected
 
 
-def _actual_findings(path: Path, annotations) -> set[tuple[int, str]]:
+def _actual_findings(path: Path, annotations) -> set[tuple[int, str, str]]:
     actual = set()
     for finding in check_file(path, annotations, make_parser()):
-        match = _IDENTIFIER_IN_FINDING.search(finding.text)
-        assert match, f"finding text has no identifier: {finding.text}"
-        actual.add((finding.line, match.group(1)))
+        match = _FINDING.search(finding.text)
+        assert match, f"finding text has no identifier or kind: {finding.text}"
+        actual.add((finding.line, _KINDS[match.group(2)], match.group(1)))
     return actual
 
 
