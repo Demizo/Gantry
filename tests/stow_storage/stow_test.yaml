@@ -1,0 +1,47 @@
+roles:
+  - Guest
+
+categories:
+  - General
+
+structs:
+  - name: Level
+    description: "A struct to nest"
+    fields:
+      - name: Value
+        type: INT
+        constraints:
+          - min: 0
+          - max: 100
+
+  - name: Setting
+    description: "A struct with a struct field"
+    fields:
+      - name: Level
+        type: STRUCT
+        constraints:
+          - struct: Level
+      - name: Flag
+        type: INT
+        constraints:
+          - min: 0
+          - max: 1
+
+items:
+  - name: TestNestedSetting
+    description: "A persistent struct item with a struct field"
+    categories: [General]
+    type: STRUCT
+    storage: PERSISTENT
+    permissions:
+      - read: ANY
+      - write: ANY
+    default:
+      - field: Level
+        value:
+          - field: Value
+            value: 0
+      - field: Flag
+        value: 0
+    constraints:
+      - struct: Setting

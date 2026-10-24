@@ -160,7 +160,8 @@ static int stow_set_handler(const char* name, size_t len, settings_read_cb read_
         return ret;
     }
 
-    ZCBOR_STATE_D(decoder, 1, read_block, len, 1, 0);
+    /* A struct value takes a backup per level of nesting */
+    ZCBOR_STATE_D(decoder, STOW_DEPTH_MAX, read_block, len, 1, 0);
     data_value_t decoded_value = { 0 };
     ret = item->interface->decode(decoder, &decoded_value);
     MEM_UNREF(&read_block);
