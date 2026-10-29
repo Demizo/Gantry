@@ -35,19 +35,17 @@ def run_rtt_session(args, ram_base, ram_size):
         "rtt start",
     ]
 
-    # Use PIPE so we can intercept the logs
+    # monitor_openocd reads the output to detect resets
     process = subprocess.Popen(
         openocd_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
 
-    # Start the monitoring thread
     event_queue = queue.Queue()
     monitor_thread = threading.Thread(
         target=monitor_openocd, args=(process, event_queue), daemon=True
     )
     monitor_thread.start()
 
-    # Wait for OpenOCD to open the port
     s = None
     for _ in range(10):
         try:
@@ -78,7 +76,6 @@ def run_rtt_session(args, ram_base, ram_size):
                 print("\n[!] OpenOCD process unexpectedly terminated. Retrying...")
                 return False
 
-            # Read RTT logs
             try:
                 data = s.recv(1024)
                 if not data:

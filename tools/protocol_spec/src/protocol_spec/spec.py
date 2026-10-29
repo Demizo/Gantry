@@ -60,10 +60,7 @@ def _build_vector(vector: dict, cddl: Cddl | None, settings: dict) -> dict:
 
 
 def build(folder: Path) -> str:
-    """The text of the vectors.json for the protocol spec in folder.
-
-    Raises ValueError naming every vector that cannot be encoded or does not match the CDDL.
-    """
+    """The text of the vectors.json for folder; raises ValueError naming every bad vector."""
     settings = yaml.safe_load((folder / SOURCE).read_text(encoding="utf-8"))
     cddl = None
     if "cddl" in settings:

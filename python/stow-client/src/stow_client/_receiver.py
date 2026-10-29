@@ -15,17 +15,10 @@ UpdateHandler = Callable[[Update], None]
 
 
 class Receiver:
-    """Owns the background task that consumes frames from a StowTransport.
+    """Owns the task that reads a transport, resolving responses by tag and passing Updates on.
 
-    Responses resolve the future registered for their tag, and Updates go to
-    *on_update*. A tag stays in use until its requester calls finish().
-
-    A tag whose request ended without a response is quarantined until that
-    response arrives, *quarantine_grace* seconds pass or the receiver
-    restarts, so a late response never resolves a newer request that reused
-    the tag. The grace period lets the tag of a request the server dropped,
-    which is never answered, be reused. A response for a tag that is no
-    longer outstanding is ignored.
+    A tag sent without an answer is quarantined while its response may still
+    arrive, as Tags in ``protocol.rst`` requires.
     """
 
     def __init__(

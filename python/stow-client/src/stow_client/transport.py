@@ -4,11 +4,7 @@ import abc
 
 
 class StowTransport(abc.ABC):
-    """Async byte-level transport for the Stow protocol.
-
-    Implementations are responsible for delimiting messages: ``receive``
-    must return exactly one complete CBOR frame per call.
-    """
+    """Async transport for Stow messages; ``receive`` returns exactly one whole message per call."""
 
     @abc.abstractmethod
     async def send(self, data: bytes) -> None: ...

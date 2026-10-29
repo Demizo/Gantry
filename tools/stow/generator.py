@@ -140,7 +140,6 @@ def generate(
     print(f"Generated {enums_h_out}")
     print(f"Generated {enums_c_out}")
 
-    # Generate per-struct interface files
     struct_template_h = env.get_template("generated_struct_header.h.j2")
     struct_template_c = env.get_template("generated_struct_source.c.j2")
 

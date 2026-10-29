@@ -69,7 +69,6 @@ def test_can_write_specific_role():
     items = parse_description(sample_description_blob(), ROLE_NAMES)
     by_name = {i.name: i for i in items}
 
-    # DeviceName writable by Session only
     assert by_name["DeviceName"].can_write("Session")
     assert not by_name["DeviceName"].can_write("Admin")
     assert not by_name["DeviceName"].can_write("User")

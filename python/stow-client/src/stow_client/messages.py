@@ -74,20 +74,20 @@ class Message:
         raise NotImplementedError
 
     def encode(self) -> bytes:
-        """Encode as CBOR, with floats that float32 holds exactly sent as float32 like the server."""
+        """Encode as CBOR, sending floats that float32 holds exactly as float32."""
         return cbor2.dumps(_mark_float32(self.to_list()), default=_encode_float32)
 
 
 @dataclass(frozen=True)
 class Request(Message):
-    """A message sent by a client. Every request carries a client-chosen tag."""
+    """A message sent by a client."""
 
     tag: int = 0
 
 
 @dataclass(frozen=True)
 class Response(Message):
-    """A solicited message. It echoes the tag of the request it answers."""
+    """A message that answers a request."""
 
     tag: int | None = 0
 
@@ -121,11 +121,7 @@ class HelloRequest(Request):
 
 @dataclass(frozen=True)
 class HelloResponse(Response):
-    """The protocol version, the server's limit and the session's roles.
-
-    ``fields`` keeps every key the server sent, including ones this client
-    does not know.
-    """
+    """The protocol version, the server's limit and the session's roles; ``fields`` keeps unknown keys."""
 
     MSG_ID: ClassVar[int] = 1
     version: int = 0
@@ -220,7 +216,7 @@ class UnsubscribeRequest(_ItemListRequest):
 
 @dataclass(frozen=True)
 class Update(Message):
-    """Unsolicited: a subscribed item was set. Its tag is always null."""
+    """The new value of a subscribed item."""
 
     MSG_ID: ClassVar[int] = 9
     item_id: int = 0
@@ -242,9 +238,8 @@ class Ok(Response):
 class Error(Response):
     """A failed request.
 
-    ``tag`` is None when the server could not decode the request at all.
-    ``item`` names the failing item and ``index`` the entry that failed as it
-    was applied; both are None when absent.
+    ``tag`` is None when the request could not be decoded. ``item`` and ``index``
+    name the failing item and entry, or are None.
     """
 
     MSG_ID: ClassVar[int] = 11

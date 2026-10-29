@@ -81,16 +81,11 @@ class UnexpectedResponseError(RuntimeError):
 
 
 class StowClient:
-    """Async Stow client that matches responses to requests by tag.
+    """Async Stow client with up to 24 requests in flight, one per tag.
 
-    Every request waits for its response, up to ``response_timeout`` seconds
-    unless the call passes its own timeout. Up to 24 requests can be in flight
-    at once, one per tag. The tag of a request that timed out stays
-    quarantined until its late response arrives or ``quarantine_grace``
-    seconds pass, by default ``QUARANTINE_GRACE_FACTOR`` times
-    ``response_timeout``. The server drops requests it cannot take and never
-    answers them, so the grace period returns their tags. A late response for
-    a released tag is ignored.
+    A call without a *timeout* waits *response_timeout*. The server never answers
+    a request it drops, so a timed-out tag is reused only after *quarantine_grace*,
+    by default ``QUARANTINE_GRACE_FACTOR`` times *response_timeout*.
     """
 
     def __init__(

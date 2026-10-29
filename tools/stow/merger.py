@@ -68,12 +68,7 @@ def _merge_flat_list(base_list: list, overlay_list: list) -> list:
 
 
 def merge_named_list(base_list: list, overlay_list: list, key: str = "name") -> list:
-    """
-    Merge two lists of dicts identified by `key`, field-patching entries
-    that appear in both (overlay wins per-field, base fields not present in
-    the overlay entry are inherited) and appending new entries in overlay
-    order.
-    """
+    """Merge lists of dicts by *key*: the overlay patches shared entries per field and appends new ones."""
     order: list = []
     by_key: dict = {}
     for entry in base_list:
@@ -145,11 +140,7 @@ def _changed_item_fields(old: dict, new: dict) -> list:
 def compose(
     fragment_paths: list[Path], entry_path: Path, board_path: Path | None
 ) -> tuple[dict, list[Path]]:
-    """
-    Compose fragment_paths (lowest precedence, in order), then entry_path's
-    own content, then board_path (highest precedence, if it exists) into one
-    merged stow dict.
-    """
+    """Merge the fragments in order, then the entry file, then the board file if it exists; later wins."""
     ordered_paths = list(fragment_paths) + [entry_path]
     if board_path is not None and board_path.exists():
         ordered_paths.append(board_path)

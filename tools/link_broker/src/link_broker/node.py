@@ -13,12 +13,10 @@ _ESCAPE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 
 class Node:
-    """Runs one image from ``run_dir``.
+    """Runs one image from ``run_dir``, with its console on stdin and stdout.
 
-    The console is the process's stdin and stdout. Every output line is kept,
-    without terminal escape sequences, so a test can wait for a line that
-    arrived before it started waiting.
-    The PTY of the second UART, ``uart_1``, is the node's link port.
+    Output lines are kept without terminal escape sequences, so ``expect`` finds
+    lines that arrived before it was called. The PTY of ``uart_1`` is the link port.
     """
 
     def __init__(self, name: str, image: Path, run_dir: Path) -> None:

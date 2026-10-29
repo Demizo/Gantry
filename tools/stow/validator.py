@@ -117,7 +117,7 @@ def _validate_structs(structs_list: list, enums: dict) -> None:
                     raise ValueError(
                         f"{fctx}: type STRUCT requires constraint 'struct'"
                     )
-                # Note: forward-reference validation skipped here; generator handles ordering
+                # The generator resolves forward references
 
 
 def validate(data: dict) -> None:

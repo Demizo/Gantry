@@ -1,7 +1,4 @@
-"""COBS-framed UART transport for the Stow protocol.
-
-Framing: each message is COBS-encoded and terminated with a 0x00 byte.
-"""
+"""COBS-framed UART transport."""
 
 from __future__ import annotations
 
@@ -12,21 +9,9 @@ import serial_asyncio  # type: ignore[import-untyped]
 from ..cobs import cobs_decode, cobs_encode
 from ..transport import StowTransport
 
-# ---------------------------------------------------------------------------
-# Transport
-# ---------------------------------------------------------------------------
-
 
 class UartTransport(StowTransport):
-    """Async UART transport using COBS framing.
-
-    Parameters
-    ----------
-    port:
-        Serial port path, e.g. ``"/dev/ttyACM0"``.
-    baudrate:
-        Baud rate (default 115200).
-    """
+    """Async COBS transport on a serial *port*, such as ``/dev/ttyACM0``."""
 
     def __init__(self, port: str, baudrate: int = 115200) -> None:
         self._port = port
@@ -54,7 +39,6 @@ class UartTransport(StowTransport):
             try:
                 return cobs_decode(frame[:-1])
             except ValueError:
-                # Discard corrupt/partial frames
                 continue
 
     async def close(self) -> None:

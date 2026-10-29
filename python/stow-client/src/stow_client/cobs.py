@@ -1,7 +1,4 @@
-"""COBS framing shared by the byte-stream transports.
-
-Each frame is COBS-encoded and terminated with a 0x00 byte
-"""
+"""COBS framing: each frame is COBS-encoded and ends with a 0x00 delimiter."""
 
 from __future__ import annotations
 
@@ -32,7 +29,7 @@ def cobs_encode(data: bytes) -> bytes:
 
 
 def cobs_decode(data: bytes) -> bytes:
-    """Decode a COBS-encoded frame (must NOT include the trailing 0x00)."""
+    """Decode one COBS frame, without its trailing 0x00."""
     if not data:
         return b""
     out = bytearray()

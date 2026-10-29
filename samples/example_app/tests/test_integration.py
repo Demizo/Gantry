@@ -14,7 +14,6 @@ pytestmark = pytest.mark.integration
 
 
 async def test_hello_handshake(uart_client: StowClient):
-    """Client connects and completes the Hello handshake without error."""
     assert uart_client._loaded
 
 
@@ -32,7 +31,6 @@ expected_item_names = {
 
 
 async def test_describe_loads_expected_items(uart_client: StowClient):
-    """All expected items are present after load."""
     names = {it.name for it in uart_client.get_all_items()}
     assert expected_item_names.issubset(names)
 
@@ -273,7 +271,6 @@ async def test_subscribe_receives_update(uart_client: StowClient):
 
 
 async def test_permission_check_helpers(uart_client: StowClient):
-    """can_read / can_write reflect Stow permissions."""
     device_name = uart_client.get_item_description("DeviceName")
     assert device_name.can_read("Session")
     assert device_name.can_write("Session")

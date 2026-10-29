@@ -29,7 +29,7 @@ class Faults:
 
 @dataclass
 class Node:
-    """A node: one firmware image, built from the Zephyr app at ``app``."""
+    """One firmware image, built from the Zephyr app at ``app``."""
 
     name: str
     app: Path

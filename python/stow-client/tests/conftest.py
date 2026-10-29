@@ -25,11 +25,7 @@ from stow_client.messages import (
 
 
 class MockTransport(StowTransport):
-    """In-memory async transport.
-
-    ``reply`` scripts the answer to the next request; the answer is sent
-    with that request's tag. ``push`` delivers a message as is.
-    """
+    """In-memory transport: ``reply`` answers the next request with its tag, ``push`` sends as is."""
 
     def __init__(self) -> None:
         self._incoming: asyncio.Queue[bytes] = asyncio.Queue()

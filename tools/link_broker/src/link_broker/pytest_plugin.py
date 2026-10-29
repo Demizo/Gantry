@@ -1,12 +1,6 @@
-"""Pytest plugin: builds the nodes of a topology, then runs each test's network.
+"""Pytest plugin that builds a topology's nodes and starts a fresh network for each test.
 
-A test suite names its topology by overriding the ``link_topology_path``
-fixture. Each test that uses ``network`` gets freshly started nodes and a
-broker joining them, with every link up.
-
-Nodes stand in for their link manager through console commands: ``link up``
-answers ``@link up <err>``, ``link down`` answers ``@link down``, and
-``peer connect`` opens the client session once both ends are up.
+The console commands it sends are listed in ``samples/stow_peers/README.md``.
 """
 
 from __future__ import annotations
@@ -127,10 +121,7 @@ def node_images(
 def network(
     link_topology: topology.Topology, node_images: dict[str, Path], tmp_path: Path
 ) -> Iterator[Network]:
-    """Start every node, then the broker; stop them all after the test.
-
-    The frame log and each node's console are kept in the test's temporary directory.
-    """
+    """Start every node and the broker with every link up, logging to the test's ``tmp_path``."""
     handler = logging.FileHandler(tmp_path / "frames.log")
     logger = logging.getLogger("link_broker")
     logger.addHandler(handler)

@@ -1,7 +1,6 @@
 """The link broker: joins node UARTs by a topology, injects faults and logs every frame.
 
-Frames are COBS frames, split on the 0x00 delimiter, each carrying one CBOR
-item. An empty frame, a lone delimiter, is forwarded unless the link is cut,
+Frames are split on 0x00. A lone delimiter is forwarded unless the link is cut,
 but never faulted or logged.
 """
 
@@ -151,9 +150,8 @@ class _Link:
 
 
 class Broker:
-    """Runs the links of a topology on a background event loop.
+    """Runs a topology's links on a background event loop; ``ports`` maps each node to its PTY.
 
-    ``ports`` maps each link end to the path of its node's UART, a PTY.
     Control calls are thread safe and take effect before they return.
     """
 

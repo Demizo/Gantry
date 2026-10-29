@@ -43,8 +43,7 @@ class _Translator(DataTranslator):
 class Cddl:
     """A CDDL spec whose rules validate encoded messages.
 
-    Float widths are not checked, since decoding hides them, and map entries must appear in the
-    order the CDDL lists them.
+    Float widths aren't checked, since decoding hides them, and map entries must be in CDDL order.
     """
 
     def __init__(self, text: str):

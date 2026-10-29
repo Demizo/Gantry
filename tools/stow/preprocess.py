@@ -192,10 +192,7 @@ def preprocess_structs(structs_list: list, enums: dict, prefix: str = "") -> dic
 
 
 def _build_struct_default(prefix: str, struct_def: dict, default_list, structs: dict):
-    """
-    Recursively build default field entries and pre-declarations for a struct type.
-    Returns (field_entries, pre_decls) where pre_decls must be emitted before the struct variable.
-    """
+    """Return (field_entries, pre_decls) for a struct default; pre_decls go before the variable."""
     default_map = {}
     if isinstance(default_list, list):
         for fd in default_list:
@@ -304,7 +301,6 @@ def preprocess_items(
         perm_dict = flatten(item["permissions"])
         cdict = flatten(item["constraints"])
 
-        # Extract struct_name early so STRUCT branch can use it
         struct_name = cdict.get("struct", "")
 
         if item_type == "STRING":
@@ -349,7 +345,6 @@ def preprocess_items(
             default_bytes_hex = []
             default_bytes_len = 0
 
-        # STRUCT-specific
         struct_def = structs.get(struct_name, {})
         struct_default_fields = []
         struct_pre_decls: list = []
@@ -358,7 +353,6 @@ def preprocess_items(
                 snake, struct_def, default, structs
             )
 
-        # Determine interface symbol
         if item_type == "STRUCT":
             c_interface = f"stow_struct_{to_snake(struct_name)}_interface"
         else:

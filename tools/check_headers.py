@@ -27,7 +27,6 @@ def prepend_copyright():
                     with open(file_path, encoding="utf-8") as f:
                         content = f.read()
 
-                    # Check if the header is already there to avoid duplicates
                     if not content.startswith(header):
                         print(f"Adding header to: {file_path}")
                         with open(file_path, "w", encoding="utf-8") as f:

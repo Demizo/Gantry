@@ -215,11 +215,7 @@ def _decode_sequence(blob: bytes) -> list[Any]:
 def parse_description(
     blob: bytes, role_names: Sequence[str] = ()
 ) -> list[ItemDescription]:
-    """Parse joined Describe chunks, a CBOR sequence of item maps, into ItemDescriptions.
-
-    *role_names* is the server's role table from Hello, used to name the roles
-    in each item's permission bitmasks.
-    """
+    """Parse joined Describe chunks into ItemDescriptions, naming roles from *role_names*."""
     items = []
     for entry in _decode_sequence(blob):
         if not isinstance(entry, dict):
@@ -230,12 +226,6 @@ def parse_description(
 
 # ---------------------------------------------------------------------------
 # Value codec
-#
-# CBOR already gives us Python-native types for primitive values. The codec is
-# primarily a normalization layer that:
-#   * coerces byte_array / buffer payloads to ``bytes``
-#   * recursively decodes struct fields against their constraints
-#   * encodes a Python value back into the CBOR-ready type
 # ---------------------------------------------------------------------------
 
 
