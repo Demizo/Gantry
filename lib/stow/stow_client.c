@@ -168,7 +168,7 @@ K_THREAD_DEFINE(
 /**
  * @brief Find the peer whose session is open on an endpoint and not closing
  *
- * @note Call with @ref peers_lock held.
+ * @note Call with `peers_lock` held.
  */
 static struct stow_client_peer* find_open_peer(const struct stow_endpoint* endpoint, uint32_t session_id)
 {
@@ -441,6 +441,8 @@ static int request(
 /**
  * @brief Send a request and block until it finishes
  *
+ * @param peer The peer
+ * @param req The request
  * @param values_out Where a Get's values go, otherwise NULL
  */
 static int request_sync(struct stow_client_peer* peer, const struct request* req, struct stow_client_value* values_out)
@@ -831,6 +833,7 @@ static void client_thread(void* p1, void* p2, void* p3)
 //* Public Function Definitions
 //**********************************************************
 
+/** @cond INTERNAL_HIDDEN */
 int z_stow_client_session_opened(
     const struct stow_endpoint* endpoint, uint32_t session_id, stow_role_t roles, struct stow_transport* transport)
 {
@@ -930,6 +933,7 @@ void z_stow_client_receive(const struct stow_endpoint* endpoint, uint32_t sessio
     }
     PASS_OWNERSHIP(rx_buf);
 }
+/** @endcond */
 
 struct stow_client_peer* stow_client_peer_ref(struct stow_client_peer* peer)
 {

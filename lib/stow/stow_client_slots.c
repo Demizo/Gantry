@@ -69,6 +69,8 @@ static void mark_sent(struct stow_client_peer* peer, struct slot* slot);
  *
  * @note Call with the peer locked.
  *
+ * @param peer The peer
+ * @param now Uptime in ms
  * @param[out] retry_at When no tag is free, uptime in ms when the first quarantined tag frees
  *
  * @return The tag, or -1 when every tag is pending or quarantined
