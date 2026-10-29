@@ -31,3 +31,6 @@ htmlcov/
 *.cover
 .hypothesis/
 .stow_cache/
+
+# Work artifacts
+.scratch/
