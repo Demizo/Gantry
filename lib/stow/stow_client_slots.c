@@ -50,6 +50,12 @@ LOG_MODULE_DECLARE(stow_client, CONFIG_STOW_CLIENT_LOG_LEVEL);
  */
 static atomic_t next_tag;
 
+/**
+ * @brief Sequence number of the next slot taken, unique across peers because a send posted just before its session
+ * closes reaches the session that reopens on the same endpoint and ID, which may be another peer
+ */
+static atomic_t next_seq;
+
 //**********************************************************
 //* Static Function Declarations
 //**********************************************************
@@ -171,7 +177,7 @@ struct slot* z_stow_client_slot_take(struct stow_client_peer* peer, const struct
         *slot = *pending;
         slot->state = SLOT_QUEUED;
         slot->tag = (uint8_t)tag;
-        slot->seq = ++peer->slots.seq;
+        slot->seq = (uint32_t)atomic_inc(&next_seq);
         return slot;
     }
     return NULL;
@@ -259,15 +265,27 @@ void z_stow_client_slot_fail_all(struct stow_client_peer* peer)
 
 int z_stow_client_slot_send(struct stow_client_peer* peer, struct slot* slot, struct net_buf* buf)
 {
-    int ret = stow_transport_send(peer->transport, peer->session_id, buf);
+    int ret = stow_transport_send(peer->session.transport, peer->session.id, buf);
     if (ret != SUCCESS)
     {
-        LOG_WRN("Transport refused a request to session %u (%d)", peer->session_id, ret);
+        LOG_WRN("Transport refused a request to session %u (%d)", peer->session.id, ret);
         z_stow_client_slot_fail(peer, slot, -EBUSY);
         return -EBUSY;
     }
     mark_sent(peer, slot);
     return SUCCESS;
+}
+
+struct slot* z_stow_client_slot_find_queued(struct stow_client_peer* peer, uint32_t seq)
+{
+    for (size_t i = 0; i < ARRAY_SIZE(peer->slots.entries); i++)
+    {
+        if (peer->slots.entries[i].state == SLOT_QUEUED && peer->slots.entries[i].seq == seq)
+        {
+            return &peer->slots.entries[i];
+        }
+    }
+    return NULL;
 }
 
 struct slot* z_stow_client_slot_find_sent(struct stow_client_peer* peer, uint8_t tag)
@@ -307,7 +325,7 @@ bool z_stow_client_slots_expire(struct stow_client_peer* peer, int64_t now)
             continue;
         }
 
-        LOG_WRN("Request with tag %u to session %u timed out", slot->tag, peer->session_id);
+        LOG_WRN("Request with tag %u to session %u timed out", slot->tag, peer->session.id);
         k_spinlock_key_t key = k_spin_lock(&peer->lock);
         peer->slots.quarantined |= BIT(slot->tag);
         peer->slots.quarantine_until[slot->tag] = now + (int64_t)QUARANTINE_TIMEOUTS * peer->timeout_ms;

@@ -16,6 +16,7 @@
 
 #include <gantry/stow/stow_client.h>
 #include <gantry/stow/stow_msg.h>
+#include <gantry/stow/stow_runtime.h>
 #include <gantry/stow/stow_transport.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -61,16 +62,6 @@ enum peer_state
 };
 
 /**
- * @brief Signals the transport raises on a peer
- */
-enum peer_signal
-{
-    PEER_SIGNAL_OPEN,  /**< The session opened */
-    PEER_SIGNAL_CLOSE, /**< The session closed */
-    PEER_SIGNAL_COUNT, /**< Number of signals */
-};
-
-/**
  * @brief State of a pending request slot
  */
 enum slot_state
@@ -101,7 +92,7 @@ struct slot
     enum stow_message_code code; /**< Message code of the request */
     uint16_t count;              /**< Number of entries */
     uint16_t* ids;               /**< Copy of a Get's item IDs, to check its response against */
-    uint32_t seq;                /**< Changes each time the slot is taken, so stale sends are dropped */
+    uint32_t seq;                /**< Unique each time a slot is taken, so a stale send matches no slot */
     int64_t deadline;            /**< Uptime in ms when a sent request times out */
     stow_client_cb_t cb;         /**< Callback of an asynchronous request */
     void* user_data;             /**< Passed to @ref slot.cb */
@@ -127,7 +118,6 @@ struct peer_slots
     uint32_t tags_busy;                                  /**< Tags of pending requests */
     uint32_t quarantined;                                /**< Tags that may still get a late response */
     int64_t quarantine_until[TAG_COUNT];                 /**< Uptime in ms when each quarantined tag frees */
-    uint32_t seq;                                        /**< Last slot sequence number handed out */
 };
 
 /**
@@ -146,27 +136,33 @@ struct peer_verify
  */
 struct stow_client_peer
 {
-    bool in_use;                                 /**< Slot holds a peer */
-    atomic_t refs;                               /**< References from the open session, the app and events */
-    const struct stow_client_endpoint* endpoint; /**< Endpoint the session is on */
-    uint32_t session_id;                         /**< ID the transport gave the session */
-    uint32_t timeout_ms;                         /**< Request timeout */
-    struct item_state* items;                    /**< One entry per expected item */
-    struct stow_msg_items resolver;              /**< Maps the peer's item IDs to available items */
-    struct stow_transport* transport;            /**< Transport of the open session, or NULL */
-    enum peer_state state;                       /**< Connection state */
-    ATOMIC_DEFINE(signals, PEER_SIGNAL_COUNT);   /**< Pending @ref peer_signal bits */
-    struct stow_client_peer_info info;           /**< What the peer reported in its Hello Response */
-    struct k_spinlock lock;                      /**< Guards the slots, tags and connection state */
-    struct k_sem slot_free;                      /**< Given when a slot or tag may have freed */
-    struct peer_slots slots;                     /**< Pending requests and tags */
-    struct peer_verify verify;                   /**< Verification progress */
-    uint32_t opens;                              /**< Counts the sessions the slot has held */
+    struct stow_session session;       /**< The session, whose references are the peer's */
+    uint32_t timeout_ms;               /**< Request timeout */
+    struct item_state* items;          /**< One entry per expected item */
+    struct stow_msg_items resolver;    /**< Maps the peer's item IDs to available items */
+    enum peer_state state;             /**< Connection state */
+    struct stow_client_peer_info info; /**< What the peer reported in its Hello Response */
+    struct k_spinlock lock;            /**< Guards the slots, tags and connection state */
+    struct k_sem slot_free;            /**< Given when a slot or tag may have freed */
+    struct peer_slots slots;           /**< Pending requests and tags */
+    struct peer_verify verify;         /**< Verification progress */
 };
 
 //**********************************************************
 //* Functions
 //**********************************************************
+
+/**
+ * @brief Get the client endpoint a peer's session is on
+ *
+ * @param peer The peer
+ *
+ * @return The endpoint
+ */
+static inline const struct stow_client_endpoint* peer_endpoint(const struct stow_client_peer* peer)
+{
+    return CONTAINER_OF(peer->session.endpoint, struct stow_client_endpoint, endpoint);
+}
 
 /**
  * @brief Get the schema entry of an expected item
@@ -178,7 +174,7 @@ struct stow_client_peer
  */
 static inline const struct stow_client_item* peer_item(const struct stow_client_peer* peer, uint16_t id)
 {
-    return &peer->endpoint->schema->items[id];
+    return &peer_endpoint(peer)->schema->items[id];
 }
 
 /**
@@ -190,7 +186,7 @@ static inline const struct stow_client_item* peer_item(const struct stow_client_
  */
 static inline uint16_t peer_item_count(const struct stow_client_peer* peer)
 {
-    return peer->endpoint->schema->item_count;
+    return peer_endpoint(peer)->schema->item_count;
 }
 
 /**
@@ -272,6 +268,19 @@ void z_stow_client_slot_fail_all(struct stow_client_peer* peer);
  * @releases slot slot
  */
 int z_stow_client_slot_send(struct stow_client_peer* peer, struct slot* slot, struct net_buf* buf);
+
+/**
+ * @brief Find the queued request a posted send carries
+ *
+ * @note Call with the peer locked.
+ *
+ * @param peer The peer
+ * @param seq Sequence number the slot had when the request was queued
+ *
+ * @return The request's slot, or NULL when it was cancelled or failed
+ * @acquires slot return on-non-null
+ */
+struct slot* z_stow_client_slot_find_queued(struct stow_client_peer* peer, uint32_t seq);
 
 /**
  * @brief Find the sent request a response answers

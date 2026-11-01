@@ -8,8 +8,8 @@
  * @file
  * @brief Stow client
  *
- * @details One thread serves every peer: it verifies peers, sends every request, matches responses by tag and fails
- * requests that time out or outlive their session.
+ * @details A session runtime instance serves every peer. On its thread the client verifies peers, sends every request,
+ * matches responses by tag and fails requests that time out or outlive their session.
  *
  * @author Demizo (demizodemazo@gmail.com)
  *
@@ -19,14 +19,15 @@
 #include <gantry/memory.h>
 #include <gantry/stow/stow_client.h>
 #include <gantry/stow/stow_msg.h>
+#include <gantry/stow/stow_runtime.h>
 #include <gantry/stow/stow_transport.h>
 #include <stddef.h>
 #include <string.h>
 #include <sys/errno.h>
+#include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/net_buf.h>
-#include <zephyr/sys/atomic.h>
 
 #include "stow_client_internal.h"
 
@@ -59,40 +60,12 @@ struct request
     size_t count;                /**< Number of items */
 };
 
-/**
- * @brief Kind of work queued for the client thread
- */
-enum client_event_type
-{
-    CLIENT_EVENT_RX,   /**< A message arrived */
-    CLIENT_EVENT_SEND, /**< A request is ready to send */
-};
-
-/**
- * @brief Work queued for the client thread
- */
-struct client_event
-{
-    enum client_event_type type; /**< Kind of work */
-    uint8_t peer;                /**< Index of the peer */
-    uint8_t slot;                /**< Index of a request's slot */
-    uint32_t seq;                /**< Sequence number the slot had when the request was queued */
-    uint32_t opens;              /**< Session count of the peer when a message arrived */
-    struct net_buf* buf;         /**< The message */
-};
-
 //**********************************************************
 //* Static Function Declarations
 //**********************************************************
 
-static void client_thread(void* p1, void* p2, void* p3);
 static void update_event_on_free(event_t* event);
 static void result_event_on_free(event_t* event);
-static struct stow_client_peer* find_open_peer(const struct stow_endpoint* endpoint, uint32_t session_id);
-static bool push_event(const struct client_event* event);
-
-static int64_t next_deadline(void);
-static void expire(void);
 
 static int encode_request(
     struct stow_client_peer* peer, struct stow_transport* transport, uint8_t tag, const struct request* req,
@@ -113,11 +86,15 @@ static void complete_request(
     struct stow_client_peer* peer, struct slot* slot, int err, struct stow_msg_reader* reader,
     const struct stow_msg* msg);
 static void handle_update(struct stow_client_peer* peer, struct stow_msg_reader* reader);
-static void handle_rx(struct stow_client_peer* peer, struct net_buf* buf, uint32_t opens);
-static void handle_send(const struct client_event* event, struct net_buf* buf);
 
-static void close_peer(struct stow_client_peer* peer);
-static void handle_signals(void);
+static int accept_peer(struct stow_session* session);
+static void open_peer(struct stow_session* session);
+static void close_peer(struct stow_session* session);
+static void handle_rx(struct stow_session* session, const struct net_buf* buf);
+static void send_request(struct stow_session* session, uint32_t seq, struct net_buf* buf);
+static k_timeout_t expire_requests(void);
+static void free_items(struct stow_session* session);
+static int start_client(void);
 
 //**********************************************************
 //* Static Variable Definitions
@@ -139,90 +116,33 @@ DEFINE_EVENT_TYPE(EVENT_ID_STOW_CLIENT_RESULT, stow_client_result_event, result_
 static struct stow_client_peer peers[CONFIG_STOW_CLIENT_MAX_PEERS];
 
 /**
- * @brief Guards which peer slots are in use and which sessions are open
+ * @brief What the client does with its sessions
  */
-static struct k_spinlock peers_lock;
+static const struct stow_runtime_role client_role = {
+    .accept = accept_peer,
+    .opened = open_peer,
+    .closed = close_peer,
+    .receive = handle_rx,
+    .work = send_request,
+    .idle = expire_requests,
+    .freed = free_items,
+};
 
 /**
- * @brief Work queued for the client thread
+ * @brief The client's session runtime instance and thread
  */
-K_MSGQ_DEFINE(stow_client_queue, sizeof(struct client_event), QUEUE_SIZE, sizeof(void*));
+STOW_RUNTIME_DEFINE(
+    stow_client, client_role, peers, session, QUEUE_SIZE, CONFIG_STOW_CLIENT_THREAD_STACK_SIZE,
+    CONFIG_STOW_CLIENT_THREAD_PRIORITY);
 
 /**
- * @brief Wakes the client thread when work or signals are pending
+ * @brief Start the client at boot
  */
-K_SEM_DEFINE(stow_client_wake, 0, 1);
-
-/**
- * @brief Client thread, started at boot
- */
-K_THREAD_DEFINE(
-    stow_client_thread_id, CONFIG_STOW_CLIENT_THREAD_STACK_SIZE, client_thread, NULL, NULL, NULL,
-    CONFIG_STOW_CLIENT_THREAD_PRIORITY, 0, 0);
+SYS_INIT(start_client, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
 
 //**********************************************************
 //* Static Function Definitions
 //**********************************************************
-
-/**
- * @brief Find the peer whose session is open on an endpoint and not closing
- *
- * @note Call with `peers_lock` held.
- */
-static struct stow_client_peer* find_open_peer(const struct stow_endpoint* endpoint, uint32_t session_id)
-{
-    for (size_t i = 0; i < ARRAY_SIZE(peers); i++)
-    {
-        struct stow_client_peer* peer = &peers[i];
-        if (peer->in_use && peer->transport != NULL && !atomic_test_bit(peer->signals, PEER_SIGNAL_CLOSE) &&
-            &peer->endpoint->endpoint == endpoint && peer->session_id == session_id)
-        {
-            return peer;
-        }
-    }
-    return NULL;
-}
-
-static bool push_event(const struct client_event* event)
-{
-    if (k_msgq_put(&stow_client_queue, event, K_NO_WAIT) != 0)
-    {
-        return false;
-    }
-    k_sem_give(&stow_client_wake);
-    return true;
-}
-
-/**
- * @brief Find when the next sent request times out
- *
- * @return Uptime in ms, or INT64_MAX when nothing is sent
- */
-static int64_t next_deadline(void)
-{
-    int64_t deadline = INT64_MAX;
-    for (size_t p = 0; p < ARRAY_SIZE(peers); p++)
-    {
-        deadline = MIN(deadline, z_stow_client_slots_deadline(&peers[p]));
-    }
-    return deadline;
-}
-
-/**
- * @brief Fail every sent request whose time is up, and a verification that timed out
- */
-static void expire(void)
-{
-    int64_t now = k_uptime_get();
-    for (size_t p = 0; p < ARRAY_SIZE(peers); p++)
-    {
-        struct stow_client_peer* peer = &peers[p];
-        if (z_stow_client_slots_expire(peer, now))
-        {
-            z_stow_client_verify_failed(peer, -ETIMEDOUT);
-        }
-    }
-}
 
 /**
  * @brief Encode a request
@@ -300,7 +220,7 @@ static int check_request(const struct stow_client_schema* schema, const struct r
  */
 static int check_available(struct stow_client_peer* peer, const struct request* req)
 {
-    if (!peer->in_use || peer->state != PEER_READY)
+    if (peer->state != PEER_READY)
     {
         return -ENOTCONN;
     }
@@ -350,7 +270,7 @@ static int request(
     {
         return -EINVAL;
     }
-    int ret = check_request(peer->endpoint->schema, req);
+    int ret = check_request(peer_endpoint(peer)->schema, req);
     if (ret != SUCCESS)
     {
         return ret;
@@ -411,7 +331,7 @@ static int request(
             return ret;
         }
         slot = z_stow_client_slot_take(peer, &pending, &retry_at);
-        transport = peer->transport;
+        transport = peer->session.transport;
         seq = (slot != NULL) ? slot->seq : 0U;
         bool more_free = z_stow_client_slot_any_free(peer);
         k_spin_unlock(&peer->lock, key);
@@ -443,19 +363,11 @@ static int request(
         return z_stow_client_slot_cancel(peer, slot, seq) ? ret : SUCCESS;
     }
 
-    struct client_event event = {
-        .type = CLIENT_EVENT_SEND,
-        .peer = (uint8_t)(peer - peers),
-        .slot = (uint8_t)(slot - peer->slots.entries),
-        .seq = seq,
-        .buf = buf,
-    };
-    if (!push_event(&event))
+    ret = stow_runtime_post(&stow_client, peer->session.endpoint, peer->session.id, seq, buf);
+    if (ret != SUCCESS)
     {
-        net_buf_unref(buf);
-        return z_stow_client_slot_cancel(peer, slot, seq) ? -EBUSY : SUCCESS;
+        return z_stow_client_slot_cancel(peer, slot, seq) ? ((ret == -ENOBUFS) ? -EBUSY : ret) : SUCCESS;
     }
-    PASS_OWNERSHIP(buf);
     PASS_OWNERSHIP(slot);
     return SUCCESS;
 }
@@ -469,7 +381,7 @@ static int request(
  */
 static int request_sync(struct stow_client_peer* peer, const struct request* req, struct stow_client_value* values_out)
 {
-    if (k_is_in_isr() || k_current_get() == stow_client_thread_id)
+    if (k_is_in_isr() || stow_runtime_in_thread(&stow_client))
     {
         ASSERT(false, "Blocking Stow client calls are not allowed here");
         return -EWOULDBLOCK;
@@ -515,7 +427,7 @@ static void release_values(struct stow_client_peer* peer, struct stow_client_val
     for (size_t i = 0; i < count; i++)
     {
         struct stow_client_value* value = &values[i];
-        stow_client_release(peer->endpoint, value);
+        stow_client_release(peer_endpoint(peer), value);
     }
 }
 
@@ -607,14 +519,14 @@ static void handle_update(struct stow_client_peer* peer, struct stow_msg_reader*
     int ret = stow_msg_next_entry(reader, &entry);
     if (ret != SUCCESS)
     {
-        LOG_WRN("Dropped an Update from session %u (%d)", peer->session_id, ret);
+        LOG_WRN("Dropped an Update from session %u (%d)", peer->session.id, ret);
         return;
     }
 
     event_t* event = NULL;
     if (EVENT_ALLOC(&stow_client_update_event, sizeof(struct stow_client_update_payload), &event) != SUCCESS)
     {
-        LOG_WRN("Dropped an Update from session %u, no event was free", peer->session_id);
+        LOG_WRN("Dropped an Update from session %u, no event was free", peer->session.id);
         stow_msg_entry_release(&entry);
         return;
     }
@@ -638,7 +550,7 @@ static void update_event_on_free(event_t* event)
     struct stow_client_update_payload* update = (struct stow_client_update_payload*)event->data.buf;
     struct stow_client_value value = update->value;
     struct stow_client_peer* peer = update->peer;
-    stow_client_release(peer->endpoint, &value);
+    stow_client_release(peer_endpoint(peer), &value);
     stow_client_peer_unref(&peer);
 }
 
@@ -652,23 +564,77 @@ static void result_event_on_free(event_t* event)
     for (uint16_t i = 0; i < result->count; i++)
     {
         struct stow_client_value value = result->values[i];
-        stow_client_release(peer->endpoint, &value);
+        stow_client_release(peer_endpoint(peer), &value);
     }
     stow_client_peer_unref(&peer);
 }
 
 /**
- * @brief Handle a message, dropping it when it arrived for an earlier session in the peer's slot
+ * @brief Check a session's endpoint and give the peer its item table
+ *
+ * @return SUCCESS, -EINVAL for an empty schema, or -ENOMEM
  */
-static void handle_rx(struct stow_client_peer* peer, struct net_buf* buf, uint32_t opens)
+static int accept_peer(struct stow_session* session)
 {
-    k_spinlock_key_t key = k_spin_lock(&peers_lock);
-    bool current = (opens == peer->opens);
-    k_spin_unlock(&peers_lock, key);
-
-    if (!current || (peer->state != PEER_VERIFYING && peer->state != PEER_READY))
+    struct stow_client_peer* peer = CONTAINER_OF(session, struct stow_client_peer, session);
+    const struct stow_client_endpoint* client = peer_endpoint(peer);
+    if (client->schema == NULL || client->schema->item_count == 0U)
     {
-        LOG_WRN("Dropping a message for session %u that is not open", peer->session_id);
+        return -EINVAL;
+    }
+
+    void* items = NULL;
+    if (MEM_ALLOC(client->schema->item_count * sizeof(struct item_state), &items) != SUCCESS)
+    {
+        return -ENOMEM;
+    }
+    peer->timeout_ms = (client->timeout_ms != 0U) ? client->timeout_ms : CONFIG_STOW_CLIENT_TIMEOUT_MS;
+    peer->items = items;
+    peer->resolver = (struct stow_msg_items){ .resolve = resolve_item };
+    PASS_OWNERSHIP(items);
+    return SUCCESS;
+}
+
+static void open_peer(struct stow_session* session)
+{
+    z_stow_client_verify_start(CONTAINER_OF(session, struct stow_client_peer, session));
+}
+
+/**
+ * @brief Fail every pending request, then report the close through the hooks
+ */
+static void close_peer(struct stow_session* session)
+{
+    struct stow_client_peer* peer = CONTAINER_OF(session, struct stow_client_peer, session);
+    enum peer_state previous = peer->state;
+
+    k_spinlock_key_t key = k_spin_lock(&peer->lock);
+    peer->state = PEER_CLOSED;
+    k_spin_unlock(&peer->lock, key);
+
+    z_stow_client_slot_fail_all(peer);
+
+    key = k_spin_lock(&peer->lock);
+    peer->slots.quarantined = 0U;
+    k_spin_unlock(&peer->lock, key);
+    k_sem_give(&peer->slot_free);
+
+    if (previous == PEER_VERIFYING)
+    {
+        CALL_HOOKS(connected, peer, -ENOTCONN);
+    }
+    else if (previous == PEER_READY)
+    {
+        CALL_HOOKS(disconnected, peer);
+    }
+}
+
+static void handle_rx(struct stow_session* session, const struct net_buf* buf)
+{
+    struct stow_client_peer* peer = CONTAINER_OF(session, struct stow_client_peer, session);
+    if (peer->state != PEER_VERIFYING && peer->state != PEER_READY)
+    {
+        LOG_WRN("Dropping a message for session %u, whose peer failed verification", session->id);
         return;
     }
 
@@ -682,7 +648,7 @@ static void handle_rx(struct stow_client_peer* peer, struct net_buf* buf, uint32
     }
     if (msg.tag == STOW_TAG_NONE)
     {
-        LOG_WRN("Dropped a message without a tag from session %u (%d)", peer->session_id, ret);
+        LOG_WRN("Dropped a message without a tag from session %u (%d)", session->id, ret);
         return;
     }
 
@@ -691,8 +657,7 @@ static void handle_rx(struct stow_client_peer* peer, struct net_buf* buf, uint32
     {
         bool late = z_stow_client_tag_answered(peer, msg.tag);
         LOG_WRN(
-            "Dropped %s response with tag %u from session %u", late ? "a late" : "an unexpected", msg.tag,
-            peer->session_id);
+            "Dropped %s response with tag %u from session %u", late ? "a late" : "an unexpected", msg.tag, session->id);
         return;
     }
 
@@ -710,263 +675,99 @@ static void handle_rx(struct stow_client_peer* peer, struct net_buf* buf, uint32
 }
 
 /**
- * @brief Send a queued request, or drop it when its slot was cancelled or the session closed
+ * @brief Send a queued request, unless its slot was cancelled or failed
  *
- * @releases net_buf buf
+ * @param session The peer's session
+ * @param seq Sequence number the slot had when the request was queued
+ * @param buf The request
  */
-static void handle_send(const struct client_event* event, struct net_buf* buf)
+static void send_request(struct stow_session* session, uint32_t seq, struct net_buf* buf)
 {
-    struct stow_client_peer* peer = &peers[event->peer];
-    struct slot* slot = &peer->slots.entries[event->slot];
-
+    struct stow_client_peer* peer = CONTAINER_OF(session, struct stow_client_peer, session);
     k_spinlock_key_t key = k_spin_lock(&peer->lock);
-    bool current = (slot->state == SLOT_QUEUED && slot->seq == event->seq && peer->transport != NULL);
+    struct slot* slot = z_stow_client_slot_find_queued(peer, seq);
     k_spin_unlock(&peer->lock, key);
-    if (!current)
+    if (slot == NULL)
     {
-        net_buf_unref(buf);
         return;
     }
 
-    (void)z_stow_client_slot_send(peer, slot, buf);
-}
-
-static void close_peer(struct stow_client_peer* peer)
-{
-    enum peer_state previous = peer->state;
-
-    k_spinlock_key_t key = k_spin_lock(&peer->lock);
-    peer->state = PEER_CLOSED;
-    k_spin_unlock(&peer->lock, key);
-
-    z_stow_client_slot_fail_all(peer);
-
-    k_spinlock_key_t peers_key = k_spin_lock(&peers_lock);
-    key = k_spin_lock(&peer->lock);
-    peer->slots.quarantined = 0U;
-    peer->transport = NULL;
-    atomic_clear_bit(peer->signals, PEER_SIGNAL_CLOSE);
-    k_spin_unlock(&peer->lock, key);
-    k_spin_unlock(&peers_lock, peers_key);
-    k_sem_give(&peer->slot_free);
-
-    if (previous == PEER_VERIFYING)
-    {
-        CALL_HOOKS(connected, peer, -ENOTCONN);
-    }
-    else if (previous == PEER_READY)
-    {
-        CALL_HOOKS(disconnected, peer);
-    }
-
-    struct stow_client_peer* session = peer;
-    stow_client_peer_unref(&session);
+    struct net_buf* sent = net_buf_ref(buf);
+    (void)z_stow_client_slot_send(peer, slot, sent);
 }
 
 /**
- * @brief Act on the signals raised on every peer, closes before opens
+ * @brief Fail every sent request whose time is up, and a verification that timed out
+ *
+ * @return Time until the next sent request times out
  */
-static void handle_signals(void)
+static k_timeout_t expire_requests(void)
 {
-    for (size_t i = 0; i < ARRAY_SIZE(peers); i++)
+    int64_t now = k_uptime_get();
+    int64_t deadline = INT64_MAX;
+    for (size_t p = 0; p < ARRAY_SIZE(peers); p++)
     {
-        struct stow_client_peer* peer = &peers[i];
-        if (!peer->in_use)
+        struct stow_client_peer* peer = &peers[p];
+        if (z_stow_client_slots_expire(peer, now))
         {
-            continue;
+            z_stow_client_verify_failed(peer, -ETIMEDOUT);
         }
-        if (atomic_test_bit(peer->signals, PEER_SIGNAL_CLOSE))
-        {
-            atomic_clear_bit(peer->signals, PEER_SIGNAL_OPEN);
-            close_peer(peer);
-        }
-        if (atomic_test_and_clear_bit(peer->signals, PEER_SIGNAL_OPEN))
-        {
-            z_stow_client_verify_start(peer);
-        }
+        deadline = MIN(deadline, z_stow_client_slots_deadline(peer));
     }
+    return (deadline == INT64_MAX) ? K_FOREVER : K_MSEC(MAX(deadline - k_uptime_get(), 0));
 }
 
-static void client_thread(void* p1, void* p2, void* p3)
+static void free_items(struct stow_session* session)
 {
-    ARG_UNUSED(p1);
-    ARG_UNUSED(p2);
-    ARG_UNUSED(p3);
+    struct stow_client_peer* peer = CONTAINER_OF(session, struct stow_client_peer, session);
+    void* items = peer->items;
+    peer->items = NULL;
+    MEM_UNREF(&items);
+}
 
+static int start_client(void)
+{
     for (size_t i = 0; i < ARRAY_SIZE(peers); i++)
     {
         k_sem_init(&peers[i].slot_free, 0, 1);
     }
-
-    while (true)
-    {
-        int64_t deadline = next_deadline();
-        k_timeout_t wait = K_FOREVER;
-        if (deadline != INT64_MAX)
-        {
-            int64_t remaining = deadline - k_uptime_get();
-            wait = K_MSEC(MAX(remaining, 0));
-        }
-        (void)k_sem_take(&stow_client_wake, wait);
-
-        handle_signals();
-
-        struct client_event event;
-        while (k_msgq_get(&stow_client_queue, &event, K_NO_WAIT) == 0)
-        {
-            struct net_buf* buf = event.buf;
-            if (event.type == CLIENT_EVENT_SEND)
-            {
-                handle_send(&event, buf);
-                continue;
-            }
-            handle_rx(&peers[event.peer], buf, event.opens);
-            net_buf_unref(buf);
-        }
-
-        expire();
-    }
+    return stow_runtime_start(&stow_client);
 }
 
 //**********************************************************
 //* Public Function Definitions
 //**********************************************************
 
-/** @cond INTERNAL_HIDDEN */
-int z_stow_client_session_opened(
-    const struct stow_endpoint* endpoint, uint32_t session_id, stow_role_t roles, struct stow_transport* transport)
-{
-    ARG_UNUSED(roles);
-    const struct stow_client_endpoint* client = CONTAINER_OF(endpoint, struct stow_client_endpoint, endpoint);
-    if (!stow_transport_usable(transport) || client->schema == NULL || client->schema->item_count == 0U)
-    {
-        return -EINVAL;
-    }
-
-    void* items = NULL;
-    if (MEM_ALLOC(client->schema->item_count * sizeof(struct item_state), &items) != SUCCESS)
-    {
-        return -ENOMEM;
-    }
-
-    int ret = SUCCESS;
-    struct stow_client_peer* peer = NULL;
-    k_spinlock_key_t key = k_spin_lock(&peers_lock);
-    if (find_open_peer(endpoint, session_id) != NULL)
-    {
-        ret = -EALREADY;
-    }
-    for (size_t i = 0; ret == SUCCESS && peer == NULL && i < ARRAY_SIZE(peers); i++)
-    {
-        peer = peers[i].in_use ? NULL : &peers[i];
-    }
-    if (ret == SUCCESS && peer == NULL)
-    {
-        ret = -ENOMEM;
-    }
-    if (ret == SUCCESS)
-    {
-        peer->in_use = true;
-        peer->opens++;
-        atomic_set(&peer->refs, 1);
-        peer->endpoint = client;
-        peer->session_id = session_id;
-        peer->timeout_ms = (client->timeout_ms != 0U) ? client->timeout_ms : CONFIG_STOW_CLIENT_TIMEOUT_MS;
-        peer->items = items;
-        peer->resolver = (struct stow_msg_items){ .resolve = resolve_item };
-        peer->transport = transport;
-        atomic_set_bit(peer->signals, PEER_SIGNAL_OPEN);
-    }
-    k_spin_unlock(&peers_lock, key);
-
-    if (ret != SUCCESS)
-    {
-        MEM_UNREF(&items);
-        return ret;
-    }
-    PASS_OWNERSHIP(items);
-    k_sem_give(&stow_client_wake);
-    return SUCCESS;
-}
-
-void z_stow_client_session_closed(const struct stow_endpoint* endpoint, uint32_t session_id)
-{
-    k_spinlock_key_t key = k_spin_lock(&peers_lock);
-    struct stow_client_peer* peer = find_open_peer(endpoint, session_id);
-    bool open = (peer != NULL && !atomic_test_and_set_bit(peer->signals, PEER_SIGNAL_CLOSE));
-    k_spin_unlock(&peers_lock, key);
-
-    if (!open)
-    {
-        LOG_WRN("Close for session %u that is not open", session_id);
-        return;
-    }
-    k_sem_give(&stow_client_wake);
-}
-
-void z_stow_client_receive(const struct stow_endpoint* endpoint, uint32_t session_id, struct net_buf* buf)
-{
-    k_spinlock_key_t key = k_spin_lock(&peers_lock);
-    struct stow_client_peer* peer = find_open_peer(endpoint, session_id);
-    uint32_t opens = (peer != NULL) ? peer->opens : 0U;
-    k_spin_unlock(&peers_lock, key);
-
-    if (buf == NULL || peer == NULL)
-    {
-        LOG_WRN("Dropping a message for session %u that is not open", session_id);
-        return;
-    }
-
-    struct net_buf* rx_buf = net_buf_ref(buf);
-    struct client_event event = {
-        .type = CLIENT_EVENT_RX,
-        .peer = (uint8_t)(peer - peers),
-        .opens = opens,
-        .buf = rx_buf,
-    };
-    if (!push_event(&event))
-    {
-        LOG_WRN("Dropping a message for session %u, queue full", session_id);
-        net_buf_unref(rx_buf);
-        return;
-    }
-    PASS_OWNERSHIP(rx_buf);
-}
-/** @endcond */
-
 struct stow_client_peer* stow_client_peer_ref(struct stow_client_peer* peer)
 {
-    atomic_val_t previous = atomic_inc(&peer->refs);
-    ASSERT(previous > 0, "Peer referenced after its last reference was released");
-    ARG_UNUSED(previous);
-    return peer;
+    struct stow_session* session = stow_session_ref(&peer->session);
+    struct stow_client_peer* held = CONTAINER_OF(session, struct stow_client_peer, session);
+    PASS_OWNERSHIP(session);
+    return held;
 }
 
 void stow_client_peer_unref(struct stow_client_peer** peer)
 {
     struct stow_client_peer* released = *peer;
     *peer = NULL;
-    if (released == NULL || atomic_dec(&released->refs) != 1)
+    if (released != NULL)
     {
-        return;
+        struct stow_session* session = &released->session;
+        stow_session_unref(&session);
     }
-
-    k_spinlock_key_t key = k_spin_lock(&peers_lock);
-    void* items = released->items;
-    released->items = NULL;
-    released->in_use = false;
-    k_spin_unlock(&peers_lock, key);
-    MEM_UNREF(&items);
 }
 
-const struct stow_client_endpoint* stow_client_peer_endpoint(struct stow_client_peer* peer) { return peer->endpoint; }
+const struct stow_client_endpoint* stow_client_peer_endpoint(struct stow_client_peer* peer)
+{
+    return peer_endpoint(peer);
+}
 
-uint32_t stow_client_peer_session_id(struct stow_client_peer* peer) { return peer->session_id; }
+uint32_t stow_client_peer_session_id(struct stow_client_peer* peer) { return peer->session.id; }
 
 int stow_client_peer_info(struct stow_client_peer* peer, struct stow_client_peer_info* info_out)
 {
     k_spinlock_key_t key = k_spin_lock(&peer->lock);
-    bool ready = (peer->in_use && peer->state == PEER_READY);
+    bool ready = (peer->state == PEER_READY);
     if (ready)
     {
         *info_out = peer->info;
@@ -979,7 +780,7 @@ enum stow_client_availability stow_client_availability(struct stow_client_peer* 
 {
     k_spinlock_key_t key = k_spin_lock(&peer->lock);
     enum stow_client_availability availability = STOW_CLIENT_MISSING;
-    if (peer->in_use && peer->state == PEER_READY && id < peer_item_count(peer))
+    if (peer->state == PEER_READY && id < peer_item_count(peer))
     {
         availability = peer->items[id].availability;
     }

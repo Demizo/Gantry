@@ -20,6 +20,7 @@
 
 #include <gantry/event.h>
 #include <gantry/memory.h>
+#include <gantry/stow/stow_runtime.h>
 #include <gantry/stow/stow_transport.h>
 #include <gantry/stow/types/stow_types.h>
 #include <stddef.h>
@@ -207,10 +208,7 @@ struct stow_client_cb
 #define STOW_CLIENT_CB_DEFINE(_name) static const STRUCT_SECTION_ITERABLE(stow_client_cb, _name)
 
 /** @cond INTERNAL_HIDDEN */
-int z_stow_client_session_opened(
-    const struct stow_endpoint* endpoint, uint32_t session_id, stow_role_t roles, struct stow_transport* transport);
-void z_stow_client_session_closed(const struct stow_endpoint* endpoint, uint32_t session_id);
-void z_stow_client_receive(const struct stow_endpoint* endpoint, uint32_t session_id, struct net_buf* buf);
+STOW_RUNTIME_ENDPOINT_DECLARE(stow_client);
 /** @endcond */
 
 /**
@@ -225,15 +223,10 @@ void z_stow_client_receive(const struct stow_endpoint* endpoint, uint32_t sessio
  * @param _timeout_ms Request timeout, or 0 for CONFIG_STOW_CLIENT_TIMEOUT_MS
  */
 #define STOW_CLIENT_ENDPOINT_DEFINE(_name, _schema, _timeout_ms) \
-    const struct stow_client_endpoint _name = {                         \
-        .endpoint =                                                     \
-            {                                                           \
-                .session_opened = z_stow_client_session_opened,         \
-                .session_closed = z_stow_client_session_closed,         \
-                .receive = z_stow_client_receive,                       \
-            },                                                          \
-        .schema = (_schema),                                            \
-        .timeout_ms = (_timeout_ms),                                    \
+    const struct stow_client_endpoint _name = {                  \
+        .endpoint = STOW_RUNTIME_ENDPOINT(stow_client),          \
+        .schema = (_schema),                                     \
+        .timeout_ms = (_timeout_ms),                             \
     }
 
 //**********************************************************

@@ -88,7 +88,7 @@ static int send_verify_request(struct stow_client_peer* peer, enum stow_message_
 
     struct net_buf* buf = NULL;
     size_t budget = 0;
-    int ret = stow_transport_alloc(peer->transport, peer->info.max_message, &buf, &budget);
+    int ret = stow_transport_alloc(peer->session.transport, peer->info.max_message, &buf, &budget);
     if (ret != SUCCESS)
     {
         (void)z_stow_client_slot_cancel(peer, slot, slot->seq);
@@ -143,7 +143,7 @@ static void send_describe(struct stow_client_peer* peer, uint32_t start_id)
         }
         if (ret != SUCCESS)
         {
-            LOG_ERR("Describe to session %u failed (%d)", peer->session_id, ret);
+            LOG_ERR("Describe to session %u failed (%d)", peer->session.id, ret);
             z_stow_client_verify_failed(peer, ret);
         }
         return;
@@ -345,6 +345,6 @@ void z_stow_client_verify_failed(struct stow_client_peer* peer, int err)
     peer->state = PEER_FAILED;
     k_spin_unlock(&peer->lock, key);
 
-    LOG_WRN("Session %u could not be verified (%d)", peer->session_id, err);
+    LOG_WRN("Session %u could not be verified (%d)", peer->session.id, err);
     CALL_HOOKS(connected, peer, err);
 }
