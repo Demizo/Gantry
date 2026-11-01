@@ -234,6 +234,11 @@ dependencies = [
     { name = "sphinxcontrib-mermaid" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "breathe", specifier = ">=4.36.0" },
@@ -242,6 +247,9 @@ requires-dist = [
     { name = "sphinx-rtd-theme", specifier = ">=3.1.0" },
     { name = "sphinxcontrib-mermaid", specifier = ">=2.0.1" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.0" }]
 
 [[package]]
 name = "idna"

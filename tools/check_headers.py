@@ -1,40 +1,51 @@
+"""Checks that every C source carries the copyright header, or inserts it with --fix."""
+
+import argparse
+import sys
 from pathlib import Path
 
+HEADER = (
+    "/*\n"
+    " * Copyright (c) 2026 Demizo\n"
+    " *\n"
+    " * SPDX-License-Identifier: Apache-2.0\n"
+    " */\n\n"
+)
 
-def prepend_copyright():
-    header = (
-        "/*\n"
-        " * Copyright (c) 2026 Demizo\n"
-        " *\n"
-        " * SPDX-License-Identifier: Apache-2.0\n"
-        " */\n\n"
+TARGETS = ["lib", "include", "samples", "tests"]
+
+
+def sources():
+    for target in TARGETS:
+        for path in sorted(Path(target).rglob("*.[ch]")):
+            if "build" not in path.parts:
+                yield path
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--fix", action="store_true", help="insert the header where it is missing"
     )
+    args = parser.parse_args()
 
-    targets = ["lib", "include", "samples", "tests"]
-    extensions = ["*.c", "*.h"]
-
-    for target_dir in targets:
-        path = Path(target_dir)
-        if not path.exists():
-            print(f"Directory '{target_dir}' not found, skipping...")
-            continue
-
-        for ext in extensions:
-            for file_path in path.rglob(ext):
-                if any(part.startswith("build") for part in file_path.parts):
-                    continue
-                try:
-                    with open(file_path, encoding="utf-8") as f:
-                        content = f.read()
-
-                    if not content.startswith(header):
-                        print(f"Adding header to: {file_path}")
-                        with open(file_path, "w", encoding="utf-8") as f:
-                            f.write(header + content)
-
-                except Exception as e:
-                    print(f"Error processing {file_path}: {e}")
+    failed = False
+    for path in sources():
+        try:
+            text = path.read_text(encoding="utf-8")
+            if text.startswith(HEADER):
+                continue
+            if args.fix:
+                path.write_text(HEADER + text, encoding="utf-8")
+                print(f"{path}: added the copyright header")
+            else:
+                print(f"{path}: missing the copyright header")
+                failed = True
+        except (OSError, UnicodeError) as error:
+            print(f"{path}: {error}")
+            failed = True
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    prepend_copyright()
+    sys.exit(main())
