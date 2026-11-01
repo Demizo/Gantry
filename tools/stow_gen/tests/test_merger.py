@@ -1,7 +1,12 @@
 import pytest
 import yaml
 
-from merger import compose, merge_dict, merge_named_list, validate_fragment_shape
+from stow_gen.merger import (
+    compose,
+    merge_dict,
+    merge_named_list,
+    validate_fragment_shape,
+)
 
 BASE_DEVICE_NAME = {
     "name": "DeviceName",

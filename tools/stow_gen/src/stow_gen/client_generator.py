@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from preprocess import (
+from .preprocess import (
     BUILTIN_STRINGS,
     builtin_item,
     flatten,

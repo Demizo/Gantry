@@ -26,7 +26,11 @@ protocol-spec = "protocol_spec.cli:main"
 dev = [
     "protocol-spec[vectors]",
     "pytest>=8.0",
+    "stow-gen",
 ]
+
+[tool.uv.sources]
+stow-gen = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.10.6,<0.12.0"]

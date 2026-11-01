@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from client_generator import generate_client
+from stow_gen.client_generator import generate_client
 
 ITEM = {
     "description": "An item",

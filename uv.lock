@@ -9,6 +9,7 @@ members = [
     "link-broker",
     "protocol-spec",
     "stow-client",
+    "stow-gen",
 ]
 
 [[package]]
@@ -227,32 +228,20 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "breathe" },
-    { name = "jinja2" },
-    { name = "pyyaml" },
     { name = "ruff" },
     { name = "sphinx" },
     { name = "sphinx-rtd-theme" },
     { name = "sphinxcontrib-mermaid" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "breathe", specifier = ">=4.36.0" },
-    { name = "jinja2", specifier = ">=3.1.6" },
-    { name = "pyyaml", specifier = ">=6.0" },
     { name = "ruff", specifier = "==0.15.14" },
     { name = "sphinx", specifier = ">=9.1.0" },
     { name = "sphinx-rtd-theme", specifier = ">=3.1.0" },
     { name = "sphinxcontrib-mermaid", specifier = ">=2.0.1" },
 ]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8.0" }]
 
 [[package]]
 name = "idna"
@@ -402,6 +391,7 @@ vectors = [
 dev = [
     { name = "protocol-spec", extra = ["vectors"] },
     { name = "pytest" },
+    { name = "stow-gen" },
 ]
 
 [package.metadata]
@@ -418,6 +408,7 @@ provides-extras = ["vectors"]
 dev = [
     { name = "protocol-spec", extras = ["vectors"] },
     { name = "pytest", specifier = ">=8.0" },
+    { name = "stow-gen", editable = "tools/stow_gen" },
 ]
 
 [[package]]
@@ -795,6 +786,7 @@ dev = [
     { name = "protocol-spec", extra = ["vectors"] },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "stow-gen" },
 ]
 integration = [
     { name = "pyserial-asyncio" },
@@ -810,12 +802,36 @@ dev = [
     { name = "protocol-spec", extras = ["vectors"], editable = "tools/protocol_spec" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
+    { name = "stow-gen", editable = "tools/stow_gen" },
 ]
 integration = [
     { name = "pyserial-asyncio", specifier = ">=0.6" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
 ]
+
+[[package]]
+name = "stow-gen"
+version = "0.1.0"
+source = { editable = "tools/stow_gen" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "pyyaml" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.0" }]
 
 [[package]]
 name = "urllib3"

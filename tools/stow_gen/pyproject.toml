@@ -1,0 +1,26 @@
+[project]
+name = "stow-gen"
+version = "0.1.0"
+description = "Generates the C code of a Stow schema, Stow client bindings for a peer's schema, and the StowHash"
+authors = [{ name = "Demizo", email = "demizodemazo@gmail.com" }]
+license = "Apache-2.0"
+requires-python = ">=3.13"
+dependencies = [
+    "jinja2>=3.1.6",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+stow-gen = "stow_gen.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.6,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

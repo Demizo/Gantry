@@ -93,7 +93,7 @@ test-integration *args='':
 
 # Run the Stow generation unit tests
 test-stow-tools *args='':
-    uv run pytest tools/stow/tests {{args}}
+    uv run --package stow-gen pytest tools/stow_gen/tests {{args}}
 
 # Run the resource checker's own unit tests
 test-resource-check *args='':

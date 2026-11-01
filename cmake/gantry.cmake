@@ -1,15 +1,18 @@
-# _gantry_tool(<package> <doing> [EXTRA <extra>] [OUTPUT <file> DEPENDS <path>...]
-#              ARGS <arg>...)
+# _gantry_tool(<package> <doing> [DEV] [EXTRA <extra>]
+#              [OUTPUT <file> DEPENDS <path>...] ARGS <arg>...)
 #
 # Runs the console script of a package in Gantry's uv workspace, named like the
-# package, without its dev dependencies. Without OUTPUT it runs now, and a
-# failure stops the configure step after the tool's output. With OUTPUT it
-# becomes the build rule for <file>.
+# package, without its dev dependencies unless DEV is given. Without OUTPUT it
+# runs now, and a failure stops the configure step after the tool's output.
+# With OUTPUT it becomes the build rule for <file>.
 function(_gantry_tool package doing)
-  cmake_parse_arguments(ARG "" "EXTRA;OUTPUT" "DEPENDS;ARGS" ${ARGN})
+  cmake_parse_arguments(ARG "DEV" "EXTRA;OUTPUT" "DEPENDS;ARGS" ${ARGN})
 
   find_program(GANTRY_UV_CMD NAMES uv REQUIRED)
-  set(_command ${GANTRY_UV_CMD} run --project ${ZEPHYR_GANTRY_MODULE_DIR} --package ${package} --no-dev)
+  set(_command ${GANTRY_UV_CMD} run --project ${ZEPHYR_GANTRY_MODULE_DIR} --package ${package})
+  if(NOT ARG_DEV)
+    list(APPEND _command --no-dev)
+  endif()
   if(ARG_EXTRA)
     list(APPEND _command --extra ${ARG_EXTRA})
   endif()
@@ -60,7 +63,9 @@ function(gantry_protocol_vectors target folder prefix)
   set(_output ${CMAKE_CURRENT_BINARY_DIR}/${prefix}_vectors.c)
   file(GLOB _inputs ${folder}/* ${_tool}/src/protocol_spec/*.py ${_tool}/src/protocol_spec/templates/*)
 
+  # The protocol tool's dev dependencies provide the commands a folder's values run, such as stow-gen
   _gantry_tool(protocol-spec "rendering the ${prefix} protocol vectors"
+    DEV
     EXTRA   vectors
     OUTPUT  ${_output}
     DEPENDS ${_inputs}
@@ -100,14 +105,14 @@ function(gantry_stow_add_fragment path)
   set_property(GLOBAL APPEND PROPERTY GANTRY_STOW_FRAGMENTS "${path}")
 endfunction()
 
-# _gantry_stow_run(WHAT <what> SCRIPT <script> OUTPUT_DIR <dir> YAML <path>
-#                  DEPTH <file> [FRAGMENTS <path>...] [ARGS <arg>...])
+# _gantry_stow_run(COMMAND <command> OUTPUT_DIR <dir> YAML <path> DEPTH <file>
+#                  [FRAGMENTS <path>...] [ARGS <arg>...])
 #
-# Runs a Stow generator script over a stow.yaml and its fragments, which
-# become configure dependencies, adds the generated headers to the include
-# path, and raises STOW_DEPTH_MAX to the depth file it wrote.
+# Runs a stow-gen command over a stow.yaml and its fragments, which become
+# configure dependencies, adds the generated headers to the include path, and
+# raises STOW_DEPTH_MAX to the depth file it wrote.
 function(_gantry_stow_run)
-  cmake_parse_arguments(ARG "" "WHAT;SCRIPT;OUTPUT_DIR;YAML;DEPTH" "FRAGMENTS;ARGS" ${ARGN})
+  cmake_parse_arguments(ARG "" "COMMAND;OUTPUT_DIR;YAML;DEPTH" "FRAGMENTS;ARGS" ${ARGN})
 
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ARG_YAML} ${ARG_FRAGMENTS})
   set(_fragment_args)
@@ -118,19 +123,13 @@ function(_gantry_stow_run)
   file(MAKE_DIRECTORY ${ARG_OUTPUT_DIR}/inc/stow)
   file(MAKE_DIRECTORY ${ARG_OUTPUT_DIR}/src/stow)
 
-  find_program(GANTRY_UV_CMD NAMES uv REQUIRED)
-  execute_process(
-    COMMAND ${GANTRY_UV_CMD} run ${ZEPHYR_GANTRY_MODULE_DIR}/tools/stow/${ARG_SCRIPT}
-            --yaml       ${ARG_YAML}
-            ${_fragment_args}
-            ${ARG_ARGS}
-            --output-dir ${ARG_OUTPUT_DIR}
-    WORKING_DIRECTORY ${ZEPHYR_GANTRY_MODULE_DIR}
-    RESULT_VARIABLE _gen_result
+  _gantry_tool(stow-gen "generating Stow ${ARG_COMMAND} from ${ARG_YAML}"
+    ARGS ${ARG_COMMAND}
+         --yaml       ${ARG_YAML}
+         ${_fragment_args}
+         ${ARG_ARGS}
+         --output-dir ${ARG_OUTPUT_DIR}
   )
-  if(NOT _gen_result EQUAL 0)
-    message(FATAL_ERROR "Gantry ${ARG_WHAT} generation failed (exit ${_gen_result})")
-  endif()
 
   zephyr_include_directories(${ARG_OUTPUT_DIR}/inc/stow)
   gantry_stow_raise_depth(${ARG_OUTPUT_DIR}/${ARG_DEPTH})
@@ -194,8 +193,7 @@ function(gantry_stow_generate)
 
   message(STATUS "Gantry: generating stow from ${ARG_YAML} (${_fragments})")
   _gantry_stow_run(
-    WHAT       stow
-    SCRIPT     generate_stow.py
+    COMMAND    items
     OUTPUT_DIR ${ARG_OUTPUT_DIR}
     DEPTH      generated_stow_depth
     YAML       ${ARG_YAML}
@@ -274,8 +272,7 @@ function(_gantry_stow_client_run)
 
   message(STATUS "Gantry: generating Stow client bindings '${ARG_PREFIX}'")
   _gantry_stow_run(
-    WHAT       "Stow client"
-    SCRIPT     generate_stow_client.py
+    COMMAND    client
     OUTPUT_DIR ${ARG_OUTPUT_DIR}
     DEPTH      generated_${ARG_PREFIX}_stow_depth
     YAML       ${ARG_YAML}

@@ -1,9 +1,7 @@
 import hashlib
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-from preprocess import (
+from .preprocess import (
     builtin_item,
     preprocess_items,
     preprocess_structs,

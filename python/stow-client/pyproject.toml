@@ -13,6 +13,7 @@ dev = [
     "protocol-spec[vectors]",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
+    "stow-gen",
 ]
 integration = [
     "pyserial-asyncio>=0.6",
@@ -22,6 +23,7 @@ integration = [
 
 [tool.uv.sources]
 protocol-spec = { workspace = true }
+stow-gen = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.10.6,<0.12.0"]

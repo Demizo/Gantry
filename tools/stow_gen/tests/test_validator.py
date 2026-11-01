@@ -3,7 +3,7 @@ import re
 import pytest
 import yaml
 
-from validator import validate
+from stow_gen.validator import validate
 
 SCHEMA = """
 enums:

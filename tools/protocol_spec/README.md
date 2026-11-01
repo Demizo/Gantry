@@ -8,7 +8,7 @@ sides:
   client: request
   server: response
 values:
-  stow_hash: [uv, run, ../../tools/stow/generate_stow.py, --print-hash, --yaml, schema.yaml]
+  stow_hash: [stow-gen, hash, --yaml, schema.yaml]
 ```
 
 ## Vectors
