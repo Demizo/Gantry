@@ -43,13 +43,15 @@
 
         zephyr = zephyr-nix.packages.${system};
 
+        sdk = zephyr.sdk.override {
+          targets = [
+            "arm-zephyr-eabi"
+            "x86_64-zephyr-elf"
+          ];
+        };
+
         corePackages = with pkgs; [
-          (zephyr.sdk.override {
-            targets = [
-              "arm-zephyr-eabi"
-              "x86_64-zephyr-elf"
-            ];
-          })
+          sdk
           zephyr.pythonEnv
           zephyr.hosttools-nix
           cmake
@@ -84,14 +86,24 @@
           tag = "latest";
           contents =
             with pkgs;
-            [
+            stdenv.initialPath
+            ++ [
               bashInteractive
-              coreutils
+              git
+              cacert
+              dockerTools.usrBinEnv
             ]
             ++ corePackages
-            ++ extraPackages;
+            ++ extraPackages
+            ++ zephyr.hosttools-nix.propagatedBuildInputs;
+          extraCommands = "mkdir -m 1777 tmp";
           config = {
-            WorkingDir = "/workspace";
+            Env = [
+              "HOME=/tmp"
+              "UV_LINK_MODE=copy"
+              "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+              "ZEPHYR_SDK_INSTALL_DIR=${sdk}"
+            ];
           };
         };
       }

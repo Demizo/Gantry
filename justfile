@@ -25,13 +25,13 @@ docker-build:
   docker load < result
   rm result
 
-# Enter or run a command inside the dev container
+# Enter or run a command inside the dev container, with this checkout's west workspace mounted at its own path
 [group('setup')]
 docker-run *args='bash':
-  docker run --rm -it \
+  docker run --rm $([ -t 0 ] && echo --interactive --tty) \
       --user "$(id -u):$(id -g)" \
-      -v "$(pwd):/workspace" \
-      -w /workspace \
+      -v "$(dirname "$(pwd)"):$(dirname "$(pwd)")" \
+      -w "$(pwd)" \
       gantry-devenv:latest {{args}}
 
 alias b := build
