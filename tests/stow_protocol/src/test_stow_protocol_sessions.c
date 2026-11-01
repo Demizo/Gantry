@@ -64,6 +64,13 @@ ZTEST(stow_protocol_sessions, test_close_frees_slot)
     test_endpoint_close(0xABCD);
 }
 
+ZTEST(stow_protocol_sessions, test_session_open_duplicate_returns_ealready)
+{
+    open_tracked(SESSION_BASE, STOW_ROLE_GUEST);
+    int ret = test_endpoint_open(SESSION_BASE, STOW_ROLE_GUEST, &test_transport);
+    zassert_equal(ret, -EALREADY);
+}
+
 ZTEST(stow_protocol_sessions, test_open_detects_duplicate_behind_free_slot)
 {
     open_tracked(SESSION_BASE, STOW_ROLE_GUEST);

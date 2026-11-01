@@ -209,28 +209,6 @@ int test_build_simple(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, uint3
 int test_build_with_id(uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, uint32_t tag, uint32_t item_id);
 
 /**
- * @brief Encode a Set request for an int item
- */
-int test_build_set_int(uint8_t* out_buf, size_t out_buf_size, uint32_t tag, uint32_t item_id, int32_t value);
-
-/**
- * @brief Encode a Set request for a string item
- */
-int test_build_set_string(uint8_t* out_buf, size_t out_buf_size, uint32_t tag, uint32_t item_id, const char* value);
-
-/**
- * @brief Encode a request with a list of items [cmd, tag, id, ...]
- */
-int test_build_list(
-    uint8_t* out_buf, size_t out_buf_size, uint32_t cmd, uint32_t tag, const uint32_t* ids, uint8_t count);
-
-/**
- * @brief Encode a Set request with two int items
- */
-int test_build_set_ints(
-    uint8_t* out_buf, size_t out_buf_size, uint32_t tag, uint32_t id1, int32_t val1, uint32_t id2, int32_t val2);
-
-/**
  * @brief Reset shared test state between tests
  */
 void test_reset(void);

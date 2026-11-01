@@ -11,7 +11,6 @@ gantry_stow_generate(YAML ${GANTRY_ROOT}/protocols/stow/schema.yaml APP_DIR ${GA
 
 target_sources(app PRIVATE
     src/test_common.c
-    src/test_stow_protocol_basic.c
     src/test_stow_protocol_describe.c
     src/test_stow_protocol_subscribe.c
     src/test_stow_protocol_sessions.c
@@ -19,7 +18,6 @@ target_sources(app PRIVATE
     src/test_stow_protocol_transport.c
     src/test_stow_cobs_transport.c
     src/test_stow_protocol_errors.c
-    src/test_stow_protocol_hello.c
     src/test_stow_protocol_vectors.c
     src/stow_storage_stub.c
     ${GANTRY_LIB}/memory.c

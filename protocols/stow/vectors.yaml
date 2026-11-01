@@ -100,6 +100,13 @@ exchanges:
       - client: '[2 /describe/, 18, 100]'
       - server: '[11 /error/, 18, 3 /invalid-item/, 100]'
 
+  - name: describe_no_known_names
+    meaning: Describe with names that are all unknown returns an empty chunk
+    roles: [Guest]
+    steps:
+      - client: '[2 /describe/, 14, 0, ["NoSuchItem"]]'
+      - server: '[3 /describe-response/, 14, null, h'''']'
+
   - name: get_int
     meaning: Get returns the item's value
     roles: [Guest]
@@ -128,6 +135,20 @@ exchanges:
       - client: '[4 /get/, 3, 3 /TestSessionInt/]'
       - server: '[11 /error/, 3, 5 /permission-denied/, 3, 0]'
 
+  - name: get_failure_names_entry
+    meaning: A failing Get entry is named by item and index
+    roles: [Guest]
+    steps:
+      - client: '[4 /get/, 12, 1 /TestInt/, 2 /TestString/, 4 /TestDevInt/]'
+      - server: '[11 /error/, 12, 5 /permission-denied/, 4, 2]'
+
+  - name: get_unknown_item
+    meaning: Get of an unknown item ID is INVALID_ITEM and names the ID
+    roles: [Guest]
+    steps:
+      - client: '[4 /get/, 11, 99]'
+      - server: '[11 /error/, 11, 3 /invalid-item/, 99, 0]'
+
   - name: get_after_set
     meaning: Get returns the value a Set stored
     roles: [Guest]
@@ -145,6 +166,15 @@ exchanges:
       - server: '[10 /ok/, 5]'
       - client: '[4 /get/, 6, 12 /TestNestedRecord/]'
       - server: '[5 /get-response/, 6, 12 /TestNestedRecord/, [[3, h''01''], 1]]'
+
+  - name: get_after_set_string
+    meaning: A String item is set and read back
+    roles: [Session]
+    steps:
+      - client: '[6 /set/, 13, 2 /TestString/, "newval"]'
+      - server: '[10 /ok/, 13]'
+      - client: '[4 /get/, 14, 2 /TestString/]'
+      - server: '[5 /get-response/, 14, 2 /TestString/, "newval"]'
 
   - name: set_int
     meaning: Set answers OK with the request tag
@@ -166,6 +196,22 @@ exchanges:
     steps:
       - client: '[6 /set/, 17, 1 /TestInt/, 5, 9 /TestEnum/, 1]'
       - server: '[10 /ok/, 17]'
+
+  - name: set_same_item_twice
+    meaning: Set applies its entries in order, so the last one for an item wins
+    roles: [Guest]
+    steps:
+      - client: '[6 /set/, 10, 1 /TestInt/, 10, 1 /TestInt/, 20]'
+      - server: '[10 /ok/, 10]'
+      - client: '[4 /get/, 11, 1 /TestInt/]'
+      - server: '[5 /get-response/, 11, 1 /TestInt/, 20]'
+
+  - name: set_permission_denied
+    meaning: Set of an item the session cannot write names the item
+    roles: [Guest]
+    steps:
+      - client: '[6 /set/, 15, 2 /TestString/, "denied"]'
+      - server: '[11 /error/, 15, 5 /permission-denied/, 2, 0]'
 
   - name: set_unknown_item
     meaning: An unknown item ID is INVALID_ITEM and names the ID
@@ -197,6 +243,24 @@ exchanges:
       - client: '[4 /get/, 9, 1 /TestInt/]'
       - server: '[5 /get-response/, 9, 1 /TestInt/, 5]'
 
+  - name: set_partial_unknown_item
+    meaning: An unknown item ID in a Set is named by ID and index; the entries before it took effect
+    roles: [Guest]
+    steps:
+      - client: '[6 /set/, 12, 1 /TestInt/, 12, 13, 1]'
+      - server: '[11 /error/, 12, 3 /invalid-item/, 13, 1]'
+      - client: '[4 /get/, 13, 1 /TestInt/]'
+      - server: '[5 /get-response/, 13, 1 /TestInt/, 12]'
+
+  - name: set_mistyped_value
+    meaning: A Set value of the wrong type is MALFORMED and names its item; no entry takes effect
+    roles: [Guest]
+    steps:
+      - client: '[6 /set/, 14, 1 /TestInt/, 14, 3 /TestSessionInt/, "x"]'
+      - server: '[11 /error/, 14, 1 /malformed-msg/, 3]'
+      - client: '[4 /get/, 15, 1 /TestInt/]'
+      - server: '[5 /get-response/, 15, 1 /TestInt/, 0]'
+
   - name: set_already_set
     meaning: A trust-on-first-use item that is already set is ALREADY_SET
     roles: [Guest]
@@ -206,12 +270,15 @@ exchanges:
       - client: '[6 /set/, 19, 6 /TestTofu/, "second"]'
       - server: '[11 /error/, 19, 8 /already-set/, 6, 0]'
 
-  - name: subscribe_several
-    meaning: Subscribe accepts several items
-    roles: [Session]
+  - name: subscribe_partial
+    meaning: A failing Subscribe entry is named by item and index; only the entries before it took effect
+    roles: [Guest]
     steps:
-      - client: '[7 /subscribe/, 9, 1 /TestInt/, 3 /TestSessionInt/]'
-      - server: '[10 /ok/, 9]'
+      - client: '[7 /subscribe/, 4, 1 /TestInt/, 3 /TestSessionInt/, 9 /TestEnum/]'
+      - server: '[11 /error/, 4, 5 /permission-denied/, 3, 1]'
+      - client: '[6 /set/, 5, 1 /TestInt/, 4, 9 /TestEnum/, 1]'
+      - server: '[10 /ok/, 5]'
+      - server: '[9 /update/, null, 1 /TestInt/, 4]'
 
   - name: update_after_set
     meaning: A subscribed session gets an Update with the new value, after the Set's OK
@@ -222,6 +289,18 @@ exchanges:
       - client: '[6 /set/, 4, 1 /TestInt/, 42]'
       - server: '[10 /ok/, 4]'
       - server: '[9 /update/, null, 1 /TestInt/, 42]'
+
+  - name: resubscribe
+    meaning: Subscribing to an item twice still sends one Update per change
+    roles: [Guest]
+    steps:
+      - client: '[7 /subscribe/, 1, 1 /TestInt/]'
+      - server: '[10 /ok/, 1]'
+      - client: '[7 /subscribe/, 2, 1 /TestInt/]'
+      - server: '[10 /ok/, 2]'
+      - client: '[6 /set/, 3, 1 /TestInt/, 4]'
+      - server: '[10 /ok/, 3]'
+      - server: '[9 /update/, null, 1 /TestInt/, 4]'
 
   - name: unsubscribe
     meaning: Unsubscribe is idempotent
@@ -240,6 +319,21 @@ exchanges:
       - server: '[10 /ok/, 6]'
       - client: '[6 /set/, 7, 1 /TestInt/, 9]'
       - server: '[10 /ok/, 7]'
+
+  - name: unsubscribe_several
+    meaning: Updates come for every item a Subscribe names, and stop for every item an Unsubscribe names
+    roles: [Session]
+    steps:
+      - client: '[7 /subscribe/, 6, 1 /TestInt/, 3 /TestSessionInt/]'
+      - server: '[10 /ok/, 6]'
+      - client: '[6 /set/, 7, 1 /TestInt/, 3, 3 /TestSessionInt/, 3]'
+      - server: '[10 /ok/, 7]'
+      - server: '[9 /update/, null, 1 /TestInt/, 3]'
+      - server: '[9 /update/, null, 3 /TestSessionInt/, 3]'
+      - client: '[8 /unsubscribe/, 8, 1 /TestInt/, 3 /TestSessionInt/]'
+      - server: '[10 /ok/, 8]'
+      - client: '[6 /set/, 9, 1 /TestInt/, 4, 3 /TestSessionInt/, 4]'
+      - server: '[10 /ok/, 9]'
 
   - name: tag_max
     meaning: The largest tag, 23, is echoed
@@ -282,6 +376,13 @@ malformed:
     roles: [Guest]
     steps:
       - client: '[0 /hello/, 24]'
+      - server: '[11 /error/, null, 1 /malformed-msg/]'
+
+  - name: tag_not_uint
+    meaning: A tag that isn't a uint is malformed and answered with a null tag
+    roles: [Guest]
+    steps:
+      - client: '[0 /hello/, -1]'
       - server: '[11 /error/, null, 1 /malformed-msg/]'
 
   - name: unknown_message
@@ -339,6 +440,24 @@ malformed:
     steps:
       - client: '[0 /hello/, 15], 0'
       - server: '[11 /error/, 15, 1 /malformed-msg/]'
+
+  - name: set_trailing_bytes
+    meaning: A Set with bytes after it is MALFORMED, and no entry takes effect
+    roles: [Guest]
+    steps:
+      - client: '[6 /set/, 17, 1 /TestInt/, 21, 1 /TestInt/, 22], 0'
+      - server: '[11 /error/, 17, 1 /malformed-msg/]'
+      - client: '[4 /get/, 18, 1 /TestInt/]'
+      - server: '[5 /get-response/, 18, 1 /TestInt/, 0]'
+
+  - name: set_unterminated
+    meaning: A Set whose indefinite-length array never ends is MALFORMED, and no entry takes effect
+    roles: [Guest]
+    steps:
+      - client_hex: 9f0611010a010b
+      - server: '[11 /error/, 17, 1 /malformed-msg/]'
+      - client: '[4 /get/, 18, 1 /TestInt/]'
+      - server: '[5 /get-response/, 18, 1 /TestInt/, 0]'
 
   - name: malformed
     meaning: An undecodable request is answered with a null tag

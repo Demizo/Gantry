@@ -27,12 +27,12 @@ static void after_each(void* fixture)
 ZTEST_SUITE(stow_protocol_subscribe, NULL, NULL, before_each, after_each, NULL);
 
 /**
- * @brief Submit a subscribe/unsubscribe request and verify it returns OK
+ * @brief Submit a Subscribe request and verify it returns OK
  */
-static void subscribe_ok(uint32_t session_id, uint32_t cmd, uint32_t item_id)
+static void subscribe_ok(uint32_t session_id, uint32_t item_id)
 {
     uint8_t req[16];
-    int len = test_build_with_id(req, sizeof(req), cmd, TEST_TAG, item_id);
+    int len = test_build_with_id(req, sizeof(req), STOW_MSG_SUBSCRIBE, TEST_TAG, item_id);
     zassert_equal(test_submit_rx(session_id, req, len), 0);
 
     struct test_capture cap = test_await_tx(K_SECONDS(1));
@@ -46,95 +46,12 @@ static void subscribe_ok(uint32_t session_id, uint32_t cmd, uint32_t item_id)
     net_buf_unref(cap.buf);
 }
 
-ZTEST(stow_protocol_subscribe, test_subscribe_then_set_delivers_update)
-{
-    test_open_session(SESSION_A, STOW_ROLE_GUEST);
-
-    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
-
-    // Change the value from elsewhere, protocol should send out an Update
-    data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 13 };
-    zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
-
-    struct test_capture cap = test_await_tx(K_SECONDS(1));
-    zassert_not_null(cap.buf, "expected Update message");
-    zassert_equal(cap.session_id, SESSION_A);
-
-    uint32_t cmd;
-    zcbor_state_t dec[4];
-    zassert_true(test_decode_response_header(cap.buf, &cmd, NULL, dec, ARRAY_SIZE(dec)));
-    zassert_equal(cmd, STOW_MSG_UPDATE, "expected Update (got %u)", cmd);
-    uint32_t id;
-    zassert_true(zcbor_uint32_decode(dec, &id));
-    zassert_equal(id, STOW_ID_TEST_INT);
-    int32_t value;
-    zassert_true(zcbor_int32_decode(dec, &value));
-    zassert_equal(value, 13);
-    net_buf_unref(cap.buf);
-}
-
-ZTEST(stow_protocol_subscribe, test_resubscribe_is_idempotent)
-{
-    test_open_session(SESSION_A, STOW_ROLE_GUEST);
-    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
-    // Re-subscribing should also return OK
-    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
-
-    // Only one update should fire on a single set
-    data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 4 };
-    zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
-
-    struct test_capture cap = test_await_tx(K_SECONDS(1));
-    zassert_not_null(cap.buf);
-    net_buf_unref(cap.buf);
-
-    cap = test_await_tx(K_MSEC(50));
-    zassert_is_null(cap.buf, "did not expect a second update");
-}
-
-ZTEST(stow_protocol_subscribe, test_unsubscribe_stops_updates)
-{
-    test_open_session(SESSION_A, STOW_ROLE_GUEST);
-    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
-    subscribe_ok(SESSION_A, STOW_MSG_UNSUBSCRIBE, STOW_ID_TEST_INT);
-
-    data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 8 };
-    zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
-
-    struct test_capture cap = test_await_tx(K_MSEC(100));
-    zassert_is_null(cap.buf, "expected no update after unsubscribe");
-}
-
-ZTEST(stow_protocol_subscribe, test_unsubscribe_without_subscribe_returns_ok)
-{
-    test_open_session(SESSION_A, STOW_ROLE_GUEST);
-    subscribe_ok(SESSION_A, STOW_MSG_UNSUBSCRIBE, STOW_ID_TEST_INT);
-}
-
-ZTEST(stow_protocol_subscribe, test_subscribe_permission_denied)
-{
-    test_open_session(SESSION_A, STOW_ROLE_GUEST);
-
-    uint8_t req[16];
-    int len = test_build_with_id(req, sizeof(req), STOW_MSG_SUBSCRIBE, TEST_TAG, STOW_ID_TEST_SESSION_INT);
-    zassert_equal(test_submit_rx(SESSION_A, req, len), 0);
-
-    struct test_capture cap = test_await_tx(K_SECONDS(1));
-    zassert_not_null(cap.buf);
-
-    uint32_t cmd;
-    zcbor_state_t dec[4];
-    zassert_true(test_decode_response_header(cap.buf, &cmd, NULL, dec, ARRAY_SIZE(dec)));
-    zassert_equal(cmd, STOW_MSG_ERROR);
-    net_buf_unref(cap.buf);
-}
-
 ZTEST(stow_protocol_subscribe, test_multi_session_subscribe_fans_out_to_both)
 {
     test_open_session(SESSION_A, STOW_ROLE_GUEST);
     test_open_session(SESSION_B, STOW_ROLE_GUEST);
-    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
-    subscribe_ok(SESSION_B, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
+    subscribe_ok(SESSION_A, STOW_ID_TEST_INT);
+    subscribe_ok(SESSION_B, STOW_ID_TEST_INT);
 
     data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 99 };
     zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
@@ -163,8 +80,8 @@ ZTEST(stow_protocol_subscribe, test_session_close_removes_subscription)
 {
     test_open_session(SESSION_A, STOW_ROLE_GUEST);
     test_open_session(SESSION_B, STOW_ROLE_GUEST);
-    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
-    subscribe_ok(SESSION_B, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_INT);
+    subscribe_ok(SESSION_A, STOW_ID_TEST_INT);
+    subscribe_ok(SESSION_B, STOW_ID_TEST_INT);
 
     // Close A
     test_endpoint_close(SESSION_A);
@@ -188,7 +105,7 @@ ZTEST(stow_protocol_subscribe, test_auth_drop_auto_revokes_subscription)
 {
     // Start with SESSION role so we can subscribe to TestSessionInt
     test_open_session(SESSION_A, STOW_ROLE_SESSION);
-    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_SESSION_INT);
+    subscribe_ok(SESSION_A, STOW_ID_TEST_SESSION_INT);
 
     // Switch role to GUEST
     zassert_equal(stow_protocol_session_set_roles(SESSION_A, STOW_ROLE_GUEST), 0);
@@ -207,7 +124,7 @@ ZTEST(stow_protocol_subscribe, test_auth_drop_auto_revokes_subscription)
 ZTEST(stow_protocol_subscribe, test_auth_raise_does_not_resubscribe)
 {
     test_open_session(SESSION_A, STOW_ROLE_SESSION);
-    subscribe_ok(SESSION_A, STOW_MSG_SUBSCRIBE, STOW_ID_TEST_SESSION_INT);
+    subscribe_ok(SESSION_A, STOW_ID_TEST_SESSION_INT);
 
     // Drop then raise back, subscription should remain revoked
     zassert_equal(stow_protocol_session_set_roles(SESSION_A, STOW_ROLE_GUEST), 0);
@@ -220,79 +137,4 @@ ZTEST(stow_protocol_subscribe, test_auth_raise_does_not_resubscribe)
 
     struct test_capture cap = test_await_tx(K_MSEC(200));
     zassert_is_null(cap.buf, "role switch should not re-arm subscription");
-}
-
-static void expect_update(uint32_t session_id, uint32_t item_id)
-{
-    struct test_capture cap = test_await_tx(K_SECONDS(1));
-    zassert_not_null(cap.buf, "expected an Update for item %u", item_id);
-    zassert_equal(cap.session_id, session_id);
-
-    uint32_t cmd;
-    zcbor_state_t dec[4];
-    zassert_true(test_decode_response_header(cap.buf, &cmd, NULL, dec, ARRAY_SIZE(dec)));
-    zassert_equal(cmd, STOW_MSG_UPDATE);
-    uint32_t id;
-    zassert_true(zcbor_uint32_decode(dec, &id));
-    zassert_equal(id, item_id);
-    net_buf_unref(cap.buf);
-}
-
-ZTEST(stow_protocol_subscribe, test_subscribe_to_several_items)
-{
-    test_open_session(SESSION_A, STOW_ROLE_SESSION);
-
-    uint8_t req[16];
-    uint32_t ids[] = { STOW_ID_TEST_INT, STOW_ID_TEST_SESSION_INT };
-    int len = test_build_list(req, sizeof(req), STOW_MSG_SUBSCRIBE, TEST_TAG, ids, ARRAY_SIZE(ids));
-    zassert_equal(test_submit_rx(SESSION_A, req, len), 0);
-    struct test_capture cap = test_await_tx(K_SECONDS(1));
-    zassert_not_null(cap.buf);
-    uint32_t cmd;
-    zcbor_state_t dec[4];
-    zassert_true(test_decode_response_header(cap.buf, &cmd, NULL, dec, ARRAY_SIZE(dec)));
-    zassert_equal(cmd, STOW_MSG_OK);
-    net_buf_unref(cap.buf);
-
-    data_value_t v = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 3 };
-    zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
-    expect_update(SESSION_A, STOW_ID_TEST_INT);
-    zassert_equal(stow_set(STOW_ID_TEST_SESSION_INT, v), 0);
-    expect_update(SESSION_A, STOW_ID_TEST_SESSION_INT);
-
-    len = test_build_list(req, sizeof(req), STOW_MSG_UNSUBSCRIBE, TEST_TAG, ids, ARRAY_SIZE(ids));
-    zassert_equal(test_submit_rx(SESSION_A, req, len), 0);
-    cap = test_await_tx(K_SECONDS(1));
-    zassert_not_null(cap.buf);
-    net_buf_unref(cap.buf);
-
-    zassert_equal(stow_set(STOW_ID_TEST_INT, v), 0);
-    zassert_equal(stow_set(STOW_ID_TEST_SESSION_INT, v), 0);
-    zassert_is_null(test_await_tx(K_MSEC(100)).buf, "updates after unsubscribing");
-}
-
-ZTEST(stow_protocol_subscribe, test_subscribe_partial_failure_names_entry)
-{
-    test_open_session(SESSION_A, STOW_ROLE_GUEST);
-
-    uint8_t req[16];
-    uint32_t ids[] = { STOW_ID_TEST_INT, STOW_ID_TEST_SESSION_INT, STOW_ID_TEST_STRING };
-    int len = test_build_list(req, sizeof(req), STOW_MSG_SUBSCRIBE, TEST_TAG, ids, ARRAY_SIZE(ids));
-    zassert_equal(test_submit_rx(SESSION_A, req, len), 0);
-    struct test_capture cap = test_await_tx(K_SECONDS(1));
-    zassert_not_null(cap.buf);
-    struct test_error error;
-    zassert_true(test_decode_error(cap.buf, &error));
-    zassert_equal(error.code, STOW_ERR_PERMISSION_DENIED);
-    zassert_equal(error.item, STOW_ID_TEST_SESSION_INT);
-    zassert_equal(error.index, 1);
-    net_buf_unref(cap.buf);
-
-    data_value_t int_value = { .type = STOW_ITEM_TYPE_INT, .data.int_value = 4 };
-    zassert_equal(stow_set(STOW_ID_TEST_INT, int_value), 0);
-    expect_update(SESSION_A, STOW_ID_TEST_INT);
-
-    data_value_t string_value = { .type = STOW_ITEM_TYPE_STRING, .data.string_value = "later" };
-    zassert_equal(stow_set(STOW_ID_TEST_STRING, string_value), 0);
-    zassert_is_null(test_await_tx(K_MSEC(100)).buf, "entry after the failure was subscribed");
 }

@@ -20,6 +20,7 @@ from stow_client import (
     GetResponse,
     HelloRequest,
     HelloResponse,
+    ItemType,
     Message,
     Ok,
     Response,
@@ -35,6 +36,16 @@ from stow_client import (
     encode_value,
     parse_description,
 )
+
+# The Python types cbor2 decodes each scalar item type's wire value as
+_SCALAR_VALUES = {
+    ItemType.ENUM: int,
+    ItemType.INT: int,
+    ItemType.FLOAT: (int, float),
+    ItemType.STRING: str,
+    ItemType.BYTE_ARRAY: bytes,
+    ItemType.BUFFER: bytes,
+}
 
 VECTORS = load(Path(__file__).resolve().parents[3] / "protocols" / "stow")
 CLIENT = 0
@@ -166,6 +177,10 @@ class Player:
                 return self.client.get(self._names(ids))
             case SetRequest(items=items) if len({i for i, _ in items}) < len(items):
                 pytest.skip("no public call sends a Set naming one item twice")
+            case SetRequest(items=items) if not all(
+                self._holds(item_id, value) for item_id, value in items
+            ):
+                pytest.skip("no public call sends a value its item's type can't hold")
             case SetRequest(items=items):
                 names = self._names(tuple(item_id for item_id, _ in items))
                 values = {
@@ -180,6 +195,12 @@ class Player:
             case UnsubscribeRequest(item_ids=ids):
                 return self.client.unsubscribe(self._names(ids))
         pytest.skip(f"no public call sends a {type(request).__name__}")
+
+    def _holds(self, item_id: int, value: Any) -> bool:
+        """Whether a Set value has the CBOR type of its item's type; Struct fields aren't checked."""
+        items = {item.id: item for item in self.client.get_all_items()}
+        held = _SCALAR_VALUES.get(items[item_id].type) if item_id in items else None
+        return held is None or isinstance(value, held)
 
     def _decode(self, name: str, value: Any) -> Any:
         item = self.client.get_item_description(name)
