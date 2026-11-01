@@ -28,6 +28,7 @@ target_sources(app PRIVATE
     ${GANTRY_LIB}/stow/stow_event.c
     ${GANTRY_LIB}/stow/stow_msg.c
     ${GANTRY_LIB}/stow/stow_protocol.c
+    ${GANTRY_LIB}/stow/stow_runtime.c
     ${GANTRY_LIB}/stow/stow_cobs_transport.c
     ${GANTRY_LIB}/stow/types/stow_type_enum.c
     ${GANTRY_LIB}/stow/types/stow_type_int.c

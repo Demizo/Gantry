@@ -28,6 +28,7 @@ target_sources(app PRIVATE
     ${GANTRY_LIB}/stow/stow_cobs_transport.c
     ${GANTRY_LIB}/cobs_framer.c
     ${GANTRY_LIB}/stow/stow_protocol.c
+    ${GANTRY_LIB}/stow/stow_runtime.c
     ${GANTRY_LIB}/stow/stow_client.c
     ${GANTRY_LIB}/stow/stow_client_slots.c
     ${GANTRY_LIB}/stow/stow_client_verify.c

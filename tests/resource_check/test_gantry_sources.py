@@ -61,25 +61,26 @@ def test_removing_a_pass_ownership_marker_is_reported(tmp_path, library_annotati
     assert any("'event_block'" in f.text for f in findings)
 
 
-def test_dropping_a_protocol_event_is_reported(tmp_path, library_annotations):
+def test_keeping_a_message_the_queue_refused_is_reported(tmp_path, library_annotations):
     findings = _check_mutated(
         tmp_path,
         library_annotations,
-        LIB / "stow" / "stow_protocol.c",
-        "return push_event(event);",
-        "return SUCCESS;",
+        LIB / "stow" / "stow_runtime.c",
+        'queue full", session_id);\n        net_buf_unref(held);',
+        'queue full", session_id);',
     )
 
-    assert any("'event'" in f.text and "not released" in f.text for f in findings)
+    assert any("'held'" in f.text and "not released" in f.text for f in findings)
 
 
 def test_sending_a_response_twice_is_reported(tmp_path, library_annotations):
+    send = "stow_transport_send(session->transport, session->id, buf);"
     findings = _check_mutated(
         tmp_path,
         library_annotations,
-        LIB / "stow" / "stow_protocol.c",
-        "\n    ret = send_message(session, buf);",
-        "\n    (void)send_message(session, buf);\n    ret = send_message(session, buf);",
+        LIB / "stow" / "stow_runtime.c",
+        f"\n    ret = {send}",
+        f"\n    (void){send}\n    ret = {send}",
     )
 
     assert any("'buf' released twice" in f.text for f in findings)
@@ -89,7 +90,7 @@ def test_a_response_neither_sent_nor_dropped_is_reported(tmp_path, library_annot
     findings = _check_mutated(
         tmp_path,
         library_annotations,
-        LIB / "stow" / "stow_protocol.c",
+        LIB / "stow" / "stow_runtime.c",
         'dropping the response");\n        net_buf_unref(buf);',
         'dropping the response");',
     )

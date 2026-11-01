@@ -73,8 +73,7 @@ ZTEST(stow_protocol_errors, test_set_allocation_failure_returns_out_of_memory)
         block_count++;
     }
     zassert_true(block_count < ARRAY_SIZE(blocks), "memory pools were not exhausted");
-    zassert_true(block_count >= 2);
-    mem_unref(&blocks[--block_count]);
+    zassert_true(block_count >= 1);
     mem_unref(&blocks[--block_count]);
 
     zassert_equal(test_submit_rx(SESSION_ID, req, len), 0);

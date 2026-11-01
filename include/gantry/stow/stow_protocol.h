@@ -29,15 +29,6 @@
  */
 
 //**********************************************************
-//* Definitions
-//**********************************************************
-
-/**
- * @brief Event ID for stow protocol operations
- */
-#define EVENT_ID_STOW_PROTOCOL 2
-
-//**********************************************************
 //* Typedefs, Enums, and Structs
 //**********************************************************
 
@@ -74,9 +65,8 @@ int stow_protocol_init(void);
  * @param session_id The session to update
  * @param roles The new role bitmask
  *
- * @return SUCCESS when the event is queued
+ * @return SUCCESS when the change is queued, or no such session is open
  * @return -ENOBUFS when the protocol queue is full
- * @return -ENOMEM when an event cannot be allocated
  */
 int stow_protocol_session_set_roles(uint32_t session_id, stow_role_t roles);
 
