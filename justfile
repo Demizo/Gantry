@@ -2,6 +2,7 @@ board := "nrf52840dk/nrf52840"
 # Each supported board, then its chip as `probe-rs chip list` names it
 boards := '''
   nrf52840dk/nrf52840                     nRF52840_xxAA
+  nrf54l15dk/nrf54l15/cpuapp              nRF54L15
 '''
 chip := if boards =~ '(?m)^' + board + ' ' {
   replace_regex(boards, '(?ms).*^' + board + ' +(\S+).*', '$1')

@@ -6,12 +6,28 @@ A sample application using the Gantry library. It includes:
 - Using the Stow Protocol over UART and BLE
 - Configuring reference counted memory pools
 
+## Supported Boards
+
+| Board | Board target | probe-rs chip | Stow serial port |
+| --- | --- | --- | --- |
+| nRF52840 DK | `nrf52840dk/nrf52840` (default) | `nRF52840_xxAA` | The DK's only serial port, often `/dev/ttyACM0` |
+| nRF54L15 DK | `nrf54l15dk/nrf54l15/cpuapp` | `nRF54L15` | VCOM1, the port that prints the boot banner |
+
+The Stow serial port is the console UART, which reaches the host through the DK's onboard debugger.
+
 ## Building and Flashing
 
 Build for the nRF52840 DK:
 
 ```sh
 just build
+```
+
+Pick another board by overriding `board`:
+
+```sh
+just board=nrf54l15dk/nrf54l15/cpuapp build
+just board=nrf54l15dk/nrf54l15/cpuapp flash
 ```
 
 For a pristine rebuild:
@@ -38,11 +54,11 @@ just rtt
 
 The integration tests exercise the Stow Protocol over a live UART connection. A device running the example app firmware must be connected and flashed before running them.
 
-Tests are located in `tests/integration/` and use `pytest` via `uv`.
+Tests are located in `tests/` and use `pytest` via `uv`.
 
 ### Running
 
-Pass the serial port of the connected device:
+Flash the board, then pass its Stow serial port from the table above:
 
 ```sh
 just example_app test -s --uart-port /dev/ttyACM0

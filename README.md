@@ -72,6 +72,8 @@ just check   # Check headers, formatting, lint, leaks, cppcheck and vectors
 just test    # Run every test suite that needs no hardware
 ```
 
+The example app supports the nRF52840 DK (default) and the nRF54L15 DK. Pick another board with `just board=<board> build`, see the [example app's README](samples/example_app/README.md) for each board's target and serial port.
+
 Run `just` to list every command.
 
 The hardware recipes use [probe-rs](https://probe.rs). Install probe-rs's [udev rules](https://probe.rs/docs/getting-started/probe-setup/#linux-udev-rules) to reach the probe without root.
