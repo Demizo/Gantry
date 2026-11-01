@@ -3,24 +3,21 @@
     "configurations": [
         {
             "name": "Attach",
-            "device": "nRF52840_xxAA",
-            "cwd": "${workspaceFolder}",
-            "executable": "build/zephyr/zephyr.elf",
+            "type": "probe-rs-debug",
             "request": "attach",
-            "type": "cortex-debug",
-            "runToEntryPoint": "main",
-            "servertype": "openocd",
-            "configFiles": [
-                "app/openocd.cfg"
-            ],
-            "interface": "swd",
-            "gdbPath": "${env:ZEPHYR_SDK_INSTALL_DIR}/gnu/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb",
+            "cwd": "${workspaceFolder}",
+            "chip": "${input:chip}",
+            "coreConfigs": [
+                {
+                    "programBinary": "build/zephyr/zephyr.elf"
+                }
+            ]
         },
         {
             "name": "ZTest Debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/app/tests/build/zephyr/zephyr.exe",
+            "program": "${workspaceFolder}/tests/build/zephyr/zephyr.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -34,6 +31,18 @@
                     "ignoreFailures": true
                 }
             ],
+        }
+    ],
+    "inputs": [
+        {
+            "id": "chip",
+            "type": "pickString",
+            "description": "The board the build targets",
+            "options": [
+                { "label": "nrf52840dk/nrf52840", "value": "nRF52840_xxAA" },
+                { "label": "nrf54l15dk/nrf54l15/cpuapp", "value": "nRF54L15" },
+                { "label": "nrf54lm20dk/nrf54lm20a/cpuapp", "value": "nRF54LM20A" }
+            ]
         }
     ]
 }

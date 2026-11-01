@@ -4,7 +4,7 @@
         "ms-python.python",
         "redhat.vscode-yaml",
         "llvm-vs-code-extensions.vscode-clangd",
-        "marus25.cortex-debug",
+        "probe-rs.probe-rs-debugger",
         "swyddfa.esbonio",
         "aaron-bond.better-comments",
         "samuelcolvin.jinjahtml",
