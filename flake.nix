@@ -43,7 +43,7 @@
 
         zephyr = zephyr-nix.packages.${system};
 
-        commonPackages = with pkgs; [
+        corePackages = with pkgs; [
           (zephyr.sdk.override {
             targets = [
               "arm-zephyr-eabi"
@@ -54,19 +54,30 @@
           zephyr.hosttools-nix
           cmake
           ninja
-          nrfutil
           just
           mcuboot-imgtool
           uv
           cppcheck
           clang-tools
+          doxygen
+        ];
+
+        extraPackages = with pkgs; [
+          nrfutil
           gdb
           just-lsp
-          doxygen
         ];
       in
       {
-        devShells.default = import ./shell.nix { inherit pkgs commonPackages; };
+        devShells.default = import ./shell.nix {
+          inherit pkgs;
+          packages = corePackages ++ extraPackages ++ [ pkgs.vscodium-fhs ];
+        };
+
+        devShells.ci = import ./shell.nix {
+          inherit pkgs;
+          packages = corePackages;
+        };
 
         packages.docker = pkgs.dockerTools.buildLayeredImage {
           name = "gantry-devenv";
@@ -77,7 +88,8 @@
               bashInteractive
               coreutils
             ]
-            ++ commonPackages;
+            ++ corePackages
+            ++ extraPackages;
           config = {
             WorkingDir = "/workspace";
           };
