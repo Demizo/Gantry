@@ -22,6 +22,29 @@ function(gantry_protocol_constants folder header)
   zephyr_include_directories(${_dir})
 endfunction()
 
+# gantry_protocol_vectors(<target> <folder> <prefix>)
+#
+# Renders the vectors of a protocol folder as C data named <prefix>_*,
+# declared by tests/common/protocol_vectors.h, and adds it to <target>. Editing
+# any file in the folder, or the tool, renders it again.
+function(gantry_protocol_vectors target folder prefix)
+  set(_tool ${ZEPHYR_GANTRY_MODULE_DIR}/tools/protocol_spec)
+  set(_output ${CMAKE_CURRENT_BINARY_DIR}/${prefix}_vectors.c)
+  file(GLOB _inputs ${folder}/* ${_tool}/src/protocol_spec/*.py ${_tool}/src/protocol_spec/templates/*)
+
+  find_program(GANTRY_UV_CMD NAMES uv REQUIRED)
+  add_custom_command(
+    OUTPUT ${_output}
+    COMMAND ${GANTRY_UV_CMD} run --project ${_tool} --extra vectors
+            protocol-spec c ${folder} --prefix ${prefix} --output ${_output}
+    DEPENDS ${_inputs}
+    COMMENT "Rendering the ${prefix} protocol vectors"
+    VERBATIM
+  )
+  target_sources(${target} PRIVATE ${_output})
+  target_include_directories(${target} PRIVATE ${ZEPHYR_GANTRY_MODULE_DIR}/tests/common)
+endfunction()
+
 # gantry_stow_raise_depth(<file>)
 #
 # Raises STOW_DEPTH_MAX to the depth a Stow generator wrote to <file>.
@@ -88,7 +111,7 @@ function(_gantry_stow_run)
   gantry_stow_raise_depth(${ARG_OUTPUT_DIR}/${ARG_DEPTH})
 endfunction()
 
-# gantry_stow_generate([YAML <path>] [OUTPUT_DIR <dir>])
+# gantry_stow_generate([YAML <path>] [APP_DIR <dir>] [OUTPUT_DIR <dir>])
 #
 # Composes the app's stow.yaml with any fragments registered via
 # gantry_stow_add_fragment() and any auto-discovered board fragment, runs the
@@ -96,12 +119,16 @@ endfunction()
 # sources / headers to the calling CMakeLists' `app` target.
 #
 # YAML defaults to the GANTRY_STOW_YAML cache entry (set by the root
-# CMakeLists.txt) and OUTPUT_DIR defaults to ${CMAKE_BINARY_DIR}/gantry_generated.
+# CMakeLists.txt), APP_DIR, where the StowHash's VERSION file is looked for,
+# defaults to APPLICATION_SOURCE_DIR, and OUTPUT_DIR defaults to
+# ${CMAKE_BINARY_DIR}/gantry_generated.
 #
-# NOTE: Invoked via a deferred call (see root CMakeLists.txt) so that
-# fragments registered later in the app's own CMakeLists.txt are visible.
+# NOTE: The library build invokes it via a deferred call (see root
+# CMakeLists.txt) so that fragments registered later in the app's own
+# CMakeLists.txt are visible. A test build, which lists Gantry's sources by
+# hand, calls it directly.
 function(gantry_stow_generate)
-  cmake_parse_arguments(ARG "" "YAML;OUTPUT_DIR" "" ${ARGN})
+  cmake_parse_arguments(ARG "" "YAML;APP_DIR;OUTPUT_DIR" "" ${ARGN})
 
   if(NOT ARG_YAML)
     set(ARG_YAML "${GANTRY_STOW_YAML}")
@@ -116,6 +143,9 @@ function(gantry_stow_generate)
     message(FATAL_ERROR "gantry_stow_generate: YAML not found: ${ARG_YAML}")
   endif()
 
+  if(NOT ARG_APP_DIR)
+    set(ARG_APP_DIR ${APPLICATION_SOURCE_DIR})
+  endif()
   if(NOT ARG_OUTPUT_DIR)
     set(ARG_OUTPUT_DIR ${CMAKE_BINARY_DIR}/gantry_generated)
   endif()
@@ -145,7 +175,7 @@ function(gantry_stow_generate)
     DEPTH      generated_stow_depth
     YAML       ${ARG_YAML}
     FRAGMENTS  ${_fragments}
-    ARGS       ${_board_args} --app-dir ${APPLICATION_SOURCE_DIR}
+    ARGS       ${_board_args} --app-dir ${ARG_APP_DIR}
   )
 
   file(GLOB _generated_struct_sources
