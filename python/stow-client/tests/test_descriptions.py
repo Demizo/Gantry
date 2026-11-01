@@ -17,30 +17,35 @@ from stow_client.descriptions import (
     parse_description,
 )
 
-from .conftest import ROLE_NAMES, sample_description_blob
+from .conftest import ROLE_NAMES, description_blob
 
 
 def test_parse_description_returns_all_items():
-    items = parse_description(sample_description_blob(), ROLE_NAMES)
-    assert [i.name for i in items] == [
+    items = parse_description(description_blob(), ROLE_NAMES)
+    assert [item.name for item in items] == [
         "StowHash",
-        "DeviceName",
         "TestInt",
+        "TestString",
+        "TestSessionInt",
+        "TestDevInt",
+        "TestBuffer",
+        "TestTofu",
+        "TestLongString",
         "TestFloat",
         "TestEnum",
         "TestBytes",
-        "TestBuffer",
-        "SpiTxBuffer",
+        "TestRecord",
+        "TestNestedRecord",
     ]
 
-    by_name = {i.name: i for i in items}
-    assert by_name["DeviceName"].storage is Storage.PERSISTENT
-    assert by_name["DeviceName"].read_perm == ["Any"]
-    assert by_name["DeviceName"].write_perm == ["Session"]
-    assert by_name["DeviceName"].type is ItemType.STRING
-    assert isinstance(by_name["DeviceName"].constraints, LengthConstraints)
+    by_name = {item.name: item for item in items}
+    assert by_name["TestTofu"].storage is Storage.TOFU
+    assert by_name["TestString"].read_perm == ROLE_NAMES
+    assert by_name["TestString"].write_perm == ["Session"]
+    assert by_name["TestString"].type is ItemType.STRING
+    assert isinstance(by_name["TestString"].constraints, LengthConstraints)
 
-    assert by_name["StowHash"].read_perm == ["Any"]
+    assert by_name["StowHash"].read_perm == ROLE_NAMES
     assert by_name["StowHash"].write_perm == []
 
     assert isinstance(by_name["TestInt"].constraints, IntConstraints)
@@ -50,28 +55,23 @@ def test_parse_description_returns_all_items():
 
     enum_constraints = by_name["TestEnum"].constraints
     assert isinstance(enum_constraints, EnumConstraints)
-    assert {v.name for v in enum_constraints.values} == {"DISABLED", "ENABLED"}
+    assert {value.name for value in enum_constraints.values} == {"OFF", "ON"}
 
-    struct = by_name["SpiTxBuffer"]
+    struct = by_name["TestNestedRecord"]
     assert struct.type is ItemType.STRUCT
     assert isinstance(struct.constraints, StructConstraints)
-    assert [f.name for f in struct.constraints.fields] == [
-        "CS",
-        "Bytes",
-        "Text",
-        "Buffer",
-    ]
-    nested_enum = struct.constraints.fields[0].constraints
-    assert isinstance(nested_enum, EnumConstraints)
+    assert [field.name for field in struct.constraints.fields] == ["Pair", "Flag"]
+    nested_struct = struct.constraints.fields[0].constraints
+    assert isinstance(nested_struct, StructConstraints)
 
 
 def test_can_write_specific_role():
-    items = parse_description(sample_description_blob(), ROLE_NAMES)
-    by_name = {i.name: i for i in items}
+    items = parse_description(description_blob(), ROLE_NAMES)
+    by_name = {item.name: item for item in items}
 
-    assert by_name["DeviceName"].can_write("Session")
-    assert not by_name["DeviceName"].can_write("Admin")
-    assert not by_name["DeviceName"].can_write("User")
+    assert by_name["TestString"].can_write("Session")
+    assert not by_name["TestString"].can_write("Guest")
+    assert not by_name["TestString"].can_write("Dev")
 
 
 def test_value_codec_roundtrip_primitives():
@@ -93,18 +93,13 @@ def test_value_codec_roundtrip_primitives():
 
 
 def test_value_codec_struct_roundtrip():
-    items = parse_description(sample_description_blob(), ROLE_NAMES)
-    struct = next(i for i in items if i.name == "SpiTxBuffer")
+    items = parse_description(description_blob(), ROLE_NAMES)
+    struct = next(item for item in items if item.name == "TestRecord")
 
-    value = {
-        "CS": 1,
-        "Bytes": b"\x0a\x0b",
-        "Text": "abc",
-        "Buffer": b"\xaa\xbb\xcc",
-    }
+    value = {"Count": 3, "Data": b"\x0a\x0b"}
     wire = encode_value(struct.type, struct.constraints, value)
     assert isinstance(wire, list)
-    assert wire == [1, b"\x0a\x0b", "abc", b"\xaa\xbb\xcc"]
+    assert wire == [3, b"\x0a\x0b"]
     decoded = decode_value(struct.type, struct.constraints, wire)
     assert decoded == value
 
@@ -116,10 +111,10 @@ def test_encode_byte_array_accepts_list_of_ints():
 
 
 def test_decode_struct_field_count_mismatch_raises():
-    items = parse_description(sample_description_blob(), ROLE_NAMES)
-    struct = next(i for i in items if i.name == "SpiTxBuffer")
+    items = parse_description(description_blob(), ROLE_NAMES)
+    struct = next(item for item in items if item.name == "TestRecord")
     with pytest.raises(ValueError):
-        decode_value(struct.type, struct.constraints, [0, b""])
+        decode_value(struct.type, struct.constraints, [0])
 
 
 def test_float_values_round_trip_exactly():

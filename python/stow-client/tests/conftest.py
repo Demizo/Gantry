@@ -2,18 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
-import hashlib
+import io
 from collections import deque
 from pathlib import Path
 
 import cbor2
 import pytest
 
+from protocol_spec import load
 from stow_client import StowClient, StowTransport
-from stow_client.descriptions import ConstraintKey as K
-from stow_client.descriptions import DescribeKey, ItemType, Storage
-from stow_client.descriptions import EnumConstraintKey as E
-from stow_client.descriptions import FieldConstraintKey as F
+from stow_client.descriptions import DescribeKey
 from stow_client.messages import (
     DescribeResponse,
     HelloKey,
@@ -59,182 +57,52 @@ class MockTransport(StowTransport):
 
 
 # ---------------------------------------------------------------------------
-# Description fixture
+# The protocol fixture, as the connect vector describes it
 # ---------------------------------------------------------------------------
 
 
-ROLE_NAMES = ["Any", "Session", "Dev", "Guest"]
+VECTORS = load(Path(__file__).resolve().parents[3] / "protocols" / "stow")
+CONNECT = [
+    decode(step.data)
+    for step in next(
+        vector for vector in VECTORS.exchanges if vector.name == "connect"
+    ).steps
+]
+HELLO = next(message for message in CONNECT if isinstance(message, HelloResponse))
+DESCRIBE_PAGES = [
+    message for message in CONNECT if isinstance(message, DescribeResponse)
+]
+ROLE_NAMES = HELLO.role_names
+STOW_HASH = HELLO.stow_hash
 
 
-def _mask(*roles: str) -> int:
-    return sum(1 << ROLE_NAMES.index(role) for role in roles)
+def description_blob() -> bytes:
+    return b"".join(page.chunk for page in DESCRIBE_PAGES)
 
 
-def _item(
-    item_id: int,
-    name: str,
-    categories: list[str],
-    storage: Storage,
-    read_perm: int,
-    write_perm: int,
-    item_type: ItemType,
-    default,
-    constraints,
-) -> dict:
-    return {
-        DescribeKey.ID: item_id,
-        DescribeKey.NAME: name,
-        DescribeKey.CATEGORIES: categories,
-        DescribeKey.STORAGE: storage,
-        DescribeKey.READ_PERM: read_perm,
-        DescribeKey.WRITE_PERM: write_perm,
-        DescribeKey.TYPE: item_type,
-        DescribeKey.DEFAULT: default,
-        DescribeKey.CONSTRAINTS: constraints,
-    }
+def description_items() -> list[dict]:
+    """Each description map the pages hold."""
+    blob = io.BytesIO(description_blob())
+    items = []
+    while blob.tell() < len(blob.getvalue()):
+        items.append(cbor2.load(blob))
+    return items
 
 
-def sample_description_payload() -> list[dict]:
-    """A description that exercises every supported item type."""
-    e, p = Storage.EPHEMERAL, Storage.PERSISTENT
-    anyone = _mask("Any")
-    return [
-        _item(
-            0,
-            "StowHash",
-            [],
-            e,
-            anyone,
-            0,
-            ItemType.STRING,
-            "0" * 64,
-            {K.MIN: 64, K.MAX: 64},
-        ),
-        _item(
-            1,
-            "DeviceName",
-            ["System"],
-            p,
-            anyone,
-            _mask("Session"),
-            ItemType.STRING,
-            "Gantry",
-            {K.MIN: 3, K.MAX: 25},
-        ),
-        _item(
-            2,
-            "TestInt",
-            ["Test"],
-            e,
-            anyone,
-            anyone,
-            ItemType.INT,
-            0,
-            {K.MIN: -100, K.MAX: 100},
-        ),
-        _item(
-            3,
-            "TestFloat",
-            ["Test"],
-            e,
-            anyone,
-            anyone,
-            ItemType.FLOAT,
-            21.5,
-            {K.MIN: 15.0, K.MAX: 30.0},
-        ),
-        _item(
-            4,
-            "TestEnum",
-            ["Test"],
-            e,
-            anyone,
-            anyone,
-            ItemType.ENUM,
-            0,
-            [
-                {E.VALUE: 0, E.NAME: "DISABLED"},
-                {E.VALUE: 1, E.NAME: "ENABLED"},
-            ],
-        ),
-        _item(
-            5,
-            "TestBytes",
-            ["Test"],
-            e,
-            anyone,
-            anyone,
-            ItemType.BYTE_ARRAY,
-            b"\xde\xad\xbe\xef",
-            {K.MIN: 0, K.MAX: 12},
-        ),
-        _item(
-            6,
-            "TestBuffer",
-            ["Test"],
-            e,
-            anyone,
-            anyone,
-            ItemType.BUFFER,
-            b"",
-            {K.MIN: 0, K.MAX: 20},
-        ),
-        _item(
-            7,
-            "SpiTxBuffer",
-            ["SPI"],
-            e,
-            anyone,
-            anyone,
-            ItemType.STRUCT,
-            [0, b"\x01\x02\x03", "Test", b""],
-            [
-                {
-                    F.NAME: "CS",
-                    F.TYPE: ItemType.ENUM,
-                    F.CONSTRAINTS: [
-                        {E.VALUE: 0, E.NAME: "SPI_CS0"},
-                        {E.VALUE: 1, E.NAME: "SPI_CS1"},
-                    ],
-                },
-                {
-                    F.NAME: "Bytes",
-                    F.TYPE: ItemType.BYTE_ARRAY,
-                    F.CONSTRAINTS: {K.MIN: 0, K.MAX: 6},
-                },
-                {
-                    F.NAME: "Text",
-                    F.TYPE: ItemType.STRING,
-                    F.CONSTRAINTS: {K.MIN: 3, K.MAX: 12},
-                },
-                {
-                    F.NAME: "Buffer",
-                    F.TYPE: ItemType.BUFFER,
-                    F.CONSTRAINTS: {K.MIN: 0, K.MAX: 512},
-                },
-            ],
-        ),
-    ]
-
-
-def sample_description_blob() -> bytes:
-    return b"".join(cbor2.dumps(item) for item in sample_description_payload())
-
-
-def sample_description_hash() -> str:
-    return hashlib.sha256(sample_description_blob()).hexdigest()
-
-
-def hello_response(digest: str, roles: list[str] | None = None) -> HelloResponse:
-    return HelloResponse(
-        version=1,
-        fields={
-            HelloKey.MAX_MESSAGE: 1024,
-            HelloKey.STOW_HASH: digest,
-            HelloKey.ROLES: _mask(*(roles if roles is not None else ["Session"])),
-            HelloKey.ROLE_NAMES: ROLE_NAMES,
-        },
+def item_id(name: str) -> int:
+    return next(
+        item[DescribeKey.ID]
+        for item in description_items()
+        if item[DescribeKey.NAME] == name
     )
+
+
+def hello_response(roles: list[str] | None = None) -> HelloResponse:
+    """The connect vector's Hello Response, granting roles instead when given."""
+    if roles is None:
+        return HELLO
+    mask = sum(1 << ROLE_NAMES.index(role) for role in roles)
+    return dataclasses.replace(HELLO, fields={**HELLO.fields, HelloKey.ROLES: mask})
 
 
 # ---------------------------------------------------------------------------
@@ -252,19 +120,9 @@ def cache_dir(tmp_path: Path) -> Path:
     return tmp_path / "cache"
 
 
-async def _run_load(
-    client: StowClient, transport: MockTransport, *, chunk_size: int = 64
-) -> None:
-    blob = sample_description_blob()
-    digest = sample_description_hash()
-
-    transport.reply(hello_response(digest))
-
-    chunks = [blob[i : i + chunk_size] for i in range(0, len(blob), chunk_size)]
-    for idx, chunk in enumerate(chunks):
-        next_item_id = idx + 1 if idx < len(chunks) - 1 else None
-        transport.reply(DescribeResponse(next_item_id=next_item_id, chunk=chunk))
-
+async def _run_load(client: StowClient, transport: MockTransport) -> None:
+    for message in (HELLO, *DESCRIBE_PAGES):
+        transport.reply(message)
     await client.load()
 
 
@@ -279,9 +137,14 @@ async def loaded_client(transport: MockTransport, cache_dir: Path):
 
 
 __all__ = [
+    "DESCRIBE_PAGES",
+    "HELLO",
+    "ROLE_NAMES",
+    "STOW_HASH",
+    "VECTORS",
     "MockTransport",
+    "description_blob",
+    "description_items",
     "hello_response",
-    "sample_description_blob",
-    "sample_description_hash",
-    "sample_description_payload",
+    "item_id",
 ]

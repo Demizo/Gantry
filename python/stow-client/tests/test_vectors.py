@@ -11,7 +11,7 @@ from typing import Any
 import cbor_diag
 import pytest
 
-from protocol_spec import Step, Vector, load
+from protocol_spec import Step, Vector
 from stow_client import (
     DescribeRequest,
     DescribeResponse,
@@ -37,6 +37,8 @@ from stow_client import (
     parse_description,
 )
 
+from .conftest import VECTORS
+
 # The Python types cbor2 decodes each scalar item type's wire value as
 _SCALAR_VALUES = {
     ItemType.ENUM: int,
@@ -47,7 +49,6 @@ _SCALAR_VALUES = {
     ItemType.BUFFER: bytes,
 }
 
-VECTORS = load(Path(__file__).resolve().parents[3] / "protocols" / "stow")
 CLIENT = 0
 
 

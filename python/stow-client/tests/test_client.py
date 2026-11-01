@@ -36,12 +36,20 @@ from stow_client.messages import (
 )
 
 from .conftest import (
+    DESCRIBE_PAGES,
+    HELLO,
+    STOW_HASH,
     MockTransport,
+    description_blob,
+    description_items,
     hello_response,
-    sample_description_blob,
-    sample_description_hash,
-    sample_description_payload,
+    item_id,
 )
+
+TEST_INT = item_id("TestInt")
+TEST_STRING = item_id("TestString")
+TEST_FLOAT = item_id("TestFloat")
+TEST_RECORD = item_id("TestRecord")
 
 
 @pytest.fixture
@@ -53,47 +61,45 @@ async def client(transport: MockTransport, cache_dir: Path):
 
 async def test_load_happy_path(transport: MockTransport, cache_dir: Path):
     client = StowClient(transport, cache_dir=cache_dir)
-    blob = sample_description_blob()
-    digest = sample_description_hash()
-
-    transport.reply(hello_response(digest))
-    transport.reply(DescribeResponse(next_item_id=1, chunk=blob[:32]))
-    transport.reply(DescribeResponse(next_item_id=None, chunk=blob[32:]))
+    for message in (HELLO, *DESCRIBE_PAGES):
+        transport.reply(message)
 
     await client.load()
     try:
         assert [it.name for it in client.get_all_items()] == [
             "StowHash",
-            "DeviceName",
             "TestInt",
+            "TestString",
+            "TestSessionInt",
+            "TestDevInt",
+            "TestBuffer",
+            "TestTofu",
+            "TestLongString",
             "TestFloat",
             "TestEnum",
             "TestBytes",
-            "TestBuffer",
-            "SpiTxBuffer",
+            "TestRecord",
+            "TestNestedRecord",
         ]
-        assert client.get_item_description("DeviceName").id == 1
-        cached_path = cache_dir / "stow-client" / f"{digest}.cbor"
+        assert client.get_item_description("TestString").id == TEST_STRING
+        cached_path = cache_dir / "stow-client" / f"{STOW_HASH}.cbor"
         assert cached_path.exists()
     finally:
         await client._receiver.stop()
 
 
 async def test_load_uses_cache(transport: MockTransport, cache_dir: Path):
-    digest = sample_description_hash()
     (cache_dir / "stow-client").mkdir(parents=True)
-    (cache_dir / "stow-client" / f"{digest}.cbor").write_bytes(
-        sample_description_blob()
-    )
+    (cache_dir / "stow-client" / f"{STOW_HASH}.cbor").write_bytes(description_blob())
 
     client = StowClient(transport, cache_dir=cache_dir)
-    transport.reply(hello_response(digest))
+    transport.reply(hello_response())
 
     await client.load()
     try:
         assert len(client.get_all_items()) > 0
         decoded_requests = [decode(frame) for frame in transport.outgoing]
-        types = [type(r).__name__ for r in decoded_requests]
+        types = [type(request).__name__ for request in decoded_requests]
         assert "DescribeRequest" not in types
     finally:
         await client._receiver.stop()
@@ -102,36 +108,31 @@ async def test_load_uses_cache(transport: MockTransport, cache_dir: Path):
 async def test_load_refetches_a_cached_list_format_description(
     transport: MockTransport, cache_dir: Path
 ):
-    digest = sample_description_hash()
     (cache_dir / "stow-client").mkdir(parents=True)
-    stale = cbor2.dumps(sample_description_payload())
-    (cache_dir / "stow-client" / f"{digest}.cbor").write_bytes(stale)
+    stale = cbor2.dumps(description_items())
+    (cache_dir / "stow-client" / f"{STOW_HASH}.cbor").write_bytes(stale)
 
     client = StowClient(transport, cache_dir=cache_dir)
-    transport.reply(hello_response(digest))
-    transport.reply(
-        DescribeResponse(next_item_id=None, chunk=sample_description_blob())
-    )
+    transport.reply(hello_response())
+    transport.reply(DescribeResponse(next_item_id=None, chunk=description_blob()))
 
     await client.load()
     try:
-        assert len(client.get_all_items()) == len(sample_description_payload())
-        cached = (cache_dir / "stow-client" / f"{digest}.cbor").read_bytes()
-        assert cached == sample_description_blob()
+        assert len(client.get_all_items()) == len(description_items())
+        cached = (cache_dir / "stow-client" / f"{STOW_HASH}.cbor").read_bytes()
+        assert cached == description_blob()
     finally:
         await client._receiver.stop()
 
 
 async def test_describe_items_before_load_raises(client: StowClient):
     with pytest.raises(StowNotLoadedError):
-        await client.describe_items(["DeviceName"], timeout=1.0)
+        await client.describe_items(["TestString"], timeout=1.0)
 
 
 async def test_load_version_mismatch_raises(transport: MockTransport, cache_dir: Path):
     client = StowClient(transport, cache_dir=cache_dir)
-    transport.reply(
-        dataclasses.replace(hello_response(sample_description_hash()), version=2)
-    )
+    transport.reply(dataclasses.replace(hello_response(), version=2))
     with pytest.raises(StowVersionMismatch):
         await client.load()
     await client._receiver.stop()
@@ -141,7 +142,7 @@ async def test_load_stops_when_describe_makes_no_progress(
     transport: MockTransport, cache_dir: Path
 ):
     client = StowClient(transport, cache_dir=cache_dir)
-    transport.reply(hello_response(sample_description_hash()))
+    transport.reply(hello_response())
     transport.reply(DescribeResponse(next_item_id=0, chunk=b""))
 
     with pytest.raises(UnexpectedResponseError, match="no progress"):
@@ -154,31 +155,26 @@ async def test_public_api_before_load_raises(transport: MockTransport, cache_dir
     with pytest.raises(StowNotLoadedError):
         client.get_all_items()
     with pytest.raises(StowNotLoadedError):
-        await client.get("DeviceName")
+        await client.get("TestString")
 
 
 async def test_get_returns_decoded_value(loaded_client, transport: MockTransport):
-    transport.reply(GetResponse(items=((1, "MyDevice"),)))
-    assert await loaded_client.get("DeviceName", timeout=1.0) == "MyDevice"
+    transport.reply(GetResponse(items=((TEST_STRING, "MyDevice"),)))
+    assert await loaded_client.get("TestString", timeout=1.0) == "MyDevice"
 
 
 async def test_get_struct_decodes_to_dict(loaded_client, transport: MockTransport):
-    transport.reply(GetResponse(items=((7, [1, b"\x01", "abc", b""]),)))
-    value = await loaded_client.get("SpiTxBuffer", timeout=1.0)
-    assert value == {
-        "CS": 1,
-        "Bytes": b"\x01",
-        "Text": "abc",
-        "Buffer": b"",
-    }
+    transport.reply(GetResponse(items=((TEST_RECORD, [1, b"\x01"]),)))
+    value = await loaded_client.get("TestRecord", timeout=1.0)
+    assert value == {"Count": 1, "Data": b"\x01"}
 
 
 async def test_set_sends_the_item(loaded_client, transport: MockTransport):
     transport.reply(Ok())
     await loaded_client.set("TestInt", 42, timeout=1.0)
     sent = [decode(frame) for frame in transport.outgoing]
-    set_req = next(r for r in sent if isinstance(r, SetRequest))
-    assert set_req.items == ((2, 42),)
+    set_req = next(request for request in sent if isinstance(request, SetRequest))
+    assert set_req.items == ((TEST_INT, 42),)
 
 
 async def test_set_error_raises(loaded_client, transport: MockTransport):
@@ -194,15 +190,21 @@ async def test_subscribe_unsubscribe(loaded_client, transport: MockTransport):
     await loaded_client.unsubscribe("TestInt", timeout=1.0)
 
     sent = [decode(frame) for frame in transport.outgoing]
-    assert any(isinstance(r, SubscribeRequest) and r.item_ids == (2,) for r in sent)
-    assert any(isinstance(r, UnsubscribeRequest) and r.item_ids == (2,) for r in sent)
+    assert any(
+        isinstance(request, SubscribeRequest) and request.item_ids == (TEST_INT,)
+        for request in sent
+    )
+    assert any(
+        isinstance(request, UnsubscribeRequest) and request.item_ids == (TEST_INT,)
+        for request in sent
+    )
 
 
 async def test_timeout_cleans_up_waiter(loaded_client, transport: MockTransport):
     with pytest.raises(asyncio.TimeoutError):
         await loaded_client.get("TestInt", timeout=0.05)
 
-    transport.reply(GetResponse(items=((2, 5),)))
+    transport.reply(GetResponse(items=((TEST_INT, 5),)))
     assert await loaded_client.get("TestInt", timeout=1.0) == 5
 
 
@@ -211,20 +213,15 @@ async def test_update_values_are_decoded_with_the_description(
 ):
     received: list = []
     transport.reply(Ok())
-    await loaded_client.subscribe("SpiTxBuffer", timeout=1.0, listener=received.append)
+    await loaded_client.subscribe("TestRecord", timeout=1.0, listener=received.append)
 
-    transport.push(Update(item_id=7, value=[1, b"\x01", "abc", b""]))
+    transport.push(Update(item_id=TEST_RECORD, value=[1, b"\x01"]))
     for _ in range(50):
         await asyncio.sleep(0.01)
         if received:
             break
 
-    assert received[0].value == {
-        "CS": 1,
-        "Bytes": b"\x01",
-        "Text": "abc",
-        "Buffer": b"",
-    }
+    assert received[0].value == {"Count": 1, "Data": b"\x01"}
 
 
 async def test_listener_exception_does_not_block_others(
@@ -240,7 +237,7 @@ async def test_listener_exception_does_not_block_others(
     await loaded_client.subscribe("TestInt", timeout=1.0, listener=bad)
     await loaded_client.subscribe("TestInt", timeout=1.0, listener=other_calls.append)
 
-    transport.push(Update(item_id=2, value=1))
+    transport.push(Update(item_id=TEST_INT, value=1))
     for _ in range(50):
         await asyncio.sleep(0.01)
         if other_calls:
@@ -252,13 +249,11 @@ async def test_listener_exception_does_not_block_others(
 async def test_context_manager_loads_and_closes(
     transport: MockTransport, cache_dir: Path
 ):
-    blob = sample_description_blob()
-    digest = sample_description_hash()
-    transport.reply(hello_response(digest))
-    transport.reply(DescribeResponse(next_item_id=None, chunk=blob))
+    transport.reply(hello_response())
+    transport.reply(DescribeResponse(next_item_id=None, chunk=description_blob()))
 
     async with StowClient(transport, cache_dir=cache_dir) as client:
-        assert client.get_item_description("DeviceName").id == 1
+        assert client.get_item_description("TestString").id == TEST_STRING
 
     assert transport.closed is True
 
@@ -266,19 +261,19 @@ async def test_context_manager_loads_and_closes(
 async def test_get_several_items_returns_a_dict(
     loaded_client, transport: MockTransport
 ):
-    transport.reply(GetResponse(items=((2, 42), (3, 21.5))))
+    transport.reply(GetResponse(items=((TEST_INT, 42), (TEST_FLOAT, 21.5))))
     values = await loaded_client.get(["TestInt", "TestFloat"], timeout=1.0)
     assert values == {"TestInt": 42, "TestFloat": pytest.approx(21.5)}
 
     sent = [decode(frame) for frame in transport.outgoing]
-    req = next(r for r in sent if isinstance(r, GetRequest))
-    assert req.item_ids == (2, 3)
+    req = next(request for request in sent if isinstance(request, GetRequest))
+    assert req.item_ids == (TEST_INT, TEST_FLOAT)
 
 
 async def test_get_rejects_a_response_for_other_items(
     loaded_client, transport: MockTransport
 ):
-    transport.reply(GetResponse(items=((3, 21.5),)))
+    transport.reply(GetResponse(items=((TEST_FLOAT, 21.5),)))
     with pytest.raises(UnexpectedResponseError):
         await loaded_client.get("TestInt", timeout=1.0)
 
@@ -296,24 +291,22 @@ async def test_set_several_items_sends_encoded_values(
     await loaded_client.set({"TestInt": 10, "TestFloat": 22.5}, timeout=1.0)
 
     sent = [decode(frame) for frame in transport.outgoing]
-    req = next(r for r in sent if isinstance(r, SetRequest))
-    assert req.items == ((2, 10), (3, 22.5))
+    req = next(request for request in sent if isinstance(request, SetRequest))
+    assert req.items == ((TEST_INT, 10), (TEST_FLOAT, 22.5))
 
 
 async def test_load_sends_hello_once(transport: MockTransport, cache_dir: Path):
     client = StowClient(transport, cache_dir=cache_dir)
-    transport.reply(hello_response(sample_description_hash(), roles=["Dev"]))
-    transport.reply(
-        DescribeResponse(next_item_id=None, chunk=sample_description_blob())
-    )
+    transport.reply(hello_response(roles=["Dev"]))
+    transport.reply(DescribeResponse(next_item_id=None, chunk=description_blob()))
 
     await client.load()
     try:
         sent = [decode(frame) for frame in transport.outgoing]
         assert isinstance(sent[0], HelloRequest)
-        assert sum(isinstance(r, HelloRequest) for r in sent) == 1
+        assert sum(isinstance(request, HelloRequest) for request in sent) == 1
         assert client.hello_response.roles == ["Dev"]
-        assert client.hello_response.max_message == 1024
+        assert client.hello_response.max_message == HELLO.max_message
     finally:
         await client._receiver.stop()
 
@@ -332,7 +325,7 @@ async def test_concurrent_requests_match_responses_by_tag(
     loaded_client, transport: MockTransport
 ):
     first = asyncio.create_task(loaded_client.get("TestInt", timeout=1.0))
-    second = asyncio.create_task(loaded_client.get("DeviceName", timeout=1.0))
+    second = asyncio.create_task(loaded_client.get("TestString", timeout=1.0))
     for _ in range(50):
         await asyncio.sleep(0.01)
         gets = [m for m in map(decode, transport.outgoing) if isinstance(m, GetRequest)]
@@ -340,19 +333,21 @@ async def test_concurrent_requests_match_responses_by_tag(
             break
     tag_by_item = {m.item_ids[0]: m.tag for m in gets}
 
-    transport.push(GetResponse(tag=tag_by_item[1], items=((1, "Second"),)))
-    transport.push(GetResponse(tag=tag_by_item[2], items=((2, 7),)))
+    transport.push(
+        GetResponse(tag=tag_by_item[TEST_STRING], items=((TEST_STRING, "Second"),))
+    )
+    transport.push(GetResponse(tag=tag_by_item[TEST_INT], items=((TEST_INT, 7),)))
 
     assert await first == 7
     assert await second == "Second"
 
 
 async def test_error_reports_item_and_index(loaded_client, transport: MockTransport):
-    transport.reply(Error(code=ErrorCode.INVALID_VALUE, item=3, index=1))
+    transport.reply(Error(code=ErrorCode.INVALID_VALUE, item=TEST_FLOAT, index=1))
     with pytest.raises(StowError) as excinfo:
         await loaded_client.set({"TestInt": 1, "TestFloat": 99.0}, timeout=1.0)
     assert excinfo.value.code == ErrorCode.INVALID_VALUE
-    assert excinfo.value.item == 3
+    assert excinfo.value.item == TEST_FLOAT
     assert excinfo.value.index == 1
 
 
@@ -370,7 +365,11 @@ async def test_subscribe_to_several_items(loaded_client, transport: MockTranspor
     await loaded_client.subscribe(["TestInt", "TestFloat"], timeout=1.0)
 
     sent = [decode(frame) for frame in transport.outgoing]
-    assert any(isinstance(r, SubscribeRequest) and r.item_ids == (2, 3) for r in sent)
+    assert any(
+        isinstance(request, SubscribeRequest)
+        and request.item_ids == (TEST_INT, TEST_FLOAT)
+        for request in sent
+    )
 
 
 async def test_subscription_listener_receives_its_items_events(
@@ -380,18 +379,21 @@ async def test_subscription_listener_receives_its_items_events(
     transport.reply(Ok())
     await loaded_client.subscribe("TestInt", timeout=1.0, listener=events.append)
 
-    transport.push(Update(item_id=3, value=1.0))
-    transport.push(Update(item_id=2, value=5))
-    transport.push(Update(item_id=2, value=6))
+    transport.push(Update(item_id=TEST_FLOAT, value=1.0))
+    transport.push(Update(item_id=TEST_INT, value=5))
+    transport.push(Update(item_id=TEST_INT, value=6))
     for _ in range(50):
         await asyncio.sleep(0.01)
         if len(events) >= 2:
             break
-    assert events == [Update(item_id=2, value=5), Update(item_id=2, value=6)]
+    assert events == [
+        Update(item_id=TEST_INT, value=5),
+        Update(item_id=TEST_INT, value=6),
+    ]
 
     transport.reply(Ok())
     await loaded_client.unsubscribe("TestInt", timeout=1.0)
-    transport.push(Update(item_id=2, value=7))
+    transport.push(Update(item_id=TEST_INT, value=7))
     await asyncio.sleep(0.05)
     assert len(events) == 2
 
@@ -400,20 +402,20 @@ async def test_partial_subscribe_listens_to_the_active_items(
     loaded_client, transport: MockTransport
 ):
     events: list = []
-    transport.reply(Error(code=ErrorCode.PERMISSION_DENIED, item=3, index=1))
+    transport.reply(Error(code=ErrorCode.PERMISSION_DENIED, item=TEST_FLOAT, index=1))
     with pytest.raises(StowError):
         await loaded_client.subscribe(
             ["TestInt", "TestFloat"], timeout=1.0, listener=events.append
         )
 
-    transport.push(Update(item_id=2, value=1))
-    transport.push(Update(item_id=3, value=1.0))
+    transport.push(Update(item_id=TEST_INT, value=1))
+    transport.push(Update(item_id=TEST_FLOAT, value=1.0))
     for _ in range(50):
         await asyncio.sleep(0.01)
         if events:
             break
     await asyncio.sleep(0.05)
-    assert events == [Update(item_id=2, value=1)]
+    assert events == [Update(item_id=TEST_INT, value=1)]
 
 
 async def test_async_listener_runs(loaded_client, transport: MockTransport):
@@ -424,12 +426,12 @@ async def test_async_listener_runs(loaded_client, transport: MockTransport):
 
     transport.reply(Ok())
     await loaded_client.subscribe("TestInt", timeout=1.0, listener=listener)
-    transport.push(Update(item_id=2, value=4))
+    transport.push(Update(item_id=TEST_INT, value=4))
     for _ in range(50):
         await asyncio.sleep(0.01)
         if events:
             break
-    assert events == [Update(item_id=2, value=4)]
+    assert events == [Update(item_id=TEST_INT, value=4)]
 
 
 async def test_listener_sees_update_right_after_subscribe_ok(
@@ -440,7 +442,7 @@ async def test_listener_sees_update_right_after_subscribe_ok(
 
     async def send_and_update(data: bytes) -> None:
         await original_send(data)
-        transport.push(Update(item_id=2, value=3))
+        transport.push(Update(item_id=TEST_INT, value=3))
 
     transport.reply(Ok())
     transport.send = send_and_update
@@ -451,7 +453,7 @@ async def test_listener_sees_update_right_after_subscribe_ok(
         await asyncio.sleep(0.01)
         if events:
             break
-    assert events == [Update(item_id=2, value=3)]
+    assert events == [Update(item_id=TEST_INT, value=3)]
 
 
 async def test_failed_subscribe_removes_listeners(
@@ -461,7 +463,7 @@ async def test_failed_subscribe_removes_listeners(
     with pytest.raises(asyncio.TimeoutError):
         await loaded_client.subscribe("TestInt", timeout=0.05, listener=events.append)
 
-    transport.push(Update(item_id=2, value=1))
+    transport.push(Update(item_id=TEST_INT, value=1))
     await asyncio.sleep(0.05)
     assert events == []
 
@@ -470,18 +472,18 @@ async def test_partial_subscribe_keeps_a_repeated_item_before_the_failure(
     loaded_client, transport: MockTransport
 ):
     events: list = []
-    transport.reply(Error(code=ErrorCode.INVALID_ITEM, item=3, index=1))
+    transport.reply(Error(code=ErrorCode.INVALID_ITEM, item=TEST_FLOAT, index=1))
     with pytest.raises(StowError):
         await loaded_client.subscribe(
             ["TestInt", "TestFloat", "TestInt"], timeout=1.0, listener=events.append
         )
 
-    transport.push(Update(item_id=2, value=4))
+    transport.push(Update(item_id=TEST_INT, value=4))
     for _ in range(50):
         await asyncio.sleep(0.01)
         if events:
             break
-    assert events == [Update(item_id=2, value=4)]
+    assert events == [Update(item_id=TEST_INT, value=4)]
 
 
 async def test_resubscribing_does_not_duplicate_the_listener(
@@ -493,13 +495,13 @@ async def test_resubscribing_does_not_duplicate_the_listener(
     await loaded_client.subscribe("TestInt", timeout=1.0, listener=events.append)
     await loaded_client.subscribe("TestInt", timeout=1.0, listener=events.append)
 
-    transport.push(Update(item_id=2, value=1))
+    transport.push(Update(item_id=TEST_INT, value=1))
     for _ in range(50):
         await asyncio.sleep(0.01)
         if events:
             break
     await asyncio.sleep(0.05)
-    assert events == [Update(item_id=2, value=1)]
+    assert events == [Update(item_id=TEST_INT, value=1)]
 
 
 async def test_failed_resubscribe_keeps_the_earlier_listener(
@@ -515,12 +517,12 @@ async def test_failed_resubscribe_keeps_the_earlier_listener(
     with pytest.raises(asyncio.TimeoutError):
         await loaded_client.subscribe("TestInt", timeout=0.05, listener=events.append)
 
-    transport.push(Update(item_id=2, value=8))
+    transport.push(Update(item_id=TEST_INT, value=8))
     for _ in range(50):
         await asyncio.sleep(0.01)
         if events:
             break
-    assert events == [Update(item_id=2, value=8)]
+    assert events == [Update(item_id=TEST_INT, value=8)]
 
 
 async def test_tags_rotate_through_the_tag_range(
@@ -528,7 +530,7 @@ async def test_tags_rotate_through_the_tag_range(
 ):
     transport.outgoing.clear()
     for _ in range(TAG_MAX + 2):
-        transport.reply(GetResponse(items=((2, 0),)))
+        transport.reply(GetResponse(items=((TEST_INT, 0),)))
         await loaded_client.get("TestInt", timeout=1.0)
     tags = [decode(frame).tag for frame in transport.outgoing]
     assert all(
@@ -548,11 +550,11 @@ async def test_timed_out_tag_is_not_reused_until_its_response_arrives(
 ):
     stale = await _time_out_a_get(loaded_client, transport)
     for _ in range(TAG_MAX):
-        transport.reply(GetResponse(items=((2, 0),)))
+        transport.reply(GetResponse(items=((TEST_INT, 0),)))
         await loaded_client.get("TestInt", timeout=1.0)
         assert decode(transport.outgoing[-1]).tag != stale
 
-    transport.push(GetResponse(tag=stale, items=((2, 9),)))
+    transport.push(GetResponse(tag=stale, items=((TEST_INT, 9),)))
     for _ in range(50):
         await asyncio.sleep(0.01)
         if not loaded_client._receiver.tag_in_use(stale):
@@ -572,8 +574,8 @@ async def test_request_waits_for_a_free_tag(transport: MockTransport, cache_dir:
         gets = [m for m in map(decode, transport.outgoing) if isinstance(m, GetRequest)]
         assert len(gets) == TAG_MAX + 1
 
-        transport.reply(GetResponse(items=((2, 2),)))
-        transport.push(GetResponse(tag=gets[-1].tag, items=((2, 1),)))
+        transport.reply(GetResponse(items=((TEST_INT, 2),)))
+        transport.push(GetResponse(tag=gets[-1].tag, items=((TEST_INT, 1),)))
         assert await first == 1
         assert await second == 2
     finally:
@@ -611,12 +613,12 @@ async def test_quarantined_tag_is_released_after_the_grace_period(
         await asyncio.sleep(0.2)
         assert not client._receiver.tag_in_use(stale)
 
-        transport.push(GetResponse(tag=stale, items=((2, 9),)))
+        transport.push(GetResponse(tag=stale, items=((TEST_INT, 9),)))
         await asyncio.sleep(0.02)
 
         start = len(transport.outgoing)
         for _ in range(TAG_MAX + 1):
-            transport.reply(GetResponse(items=((2, 0),)))
+            transport.reply(GetResponse(items=((TEST_INT, 0),)))
             assert await client.get("TestInt", timeout=1.0) == 0
         tags = [decode(frame).tag for frame in transport.outgoing[start:]]
         assert stale in tags
@@ -633,7 +635,7 @@ async def test_requests_dropped_over_time_never_kill_the_link(
         for _ in range(30):
             await _time_out_a_get(client, transport)
             await asyncio.sleep(0.02)
-        transport.reply(GetResponse(items=((2, 3),)))
+        transport.reply(GetResponse(items=((TEST_INT, 3),)))
         assert await client.get("TestInt", timeout=1.0) == 3
     finally:
         await client._receiver.stop()
@@ -699,28 +701,30 @@ async def test_request_larger_than_max_message_is_refused_locally(
 
 
 async def test_hello(loaded_client, transport: MockTransport):
-    transport.reply(hello_response("abc", roles=["Dev", "Guest"]))
+    transport.reply(hello_response(roles=["Guest", "Dev"]))
     info = await loaded_client.hello(timeout=1.0)
-    assert info.stow_hash == "abc"
-    assert info.roles == ["Dev", "Guest"]
-    assert info.role_names == ["Any", "Session", "Dev", "Guest"]
+    assert info.stow_hash == STOW_HASH
+    assert info.roles == ["Guest", "Dev"]
+    assert info.role_names == ["Guest", "Session", "Dev"]
 
 
 async def test_describe_items_sends_names(loaded_client, transport: MockTransport):
-    one_item = cbor2.dumps(sample_description_payload()[2])
+    one_item = cbor2.dumps(description_items()[1])
     transport.reply(DescribeResponse(next_item_id=None, chunk=one_item))
 
     items = await loaded_client.describe_items(["TestInt", "Missing"], timeout=1.0)
     assert [i.name for i in items] == ["TestInt"]
 
     sent = [decode(frame) for frame in transport.outgoing]
-    request = next(r for r in sent if isinstance(r, DescribeRequest) and r.names)
+    request = next(
+        request
+        for request in sent
+        if isinstance(request, DescribeRequest) and request.names
+    )
     assert request.names == ("TestInt", "Missing")
 
 
 async def _load(client: StowClient, transport: MockTransport) -> None:
-    transport.reply(hello_response(sample_description_hash()))
-    transport.reply(
-        DescribeResponse(next_item_id=None, chunk=sample_description_blob())
-    )
+    transport.reply(hello_response())
+    transport.reply(DescribeResponse(next_item_id=None, chunk=description_blob()))
     await client.load()
