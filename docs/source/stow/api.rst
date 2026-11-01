@@ -14,7 +14,7 @@ The Stow API is non-blocking, thread-safe, and can be called from interrupt cont
 Initialization
 ==============
 
-Call :any:`stow_init` once at startup before accessing any items. This loads persistent values from flash.
+Call :any:`stow_init` once at startup before accessing any items. This loads persistent values from storage.
 
 Storage
 -------
@@ -216,11 +216,6 @@ Configuration
 
    # Stow dependencies
    CONFIG_ZCBOR=y
-   CONFIG_SETTINGS=y
-   CONFIG_NVS=y
-   CONFIG_SETTINGS_NVS=y
-   CONFIG_FLASH=y
-   CONFIG_FLASH_MAP=y
 
    # Enable the Stow library
    CONFIG_GANTRY_STOW=y

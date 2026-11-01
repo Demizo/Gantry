@@ -58,9 +58,6 @@ menuconfig GANTRY_STOW
     default y
     select GANTRY_STOW_TYPES
     select SETTINGS
-    select FLASH
-    select FLASH_MAP
-    select NVS
     help
       Enable the Stow.
 
