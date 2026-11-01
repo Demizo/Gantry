@@ -5,8 +5,8 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
 
-    # Customize the version of Zephyr used by the flake here
-    zephyr.url = "github:zephyrproject-rtos/zephyr/v4.3.0";
+    # west.yml's Zephyr revision, whose requirements zephyr-nix builds the Python environment from
+    zephyr.url = "github:zephyrproject-rtos/zephyr/v4.4.0";
     zephyr.flake = false;
 
     zephyr-nix = {
