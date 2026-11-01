@@ -33,14 +33,24 @@ LOG_MODULE_REGISTER(stow_msg, CONFIG_STOW_MSG_LOG_LEVEL);
 //**********************************************************
 
 /**
+ * @brief Largest CBOR head of a value that fits in a C type: the initial byte, then the value
+ */
+#define HEAD_SIZE(type) (1 + sizeof(type))
+
+/**
+ * @brief CBOR head of a value below 24, which fits in the initial byte: a short list's header, a code or a tag
+ */
+#define TINY_HEAD_SIZE 1
+
+/**
  * @brief Largest Describe before its names: list header, code, tag, a uint32 start and a uint16 count of names
  */
-#define DESCRIBE_PREFIX_MAX 11
+#define DESCRIBE_PREFIX_MAX (3 * TINY_HEAD_SIZE + HEAD_SIZE(uint32_t) + HEAD_SIZE(uint16_t))
 
 /**
  * @brief Largest Describe Response before its descriptions: list header, code, tag, a uint32 next and chunk length
  */
-#define DESCRIBE_RESPONSE_PREFIX_MAX 13
+#define DESCRIBE_RESPONSE_PREFIX_MAX (3 * TINY_HEAD_SIZE + HEAD_SIZE(uint32_t) + HEAD_SIZE(uint32_t))
 
 //**********************************************************
 //* Typedefs, Enums, and Structs
@@ -185,6 +195,7 @@ static bool is_filled(const struct stow_msg* msg)
  */
 static size_t filled_gap(const struct stow_msg_writer* writer)
 {
+    BUILD_ASSERT(STOW_MSG_COUNT <= 24 && STOW_TAG_MAX < 24, "A code or a tag no longer fits in a tiny head");
     return MIN(
         (writer->msg.code == STOW_MSG_DESCRIBE) ? DESCRIBE_PREFIX_MAX : DESCRIBE_RESPONSE_PREFIX_MAX, writer->budget);
 }
@@ -522,7 +533,7 @@ static bool put_optional(zcbor_state_t* encoder, uint32_t value)
 static bool put_hello(zcbor_state_t* encoder, uint8_t tag, const struct stow_msg_hello* hello, size_t budget)
 {
     if (!put_start(encoder, 4, STOW_MSG_HELLO_RESPONSE, tag) || !zcbor_uint32_put(encoder, STOW_PROTOCOL_VERSION) ||
-        !stow_cbor_map_start(encoder, 4) || !zcbor_uint32_put(encoder, STOW_HELLO_MAX_MESSAGE) ||
+        !stow_cbor_map_start(encoder, STOW_HELLO_COUNT) || !zcbor_uint32_put(encoder, STOW_HELLO_MAX_MESSAGE) ||
         !zcbor_uint32_put(encoder, (uint32_t)budget) || !zcbor_uint32_put(encoder, STOW_HELLO_STOW_HASH) ||
         !zcbor_tstr_encode(encoder, &hello->stow_hash) || !zcbor_uint32_put(encoder, STOW_HELLO_ROLES) ||
         !zcbor_uint32_put(encoder, hello->roles) || !zcbor_uint32_put(encoder, STOW_HELLO_ROLE_NAMES) ||
@@ -555,7 +566,7 @@ static bool put_item(zcbor_state_t* encoder, const void* element)
 {
     const struct stow_item_const_metadata* item = element;
     data_value_t default_value = { .type = item->type, .data = item->default_value };
-    if (!stow_cbor_map_start(encoder, 9) || !zcbor_uint32_put(encoder, STOW_DESCRIBE_ID) ||
+    if (!stow_cbor_map_start(encoder, STOW_DESCRIBE_COUNT) || !zcbor_uint32_put(encoder, STOW_DESCRIBE_ID) ||
         !zcbor_uint32_put(encoder, item->id) || !zcbor_uint32_put(encoder, STOW_DESCRIBE_NAME) ||
         !zcbor_tstr_put_term(encoder, item->name, SIZE_MAX) || !zcbor_uint32_put(encoder, STOW_DESCRIBE_CATEGORIES) ||
         !stow_cbor_list_start(encoder, item->category_count))

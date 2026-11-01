@@ -6,8 +6,8 @@ constants:
   tag: {c: STOW_TAG_MAX, bound: max, python: stow_client.messages.TAG_MAX}
   msg-: {c_enum: stow_message_code, c_prefix: STOW_MSG_, c_count: STOW_MSG_COUNT, python: stow_client.Message}
   err-: {c_enum: stow_error_code, c_prefix: STOW_ERR_, python: stow_client.ErrorCode}
-  hello-: {c_enum: stow_hello_key, c_prefix: STOW_HELLO_, python: stow_client.HelloKey}
-  desc-: {c_enum: stow_describe_key, c_prefix: STOW_DESCRIBE_, python: stow_client.DescribeKey}
+  hello-: {c_enum: stow_hello_key, c_prefix: STOW_HELLO_, c_count: STOW_HELLO_COUNT, python: stow_client.HelloKey}
+  desc-: {c_enum: stow_describe_key, c_prefix: STOW_DESCRIBE_, c_count: STOW_DESCRIBE_COUNT, python: stow_client.DescribeKey}
   type-: {c_enum: stow_item_type, c_prefix: STOW_ITEM_TYPE_, c_count: STOW_ITEM_TYPE_COUNT, python: stow_client.ItemType}
   storage-: {c_enum: stow_storage_type, c_prefix: STOW_STORAGE_, python: stow_client.Storage}
   constraint-: {c_enum: stow_constraint_key, c_prefix: STOW_CONSTRAINT_, python: stow_client.ConstraintKey}

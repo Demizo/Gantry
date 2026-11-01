@@ -502,3 +502,12 @@ def test_constants_header_compiles(tmp_path: Path):
     )
     output = subprocess.run([str(program)], capture_output=True, text=True, check=True)
     assert output.stdout.strip() == "3|23|0|1|2"
+
+
+@pytest.mark.parametrize("prefix", ["hello-", "desc-"])
+def test_stow_counts_its_hello_and_description_keys(prefix: str):
+    stow = constants(STOW)
+    (group,) = [group for group in stow.groups if group.cddl == prefix]
+    name, value = max(group.members, key=lambda member: member[1])
+    last = f"{group.entry['c_prefix']}{group.suffix(name)} = {value},"
+    assert f"{last}\n    {group.entry['c_count']},\n" in to_header(stow)
