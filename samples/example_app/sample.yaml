@@ -1,0 +1,7 @@
+sample:
+  name: Gantry example app
+tests:
+  example_app.build:
+    build_only: true
+    platform_allow:
+      - nrf52840dk/nrf52840

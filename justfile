@@ -8,6 +8,7 @@ chip := if boards =~ '(?m)^' + board + ' ' {
 } else {
   error('unknown board ' + board + ", choose one of:\n" + boards)
 }
+board_platforms := trim(replace_regex(boards, '(?m)^(\S+).*\n', '-p $1 '))
 sample := "samples/example_app"
 c_sources := "find lib include samples tests -path '*/build' -prune -o -name '*.[ch]' -print"
 cppcheck_flags := replace_regex(read("config/cppcheck-flags.txt"), '\s+', " ")
@@ -113,13 +114,13 @@ fix:
   uv run ruff check --fix-only .
   uv run ruff format .
 
-# Run every test suite that needs no hardware
+# Run every test suite that needs no hardware, and build the sample for each board
 [group('test')]
 test:
   #!/usr/bin/env bash
   failed=()
   run() { local name=$1; shift; "$@" || failed+=("$name"); }
-  run twister west twister -T tests/ -p native_sim --clobber-output -i -v
+  run twister west twister -T tests/ -T {{sample}} -p native_sim {{board_platforms}} --clobber-output -i -v
   run tests/resource_check uv run --project tools/resource_check pytest tests/resource_check
   run tests/check_headers uv run pytest tests/check_headers
   # The example app's tests need a board
