@@ -38,13 +38,16 @@ def _c_bytes(data: bytes) -> str:
     return ", ".join(f"0x{byte:02X}" for byte in data)
 
 
-def to_c(vectors: Vectors, prefix: str) -> str:
-    """C data for ``protocol_vectors.h``: ``<prefix>_sides``, ``_exchanges`` and ``_malformed``."""
-    return render(
-        "vectors.c.j2",
-        {"c_string": _c_string, "c_bytes": _c_bytes},
-        source=SOURCE,
-        prefix=prefix,
-        sides=vectors.sides,
-        sections={section: getattr(vectors, section) for section in SECTIONS},
-    )
+def to_c(vectors: Vectors, prefix: str) -> dict[str, str]:
+    """C data and its header, by file name: ``<prefix>_vectors.c`` and ``<prefix>_vectors.h``."""
+    context = {
+        "source": SOURCE,
+        "prefix": prefix,
+        "sides": vectors.sides,
+        "sections": {section: getattr(vectors, section) for section in SECTIONS},
+    }
+    filters = {"c_string": _c_string, "c_bytes": _c_bytes}
+    return {
+        f"{prefix}_vectors.{suffix}": render(f"vectors.{suffix}.j2", filters, **context)
+        for suffix in ("c", "h")
+    }

@@ -4,12 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <protocol_vectors.h>
+#include <stow_vectors.h>
 #include <string.h>
 
 #include "test_common.h"
-
-PROTOCOL_VECTORS_DECLARE(stow);
 
 /**
  * @brief Largest message written back; a vector's message is never longer than its Hello's max_message
@@ -30,9 +28,9 @@ static void* setup(void)
 {
     for (size_t vector_index = 0; budget == 0 && vector_index < stow_exchanges_count; vector_index++)
     {
-        for (size_t step_index = 0; step_index < stow_exchanges[vector_index].step_count; step_index++)
+        for (size_t step_index = 0; step_index < stow_exchanges[vector_index]->step_count; step_index++)
         {
-            const struct protocol_step* step = &stow_exchanges[vector_index].steps[step_index];
+            const struct protocol_step* step = &stow_exchanges[vector_index]->steps[step_index];
             struct stow_msg_reader reader;
             struct stow_msg msg;
             if (stow_msg_read(&reader, step->data, step->len, &test_items, &msg) == 0 &&
@@ -118,7 +116,7 @@ ZTEST(stow_msg_vectors, test_every_exchange_step_reads_and_writes_back)
 {
     for (size_t vector_index = 0; vector_index < stow_exchanges_count; vector_index++)
     {
-        const struct protocol_vector* vector = &stow_exchanges[vector_index];
+        const struct protocol_vector* vector = stow_exchanges[vector_index];
         for (size_t step_index = 0; step_index < vector->step_count; step_index++)
         {
             const struct protocol_step* step = &vector->steps[step_index];
@@ -153,7 +151,7 @@ ZTEST(stow_msg_vectors, test_every_malformed_request_fails_with_the_error_its_an
 {
     for (size_t vector_index = 0; vector_index < stow_malformed_count; vector_index++)
     {
-        const struct protocol_vector* vector = &stow_malformed[vector_index];
+        const struct protocol_vector* vector = stow_malformed[vector_index];
         const struct protocol_step* request = &vector->steps[0];
         const struct protocol_step* answer = &vector->steps[1];
 

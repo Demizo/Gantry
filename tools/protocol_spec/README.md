@@ -35,7 +35,7 @@ malformed:
       - server: '[11 /error/, null, 1 /malformed-msg/]'
 ```
 
-- Each vector has a `name`, unique across both sections, a `meaning`, the session's `roles` and its `steps`.
+- Each vector has a `name`, a C identifier unique across both sections, a `meaning`, the session's `roles` and its `steps`.
 - A step is keyed by its side and holds one message in CBOR diagnostic notation. `/name/` comments are prose and aren't checked. `_2` pins a float to float32.
 - `<side>_hex` gives raw bytes instead. It is allowed only as the first step of a `malformed` vector.
 - `$name` is replaced by the output of the folder's `values` command of that name.
@@ -77,7 +77,7 @@ The constants need only the base install. Checking, rendering and exporting vect
 | Command | Does |
 | --- | --- |
 | `protocol-spec check FOLDER` | Validates every vector and fails when an alternative of a side's rule has no step |
-| `protocol-spec c FOLDER --prefix P --output FILE` | Renders C data, `P_sides`, `P_exchanges` and `P_malformed` with their counts, declared by `tests/common/protocol_vectors.h` |
+| `protocol-spec c FOLDER --prefix P --output-dir DIR` | Renders `P_vectors.c` and its header `P_vectors.h`: `P_sides`, `P_vector_<name>` for each vector, and `P_exchanges` and `P_malformed` with their counts. The X-macros `P_EXCHANGES(X)` and `P_MALFORMED(X)`, with `P` in upper case, expand `X(name)` for each vector. The types are in `tests/common/protocol_vectors.h` |
 | `protocol-spec json FOLDER --output FILE` | Exports the vectors in the shape of `vectors.yaml`, each message as `{"hex": ..., "edn": ...}` |
 | `protocol-spec constants FOLDER --output FILE` | Renders the constants `constants.yaml` names as a C header |
 

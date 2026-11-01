@@ -31,13 +31,3 @@ struct protocol_vector
     const struct protocol_step* steps; /**< Messages in order */
     size_t step_count;                 /**< Number of steps */
 };
-
-/**
- * @brief Declare the vector data rendered by `protocol-spec c` with @p prefix
- */
-#define PROTOCOL_VECTORS_DECLARE(prefix)                      \
-    extern const char* const prefix##_sides[2];               \
-    extern const struct protocol_vector prefix##_exchanges[]; \
-    extern const size_t prefix##_exchanges_count;             \
-    extern const struct protocol_vector prefix##_malformed[]; \
-    extern const size_t prefix##_malformed_count

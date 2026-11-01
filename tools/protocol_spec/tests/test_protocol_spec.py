@@ -191,6 +191,11 @@ malformed:
     assert "twice: duplicate name" in error
 
 
+def test_a_name_that_is_not_a_c_identifier_is_reported(tmp_path: Path):
+    body = COVERING.replace("name: count", "name: count-2")
+    assert "count-2: the name is not a C identifier" in _load_error(tmp_path, body)
+
+
 def test_values_are_substituted_from_their_commands(tmp_path: Path):
     command = json.dumps([sys.executable, "-c", "print(3)"])
     body = """exchanges:
@@ -264,18 +269,19 @@ def test_json_export_keeps_the_yaml_shape(tmp_path: Path):
 
 
 HOST_TEST = r"""
-#include <protocol_vectors.h>
 #include <stdio.h>
+#include <toy_vectors.h>
 
-PROTOCOL_VECTORS_DECLARE(toy);
+#define PRINT_NAME(vector) printf("%s=%s,", #vector, toy_vector_##vector.name);
 
 int main(void)
 {
-    const struct protocol_vector* ping = &toy_exchanges[0];
-    const struct protocol_step* pong = &ping->steps[1];
-    printf("%s|%s|%zu|%zu|%s|%s|%d|%u|%zu|%02x|%s\n", toy_sides[0], toy_sides[1],
-           toy_exchanges_count, toy_malformed_count, ping->name, ping->roles[0],
-           ping->roles[1] == NULL, pong->side, pong->len, pong->data[4], pong->edn);
+    const struct protocol_step* pong = &toy_vector_ping.steps[1];
+    TOY_EXCHANGES(PRINT_NAME)
+    TOY_MALFORMED(PRINT_NAME)
+    printf("|%s|%s|%zu|%zu|%s|%s|%d|%u|%zu|%02x|%s\n", toy_sides[0], toy_sides[1],
+           toy_exchanges_count, toy_malformed_count, toy_exchanges[1]->name, toy_vector_ping.roles[0],
+           toy_vector_ping.roles[1] == NULL, pong->side, pong->len, pong->data[4], pong->edn);
     return 0;
 }
 """
@@ -286,8 +292,9 @@ COMPILER = next(
 
 
 @pytest.mark.skipif(COMPILER is None, reason="no host C compiler")
-def test_c_output_compiles_and_holds_the_vectors(tmp_path: Path):
-    (tmp_path / "vectors.c").write_text(to_c(load(_folder(tmp_path, COVERING)), "toy"))
+def test_c_output_compiles_and_lists_the_vectors_by_name(tmp_path: Path):
+    for name, text in to_c(load(_folder(tmp_path, COVERING)), "toy").items():
+        (tmp_path / name).write_text(text)
     (tmp_path / "main.c").write_text(HOST_TEST)
     program = tmp_path / "host_test"
     subprocess.run(
@@ -297,8 +304,9 @@ def test_c_output_compiles_and_holds_the_vectors(tmp_path: Path):
             "-Wall",
             "-Werror",
             f"-I{REPO / 'tests' / 'common'}",
+            f"-I{tmp_path}",
             str(tmp_path / "main.c"),
-            str(tmp_path / "vectors.c"),
+            str(tmp_path / "toy_vectors.c"),
             "-o",
             str(program),
         ],
@@ -306,7 +314,7 @@ def test_c_output_compiles_and_holds_the_vectors(tmp_path: Path):
     )
     output = subprocess.run([str(program)], capture_output=True, text=True, check=True)
     assert output.stdout.strip() == (
-        "asker|answerer|2|0|ping|Guest|1|1|5|03|[1 /pong/, 1, <<3>>]"
+        "ping=ping,count=count,|asker|answerer|2|0|count|Guest|1|1|5|03|[1 /pong/, 1, <<3>>]"
     )
 
 

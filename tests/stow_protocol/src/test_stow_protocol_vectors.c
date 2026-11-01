@@ -4,15 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <protocol_vectors.h>
+#include <stow_vectors.h>
 #include <zephyr/sys/printk.h>
 
 #include "test_common.h"
 
 #define SESSION_ID 121
 #define CLIENT_SIDE 0
-
-PROTOCOL_VECTORS_DECLARE(stow);
 
 static void before_each(void* fixture)
 {
@@ -99,7 +97,7 @@ ZTEST(stow_protocol_vectors, test_server_plays_every_exchange)
     zassert_str_equal(stow_sides[CLIENT_SIDE], "client");
     for (size_t i = 0; i < stow_exchanges_count; i++)
     {
-        play(&stow_exchanges[i]);
+        play(stow_exchanges[i]);
     }
 }
 
@@ -107,6 +105,6 @@ ZTEST(stow_protocol_vectors, test_server_answers_every_malformed_request)
 {
     for (size_t i = 0; i < stow_malformed_count; i++)
     {
-        play(&stow_malformed[i]);
+        play(stow_malformed[i]);
     }
 }

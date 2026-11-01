@@ -14,7 +14,8 @@ SOURCE = "vectors.yaml"
 SECTIONS = ("exchanges", "malformed")
 _HEADER_KEYS = {"cddl", "sides", "values", *SECTIONS}
 _VECTOR_KEYS = {"name", "meaning", "roles", "steps"}
-_VALUE = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)")
+_IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_]*"
+_VALUE = re.compile(rf"\$({_IDENTIFIER})")
 
 
 @dataclass(frozen=True)
@@ -154,6 +155,8 @@ def _load(folder: Path) -> tuple[Vectors, _Folder]:
         vectors = []
         for written in spec.header.get(section) or []:
             vector = _vector(spec, written, section == "malformed", errors)
+            if not re.fullmatch(_IDENTIFIER, str(vector.name)):
+                errors.append(f"{vector.name}: the name is not a C identifier")
             if vector.name in names:
                 errors.append(f"{vector.name}: duplicate name")
             names.add(vector.name)

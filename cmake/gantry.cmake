@@ -1,12 +1,12 @@
 # _gantry_tool(<package> <doing> [DEV] [EXTRA <extra>]
-#              [OUTPUT <file> DEPENDS <path>...] ARGS <arg>...)
+#              [OUTPUT <file>... DEPENDS <path>...] ARGS <arg>...)
 #
 # Runs the console script of a package in Gantry's uv workspace, named like the
 # package, without its dev dependencies unless DEV is given. Without OUTPUT it
 # runs now, and a failure stops the configure step after the tool's output.
-# With OUTPUT it becomes the build rule for <file>.
+# With OUTPUT it becomes the build rule for each <file>.
 function(_gantry_tool package doing)
-  cmake_parse_arguments(ARG "DEV" "EXTRA;OUTPUT" "DEPENDS;ARGS" ${ARGN})
+  cmake_parse_arguments(ARG "DEV" "EXTRA" "OUTPUT;DEPENDS;ARGS" ${ARGN})
 
   find_program(GANTRY_UV_CMD NAMES uv REQUIRED)
   set(_command ${GANTRY_UV_CMD} run --project ${ZEPHYR_GANTRY_MODULE_DIR} --package ${package})
@@ -55,24 +55,25 @@ endfunction()
 
 # gantry_protocol_vectors(<target> <folder> <prefix>)
 #
-# Renders the vectors of a protocol folder as C data named <prefix>_*,
-# declared by tests/common/protocol_vectors.h, and adds it to <target>. Editing
-# any file in the folder, or the tool, renders it again.
+# Renders the vectors of a protocol folder as C data named <prefix>_*, and adds
+# it to <target> with its header <prefix>_vectors.h, which lists each vector by
+# name. Editing any file in the folder, or the tool, renders it again.
 function(gantry_protocol_vectors target folder prefix)
   set(_tool ${ZEPHYR_GANTRY_MODULE_DIR}/tools/protocol_spec)
-  set(_output ${CMAKE_CURRENT_BINARY_DIR}/${prefix}_vectors.c)
+  set(_dir ${CMAKE_CURRENT_BINARY_DIR}/protocol_vectors)
+  set(_outputs ${_dir}/${prefix}_vectors.c ${_dir}/${prefix}_vectors.h)
   file(GLOB _inputs ${folder}/* ${_tool}/src/protocol_spec/*.py ${_tool}/src/protocol_spec/templates/*)
 
   # The protocol tool's dev dependencies provide the commands a folder's values run, such as stow-gen
   _gantry_tool(protocol-spec "rendering the ${prefix} protocol vectors"
     DEV
     EXTRA   vectors
-    OUTPUT  ${_output}
+    OUTPUT  ${_outputs}
     DEPENDS ${_inputs}
-    ARGS    c ${folder} --prefix ${prefix} --output ${_output}
+    ARGS    c ${folder} --prefix ${prefix} --output-dir ${_dir}
   )
-  target_sources(${target} PRIVATE ${_output})
-  target_include_directories(${target} PRIVATE ${ZEPHYR_GANTRY_MODULE_DIR}/tests/common)
+  target_sources(${target} PRIVATE ${_outputs})
+  target_include_directories(${target} PRIVATE ${_dir} ${ZEPHYR_GANTRY_MODULE_DIR}/tests/common)
 endfunction()
 
 # gantry_stow_raise_depth(<file>)

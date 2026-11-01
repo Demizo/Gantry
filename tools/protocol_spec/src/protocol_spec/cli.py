@@ -31,7 +31,8 @@ def run(args: argparse.Namespace) -> bool:
         print(f"{args.folder}: {error}", file=sys.stderr)
         return False
     if args.command == "c":
-        _write(args.output, to_c(vectors, args.prefix))
+        for name, text in to_c(vectors, args.prefix).items():
+            _write(args.output_dir / name, text)
     else:
         _write(args.output, to_json(vectors))
     return True
@@ -46,10 +47,14 @@ def parser() -> argparse.ArgumentParser:
     check.add_argument(
         "folder", type=Path, help="protocol folder, such as protocols/stow"
     )
-    c = commands.add_parser("c", help="render the vectors as C data")
-    c.add_argument("folder", type=Path)
-    c.add_argument("--prefix", required=True, help="prefix of the C names")
-    c.add_argument("--output", required=True, type=Path)
+    render_c = commands.add_parser(
+        "c", help="render the vectors as C data and a header that lists them by name"
+    )
+    render_c.add_argument("folder", type=Path)
+    render_c.add_argument(
+        "--prefix", required=True, help="prefix of the C names and files"
+    )
+    render_c.add_argument("--output-dir", required=True, type=Path)
     export = commands.add_parser("json", help="export the vectors as JSON")
     export.add_argument("folder", type=Path)
     export.add_argument("--output", required=True, type=Path)
