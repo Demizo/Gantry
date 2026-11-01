@@ -5,7 +5,6 @@
  */
 
 #include <stow_vectors.h>
-#include <zephyr/sys/printk.h>
 
 #include "test_common.h"
 
@@ -50,16 +49,6 @@ static stow_role_t role_mask(const struct protocol_vector* vector)
     return roles;
 }
 
-static void print_sent(const struct net_buf* buf)
-{
-    printk("sent: ");
-    for (size_t i = 0; i < buf->len; i++)
-    {
-        printk("%02x", buf->data[i]);
-    }
-    printk("\n");
-}
-
 /* Plays a vector by the rules in tools/protocol_spec/README.md */
 static void play(const struct protocol_vector* vector)
 {
@@ -78,7 +67,7 @@ static void play(const struct protocol_vector* vector)
         bool same = cap.buf->len == step->len && memcmp(cap.buf->data, step->data, step->len) == 0;
         if (!same)
         {
-            print_sent(cap.buf);
+            protocol_vector_print_hex("sent", cap.buf->data, cap.buf->len);
         }
         net_buf_unref(cap.buf);
         zassert_true(same, "%s.steps[%zu]: expected %s", vector->name, i, step->edn);
@@ -89,7 +78,7 @@ static void play(const struct protocol_vector* vector)
     bool sent_more = extra.buf != NULL;
     if (sent_more)
     {
-        print_sent(extra.buf);
+        protocol_vector_print_hex("sent", extra.buf->data, extra.buf->len);
         net_buf_unref(extra.buf);
     }
     zassert_false(sent_more, "%s: sent more after the last step", vector->name);

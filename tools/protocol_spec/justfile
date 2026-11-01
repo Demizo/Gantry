@@ -6,3 +6,8 @@ test *args:
 [no-cd]
 check folder:
   uv run --package protocol-spec --extra vectors protocol-spec check {{folder}}
+
+# Write one message's bytes, given in hex, in a protocol folder's vector notation
+[no-cd]
+diag folder hex:
+  @uv run --package protocol-spec --extra vectors protocol-spec diag {{folder}} {{hex}}

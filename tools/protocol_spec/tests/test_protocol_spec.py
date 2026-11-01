@@ -10,11 +10,13 @@ import pytest
 from protocol_spec import constants, load
 from protocol_spec.cddl import Cddl
 from protocol_spec.constants import to_header
+from protocol_spec.diag import diag
 from protocol_spec.encodings import cbor_edn
 from protocol_spec.output import to_c, to_json
-from protocol_spec.vectors import uncovered
+from protocol_spec.vectors import Folder, uncovered
 
 REPO = Path(__file__).resolve().parents[3]
+STOW = REPO / "protocols" / "stow"
 
 CDDL = """
 question = ping / count
@@ -325,6 +327,75 @@ def test_c_output_compiles_and_lists_the_vectors_by_name(tmp_path: Path):
 )
 def test_repo_vectors_load_and_cover_every_message(folder: Path):
     assert uncovered(folder) == []
+
+
+def _diag(hex_bytes: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["protocol-spec", "diag", str(STOW), hex_bytes], capture_output=True, text=True
+    )
+
+
+def _stow_step(name: str, index: int) -> bytes:
+    vector = next(vector for vector in load(STOW).exchanges if vector.name == name)
+    return vector.steps[index].data
+
+
+def test_diag_writes_every_repo_step_back_to_its_bytes():
+    spec = Folder(STOW)
+    vectors = load(STOW)
+    for vector in vectors.exchanges + vectors.malformed:
+        for index, step in enumerate(vector.steps):
+            if step.edn is None:
+                continue
+            written = diag(spec, step.data)
+            assert spec.encode(written) == step.data, f"{vector.name}.steps[{index}]"
+
+
+@pytest.mark.parametrize(
+    "hex_bytes", ["9802011818", "9f01ff", "c11a00000005", "f94d60", "820001820102"]
+)
+def test_diag_writes_any_encoding_back_to_its_bytes(hex_bytes: str):
+    spec = Folder(STOW)
+    assert spec.encode(diag(spec, bytes.fromhex(hex_bytes))) == bytes.fromhex(hex_bytes)
+
+
+def test_diag_keeps_a_float32():
+    result = _diag(_stow_step("get_float", 1).hex())
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "[5, 21, 8, 21.5_2]\n"
+
+
+def test_diag_writes_a_describe_chunk_as_a_sequence_and_the_stow_hash_by_name():
+    result = _diag(_stow_step("connect", 3).hex())
+    assert result.returncode == 0, result.stderr
+    lines = result.stdout.splitlines()
+    assert lines[0] == "[3, 1, 5, <<"
+    assert lines[1].startswith(
+        '  {0: 0, 1: "StowHash", 2: [], 3: 0, 4: 65535, 5: 0, 6: 3, 7: $stow_hash, '
+    )
+    assert lines[2].startswith('  {0: 1, 1: "TestInt", ')
+    assert lines[1].endswith("},") and lines[5].endswith("}")
+    assert lines[6] == ">>]"
+
+
+def test_diag_names_the_stow_hash_in_a_hello_response():
+    result = _diag(_stow_step("hello", 1).hex())
+    assert result.returncode == 0, result.stderr
+    assert (
+        result.stdout
+        == '[1, 12, 1, {0: 308, 1: $stow_hash, 2: 5, 3: ["Guest", "Session", "Dev"]}]\n'
+    )
+
+
+@pytest.mark.parametrize(
+    "hex_bytes, reason",
+    [("8201z", "not hex"), ("8201", "not CBOR"), ("ff", "not CBOR"), ("", "not CBOR")],
+)
+def test_diag_rejects_what_is_not_one_message(hex_bytes: str, reason: str):
+    result = _diag(hex_bytes)
+    assert result.returncode == 1
+    assert reason in result.stderr
+    assert result.stdout == ""
 
 
 CONSTANT_CDDL = """

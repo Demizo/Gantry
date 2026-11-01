@@ -44,7 +44,9 @@ class Vectors:
     malformed: tuple[Vector, ...]
 
 
-class _Folder:
+class Folder:
+    """A protocol folder's vectors.yaml header, its CDDL and the outputs of its values commands."""
+
     def __init__(self, folder: Path):
         header = yaml.safe_load((folder / SOURCE).read_text(encoding="utf-8"))
         unknown = set(header) - _HEADER_KEYS
@@ -86,6 +88,10 @@ class _Folder:
         edn = _VALUE.sub(self._value, str(text)).strip()
         return Step(side, cbor_edn(edn), edn)
 
+    def encode(self, text: str) -> bytes:
+        """Encode a message written in vector notation, with each ``$name`` replaced by its value."""
+        return cbor_edn(_VALUE.sub(self._value, text))
+
     def _value(self, match: re.Match) -> str:
         if match[1] not in self.values:
             raise ValueError(f"no value ${match[1]}")
@@ -121,7 +127,7 @@ def _run_value(folder: Path, name: str, command: list) -> str:
 
 
 def _vector(
-    folder: _Folder, written: dict, malformed: bool, errors: list[str]
+    folder: Folder, written: dict, malformed: bool, errors: list[str]
 ) -> Vector:
     name = written.get("name", "?")
     unknown = set(written) - _VECTOR_KEYS
@@ -146,8 +152,8 @@ def _vector(
     )
 
 
-def _load(folder: Path) -> tuple[Vectors, _Folder]:
-    spec = _Folder(folder)
+def _load(folder: Path) -> tuple[Vectors, Folder]:
+    spec = Folder(folder)
     errors = spec.errors
     sections = {}
     names: set[str] = set()

@@ -1,4 +1,5 @@
-"""Command line that checks a protocol folder's vectors, or renders them or its constants for other consumers."""
+"""Command line that checks a protocol folder's vectors, renders them or its constants for other consumers, or writes
+a message in its notation."""
 
 import argparse
 import sys
@@ -12,15 +13,26 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
+def _hex(text: str) -> bytes:
+    try:
+        return bytes.fromhex(text)
+    except ValueError:
+        raise ValueError(f"not hex: {text!r}") from None
+
+
 def run(args: argparse.Namespace) -> bool:
     """Run one command, printing problems to stderr; False when there were any."""
     try:
         if args.command == "constants":
             _write(args.output, to_header(constants(args.folder)))
             return True
+        from .diag import diag
         from .output import to_c, to_json
-        from .vectors import load, uncovered
+        from .vectors import Folder, load, uncovered
 
+        if args.command == "diag":
+            print(diag(Folder(args.folder), _hex(args.hex)))
+            return True
         if args.command == "check":
             missing = uncovered(args.folder)
             for line in missing:
@@ -58,6 +70,13 @@ def parser() -> argparse.ArgumentParser:
     export = commands.add_parser("json", help="export the vectors as JSON")
     export.add_argument("folder", type=Path)
     export.add_argument("--output", required=True, type=Path)
+    diag = commands.add_parser(
+        "diag", help="write one message's bytes in the folder's vector notation"
+    )
+    diag.add_argument("folder", type=Path)
+    diag.add_argument(
+        "hex", help="the message's bytes in hex, such as a replay printed"
+    )
     header = commands.add_parser(
         "constants", help="render the CDDL integers constants.yaml names as a C header"
     )

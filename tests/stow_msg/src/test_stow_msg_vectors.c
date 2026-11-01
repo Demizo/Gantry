@@ -113,6 +113,20 @@ static int write_back(struct stow_msg_reader* reader, const struct stow_msg* msg
 }
 
 /**
+ * @brief Check that written bytes are a step's, printing them in hex for `protocol-spec diag` when they aren't
+ */
+static void expect_step(const struct protocol_vector* vector, size_t index, const uint8_t* out, size_t len)
+{
+    const struct protocol_step* step = &vector->steps[index];
+    bool same = len == step->len && memcmp(out, step->data, len) == 0;
+    if (!same)
+    {
+        protocol_vector_print_hex("wrote", out, len);
+    }
+    zassert_true(same, "%s.steps[%zu]: expected %s", vector->name, index, step->edn);
+}
+
+/**
  * @brief Check that the step after a request this side failed to read is the Error written from the failure
  */
 static void check_failure_answered(
@@ -135,8 +149,7 @@ static void check_failure_answered(
         &writer, &(struct stow_msg){ .code = STOW_MSG_ERROR, .tag = failed->tag, .error = failed->error }));
     size_t len = 0;
     zassert_ok(stow_msg_finish(&writer, &len));
-    zassert_equal(len, answer->len, "%s: %s", vector->name, answer->edn);
-    zassert_mem_equal(out, answer->data, len, "%s: %s", vector->name, answer->edn);
+    expect_step(vector, index + 1, out, len);
 }
 
 /**
@@ -163,8 +176,7 @@ static const char* check_step(const struct protocol_vector* vector, size_t index
     {
         return "an entry names an item the fixture lacks, whose value can't be written";
     }
-    zassert_equal(len, step->len, "%s.steps[%zu]: %s", vector->name, index, step->edn);
-    zassert_mem_equal(out, step->data, len, "%s.steps[%zu]: %s", vector->name, index, step->edn);
+    expect_step(vector, index, out, len);
     return NULL;
 }
 

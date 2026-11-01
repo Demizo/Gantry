@@ -80,5 +80,6 @@ The constants need only the base install. Checking, rendering and exporting vect
 | `protocol-spec c FOLDER --prefix P --output-dir DIR` | Renders `P_vectors.c` and its header `P_vectors.h`: `P_sides`, `P_vector_<name>` for each vector, and `P_exchanges` and `P_malformed` with their counts. The X-macros `P_EXCHANGES(X)` and `P_MALFORMED(X)`, with `P` in upper case, expand `X(name)` for each vector. The types are in `tests/common/protocol_vectors.h` |
 | `protocol-spec json FOLDER --output FILE` | Exports the vectors in the shape of `vectors.yaml`, each message as `{"hex": ..., "edn": ...}` |
 | `protocol-spec constants FOLDER --output FILE` | Renders the constants `constants.yaml` names as a C header |
+| `protocol-spec diag FOLDER HEX` | Writes one message's bytes in vector notation, which encodes back to the same bytes. A byte string the CDDL controls with `.cborseq` is written as `<< >>`, one item a line, and a value equal to one of the folder's `values` as `$name`. Add the `/name/` comments by hand |
 
 Python consumers call `protocol_spec.load(folder)`, which reads and validates the folder without writing a file. A load error names every bad step, such as `set_already_set.steps[1]: does not match response: ...`.

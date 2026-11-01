@@ -2,11 +2,14 @@
 
 import contextlib
 import io
+from contextvars import ContextVar
 
 import cbor2
 from zcbor.zcbor.zcbor import PRELUDE_PATH, CddlValidationError, DataTranslator
 
 MAX_REPEATS = 1024
+
+_sequences: ContextVar[list[bytes] | None] = ContextVar("sequences", default=None)
 
 
 def decode_sequence(data: bytes) -> list:
@@ -31,6 +34,8 @@ class _Translator(DataTranslator):
 
     def decode_str(self, cbor_str):
         if getattr(self, "is_sequence", False):
+            if (seen := _sequences.get()) is not None:
+                seen.append(cbor_str)
             return self.decode_obj(decode_sequence(cbor_str))
         return super().decode_str(cbor_str)
 
@@ -71,6 +76,17 @@ class Cddl:
         except ValueError:
             return False
         return True
+
+    def sequences(self, rule: str, data: bytes) -> list[bytes] | None:
+        """The byte strings that ``.cborseq`` controls in data, or None when data doesn't match rule."""
+        token = _sequences.set([])
+        try:
+            self.validate(rule, data)
+            return _sequences.get()
+        except ValueError:
+            return None
+        finally:
+            _sequences.reset(token)
 
     def validate(self, rule: str, data: bytes) -> None:
         """Raise ValueError unless data is a single CBOR item that matches rule."""
