@@ -6,9 +6,9 @@ import time
 from pathlib import Path
 
 import pytest
+
 from link_broker import Action, Broker, Faults, Link, Topology
 from link_broker.topology import Node, parse
-
 from stow_client import GetRequest
 from stow_client.cobs import cobs_encode
 

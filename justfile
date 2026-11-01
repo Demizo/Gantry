@@ -63,7 +63,7 @@ analyze:
 
 # Validate the protocol golden vectors and check every message kind has one
 vectors:
-  uv run --project tools/protocol_spec --extra vectors protocol-spec check protocols/stow
+  uv run --package protocol-spec --extra vectors protocol-spec check protocols/stow
 
 # Lint and format-check the repo's Python with the pinned ruff
 lint:
@@ -89,7 +89,7 @@ test component:
 alias ti := test-integration
 # Run Python integration tests for the sample app
 test-integration *args='':
-    uv run pytest {{sample}}/tests {{args}}
+    uv run --package example-app-tests pytest {{sample}}/tests {{args}}
 
 # Run the Stow generation unit tests
 test-stow-tools *args='':
@@ -101,11 +101,11 @@ test-resource-check *args='':
 
 # Run the link broker's own unit tests
 test-link-broker *args='':
-    uv run --project tools/link_broker pytest tools/link_broker/tests {{args}}
+    uv run --package link-broker pytest tools/link_broker/tests {{args}}
 
 # Run the controller and sensor samples as a simulated network
 test-peers *args='':
-    uv run --project tools/link_broker pytest samples/stow_peers/tests {{args}}
+    uv run --package link-broker pytest samples/stow_peers/tests {{args}}
 
 # Build documentation
 docs:

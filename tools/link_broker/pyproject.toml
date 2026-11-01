@@ -14,13 +14,8 @@ dependencies = [
 [project.entry-points.pytest11]
 link_broker = "link_broker.pytest_plugin"
 
-[dependency-groups]
-dev = [
-    "ruff==0.15.14",
-]
-
 [tool.uv.sources]
-stow-client = { path = "../../python/stow-client", editable = true }
+stow-client = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.10.6,<0.12.0"]

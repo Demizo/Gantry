@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
 from link_broker import Faults, describe, load
 from link_broker.topology import parse
-
 from stow_client.cobs import cobs_encode
 
 

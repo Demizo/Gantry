@@ -1,3 +1,37 @@
+# _gantry_tool(<package> <doing> [EXTRA <extra>] [OUTPUT <file> DEPENDS <path>...]
+#              ARGS <arg>...)
+#
+# Runs the console script of a package in Gantry's uv workspace, named like the
+# package, without its dev dependencies. Without OUTPUT it runs now, and a
+# failure stops the configure step after the tool's output. With OUTPUT it
+# becomes the build rule for <file>.
+function(_gantry_tool package doing)
+  cmake_parse_arguments(ARG "" "EXTRA;OUTPUT" "DEPENDS;ARGS" ${ARGN})
+
+  find_program(GANTRY_UV_CMD NAMES uv REQUIRED)
+  set(_command ${GANTRY_UV_CMD} run --project ${ZEPHYR_GANTRY_MODULE_DIR} --package ${package} --no-dev)
+  if(ARG_EXTRA)
+    list(APPEND _command --extra ${ARG_EXTRA})
+  endif()
+  list(APPEND _command ${package} ${ARG_ARGS})
+
+  if(ARG_OUTPUT)
+    add_custom_command(
+      OUTPUT ${ARG_OUTPUT}
+      COMMAND ${_command}
+      DEPENDS ${ARG_DEPENDS}
+      COMMENT "Gantry: ${doing}"
+      VERBATIM
+    )
+    return()
+  endif()
+
+  execute_process(COMMAND ${_command} RESULT_VARIABLE _result)
+  if(NOT _result EQUAL 0)
+    message(FATAL_ERROR "Gantry: ${doing} failed (exit ${_result})")
+  endif()
+endfunction()
+
 # gantry_protocol_constants(<folder> <header>)
 #
 # Renders the CDDL integers a protocol folder's constants.yaml names as
@@ -9,15 +43,9 @@ function(gantry_protocol_constants folder header)
   file(GLOB _inputs ${folder}/constants.yaml ${folder}/*.cddl ${_tool}/src/protocol_spec/*.py ${_tool}/src/protocol_spec/templates/*)
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_inputs})
 
-  find_program(GANTRY_UV_CMD NAMES uv REQUIRED)
-  execute_process(
-    COMMAND ${GANTRY_UV_CMD} run --project ${_tool} --no-dev
-            protocol-spec constants ${folder} --output ${_dir}/${header}
-    RESULT_VARIABLE _result
+  _gantry_tool(protocol-spec "rendering the constants of ${folder}"
+    ARGS constants ${folder} --output ${_dir}/${header}
   )
-  if(NOT _result EQUAL 0)
-    message(FATAL_ERROR "Gantry: rendering the constants of ${folder} failed (exit ${_result})")
-  endif()
 
   zephyr_include_directories(${_dir})
 endfunction()
@@ -32,14 +60,11 @@ function(gantry_protocol_vectors target folder prefix)
   set(_output ${CMAKE_CURRENT_BINARY_DIR}/${prefix}_vectors.c)
   file(GLOB _inputs ${folder}/* ${_tool}/src/protocol_spec/*.py ${_tool}/src/protocol_spec/templates/*)
 
-  find_program(GANTRY_UV_CMD NAMES uv REQUIRED)
-  add_custom_command(
-    OUTPUT ${_output}
-    COMMAND ${GANTRY_UV_CMD} run --project ${_tool} --extra vectors
-            protocol-spec c ${folder} --prefix ${prefix} --output ${_output}
+  _gantry_tool(protocol-spec "rendering the ${prefix} protocol vectors"
+    EXTRA   vectors
+    OUTPUT  ${_output}
     DEPENDS ${_inputs}
-    COMMENT "Rendering the ${prefix} protocol vectors"
-    VERBATIM
+    ARGS    c ${folder} --prefix ${prefix} --output ${_output}
   )
   target_sources(${target} PRIVATE ${_output})
   target_include_directories(${target} PRIVATE ${ZEPHYR_GANTRY_MODULE_DIR}/tests/common)

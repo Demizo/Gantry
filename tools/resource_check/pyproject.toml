@@ -17,7 +17,6 @@ resource-check = "resource_check.checker:main"
 [dependency-groups]
 dev = [
     "pytest>=8.0",
-    "ruff==0.15.14",
 ]
 
 [build-system]

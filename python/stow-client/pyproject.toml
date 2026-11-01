@@ -21,7 +21,7 @@ integration = [
 ]
 
 [tool.uv.sources]
-protocol-spec = { path = "../../tools/protocol_spec", editable = true }
+protocol-spec = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.10.6,<0.12.0"]
