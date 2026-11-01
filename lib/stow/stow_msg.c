@@ -123,6 +123,9 @@ static const struct kind kinds[] = {
     [STOW_MSG_ERROR] = { DIRECTION_RESPONSE, TAG_NULLABLE, SHAPE_ERROR },
 };
 
+/**
+ * @brief Verify every message code is handled
+ */
 BUILD_ASSERT(ARRAY_SIZE(kinds) == STOW_MSG_COUNT, "Every message code needs a kind");
 
 /**
