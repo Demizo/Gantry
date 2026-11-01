@@ -26,7 +26,13 @@ static void after_each(void* fixture)
     test_drain_captures();
 }
 
-ZTEST_SUITE(stow_protocol_vectors, NULL, NULL, before_each, after_each, NULL);
+static void* setup(void)
+{
+    zassert_str_equal(stow_sides[CLIENT_SIDE], "client");
+    return NULL;
+}
+
+ZTEST_SUITE(stow_protocol_vectors, NULL, setup, before_each, after_each, NULL);
 
 static stow_role_t role_mask(const struct protocol_vector* vector)
 {
@@ -92,19 +98,8 @@ static void play(const struct protocol_vector* vector)
     test_sync();
 }
 
-ZTEST(stow_protocol_vectors, test_server_plays_every_exchange)
-{
-    zassert_str_equal(stow_sides[CLIENT_SIDE], "client");
-    for (size_t i = 0; i < stow_exchanges_count; i++)
-    {
-        play(stow_exchanges[i]);
-    }
-}
+#define PLAY(name) \
+    ZTEST(stow_protocol_vectors, test_##name) { play(&stow_vector_##name); }
 
-ZTEST(stow_protocol_vectors, test_server_answers_every_malformed_request)
-{
-    for (size_t i = 0; i < stow_malformed_count; i++)
-    {
-        play(stow_malformed[i]);
-    }
-}
+STOW_EXCHANGES(PLAY)
+STOW_MALFORMED(PLAY)

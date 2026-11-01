@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <gantry/error.h>
 #include <stow_vectors.h>
 #include <string.h>
 
@@ -50,9 +51,9 @@ ZTEST_SUITE(stow_msg_vectors, NULL, setup, NULL, NULL, NULL);
 /**
  * @brief Write a message back from what was read, walking its list
  *
- * @return The written length, or 0 when an entry names an item the fixture lacks, whose value cannot be written
+ * @return SUCCESS, or -ENOENT when an entry names an item the fixture lacks, whose value cannot be written
  */
-static size_t write_back(struct stow_msg_reader* reader, const struct stow_msg* msg, uint8_t* out)
+static int write_back(struct stow_msg_reader* reader, const struct stow_msg* msg, uint8_t* out, size_t* len)
 {
     struct stow_msg written = *msg;
     if (msg->code == STOW_MSG_HELLO_RESPONSE)
@@ -99,7 +100,7 @@ static size_t write_back(struct stow_msg_reader* reader, const struct stow_msg* 
             int ret = stow_msg_next_entry(reader, &entry);
             if (ret == -ENOENT)
             {
-                return 0;
+                return ret;
             }
             zassert_ok(ret);
             zassert_ok(stow_msg_put_entry(&writer, &entry));
@@ -107,85 +108,141 @@ static size_t write_back(struct stow_msg_reader* reader, const struct stow_msg* 
         }
     }
 
+    zassert_ok(stow_msg_finish(&writer, len));
+    return SUCCESS;
+}
+
+/**
+ * @brief Check that the step after a request this side failed to read is the Error written from the failure
+ */
+static void check_failure_answered(
+    const struct protocol_vector* vector, size_t index, int ret, const struct stow_msg* failed)
+{
+    zassert_true(index + 1 < vector->step_count, "%s.steps[%zu]: failed with %d, unanswered", vector->name, index, ret);
+    const struct protocol_step* answer = &vector->steps[index + 1];
+
+    struct stow_msg_reader reader;
+    struct stow_msg error;
+    zassert_ok(
+        stow_msg_read(&reader, answer->data, answer->len, &test_items, &error), "%s: %s", vector->name, answer->edn);
+    zassert_equal(error.code, STOW_MSG_ERROR, "%s: %s", vector->name, answer->edn);
+    zassert_equal(error.error.err, ret, "%s: %s", vector->name, answer->edn);
+
+    uint8_t out[OUT_SIZE];
+    struct stow_msg_writer writer;
+    stow_msg_writer_init(&writer, out, budget);
+    zassert_ok(stow_msg_write(
+        &writer, &(struct stow_msg){ .code = STOW_MSG_ERROR, .tag = failed->tag, .error = failed->error }));
     size_t len = 0;
     zassert_ok(stow_msg_finish(&writer, &len));
-    return len;
+    zassert_equal(len, answer->len, "%s: %s", vector->name, answer->edn);
+    zassert_mem_equal(out, answer->data, len, "%s: %s", vector->name, answer->edn);
 }
 
-ZTEST(stow_msg_vectors, test_every_exchange_step_reads_and_writes_back)
+/**
+ * @brief Check that a step reads and writes back to the same bytes, or fails to read with the Error that answers it
+ *
+ * @return NULL, or why the step does not apply to the codec
+ */
+static const char* check_step(const struct protocol_vector* vector, size_t index)
 {
-    for (size_t vector_index = 0; vector_index < stow_exchanges_count; vector_index++)
+    const struct protocol_step* step = &vector->steps[index];
+    struct stow_msg_reader reader;
+    struct stow_msg msg;
+    int ret = stow_msg_read(&reader, step->data, step->len, &test_items, &msg);
+    if (ret != 0 && step->side == CLIENT_SIDE)
     {
-        const struct protocol_vector* vector = stow_exchanges[vector_index];
-        for (size_t step_index = 0; step_index < vector->step_count; step_index++)
-        {
-            const struct protocol_step* step = &vector->steps[step_index];
-            struct stow_msg_reader reader;
-            struct stow_msg msg;
-            int ret = stow_msg_read(&reader, step->data, step->len, &test_items, &msg);
-            if ((ret == -EINVAL || ret == -EBADMSG) && step->side == CLIENT_SIDE && step_index + 1 < vector->step_count)
-            {
-                /* A request breaking a constraint or a limit of this side fails the read with the server's Error */
-                const struct protocol_step* answer = &vector->steps[step_index + 1];
-                struct stow_msg error;
-                zassert_ok(stow_msg_read(&reader, answer->data, answer->len, &test_items, &error), "%s", vector->name);
-                zassert_equal(error.error.err, ret, "%s: %s", vector->name, answer->edn);
-                zassert_equal(error.error.item, msg.error.item, "%s: %s", vector->name, answer->edn);
-                continue;
-            }
-            zassert_ok(ret, "%s step %zu: %s", vector->name, step_index, step->edn);
+        check_failure_answered(vector, index, ret, &msg);
+        return NULL;
+    }
+    zassert_ok(ret, "%s.steps[%zu]: %s", vector->name, index, step->edn);
 
-            uint8_t out[OUT_SIZE];
-            size_t len = write_back(&reader, &msg, out);
-            if (len == 0)
-            {
-                continue;
-            }
-            zassert_equal(len, step->len, "%s step %zu: %s", vector->name, step_index, step->edn);
-            zassert_mem_equal(out, step->data, len, "%s step %zu: %s", vector->name, step_index, step->edn);
-        }
+    uint8_t out[OUT_SIZE];
+    size_t len = 0;
+    if (write_back(&reader, &msg, out, &len) == -ENOENT)
+    {
+        return "an entry names an item the fixture lacks, whose value can't be written";
+    }
+    zassert_equal(len, step->len, "%s.steps[%zu]: %s", vector->name, index, step->edn);
+    zassert_mem_equal(out, step->data, len, "%s.steps[%zu]: %s", vector->name, index, step->edn);
+    return NULL;
+}
+
+/**
+ * @brief Check that a malformed vector's request fails to read with the Error that answers it
+ *
+ * @return NULL, or why the request does not apply to the codec
+ */
+static const char* check_malformed_request(const struct protocol_vector* vector)
+{
+    const struct protocol_step* request = &vector->steps[0];
+    uint32_t code = STOW_MSG_ABSENT;
+    uint8_t tag = STOW_TAG_NONE;
+    (void)stow_msg_peek(request->data, request->len, &code, &tag);
+    if (code < STOW_MSG_COUNT && !stow_msg_is_request(code))
+    {
+        return "the server answers a message that isn't a request from its code and tag alone";
+    }
+
+    struct stow_msg_reader reader;
+    struct stow_msg failed;
+    int ret = stow_msg_read(&reader, request->data, request->len, &test_items, &failed);
+    zassert_not_equal(ret, 0, "%s: the request was read", vector->name);
+    check_failure_answered(vector, 0, ret, &failed);
+    return NULL;
+}
+
+/**
+ * @brief Log why a step does not apply to the codec
+ *
+ * @return Whether the step was skipped
+ */
+static bool skipped(const struct protocol_vector* vector, size_t index, const char* reason)
+{
+    if (reason != NULL)
+    {
+        TC_PRINT("%s.steps[%zu] skipped: %s\n", vector->name, index, reason);
+    }
+    return reason != NULL;
+}
+
+/**
+ * @brief Check every step from @p first on, then skip the test if any step did not apply, so a skip never hides a
+ * failure
+ *
+ * @param earlier_skipped Whether a step before @p first did not apply
+ */
+static void check_steps(const struct protocol_vector* vector, size_t first, bool earlier_skipped)
+{
+    bool any_skipped = earlier_skipped;
+    for (size_t i = first; i < vector->step_count; i++)
+    {
+        any_skipped |= skipped(vector, i, check_step(vector, i));
+    }
+    if (any_skipped)
+    {
+        ztest_test_skip();
     }
 }
 
-ZTEST(stow_msg_vectors, test_every_malformed_request_fails_with_the_error_its_answer_names)
+/**
+ * @brief Check an exchange
+ */
+static void check(const struct protocol_vector* vector) { check_steps(vector, 0, false); }
+
+/**
+ * @brief Check a malformed vector, whose request fails to read with the Error that answers it
+ */
+static void check_malformed(const struct protocol_vector* vector)
 {
-    for (size_t vector_index = 0; vector_index < stow_malformed_count; vector_index++)
-    {
-        const struct protocol_vector* vector = stow_malformed[vector_index];
-        const struct protocol_step* request = &vector->steps[0];
-        const struct protocol_step* answer = &vector->steps[1];
-
-        uint32_t code = STOW_MSG_ABSENT;
-        uint8_t tag = STOW_TAG_NONE;
-        (void)stow_msg_peek(request->data, request->len, &code, &tag);
-        if (code < STOW_MSG_COUNT && !stow_msg_is_request(code))
-        {
-            /* The server answers a response or Update from its code and tag alone */
-            continue;
-        }
-
-        struct stow_msg_reader reader;
-        struct stow_msg failed;
-        int ret = stow_msg_read(&reader, request->data, request->len, &test_items, &failed);
-        zassert_not_equal(ret, 0, "%s read", vector->name);
-        zassert_equal(ret, failed.error.err, "%s", vector->name);
-
-        struct stow_msg error;
-        zassert_ok(
-            stow_msg_read(&reader, answer->data, answer->len, &test_items, &error), "%s: %s", vector->name,
-            answer->edn);
-        zassert_equal(error.code, STOW_MSG_ERROR, "%s", vector->name);
-        zassert_equal(error.error.err, ret, "%s: %s", vector->name, answer->edn);
-        zassert_equal(error.tag, failed.tag, "%s: %s", vector->name, answer->edn);
-
-        uint8_t out[OUT_SIZE];
-        struct stow_msg_writer writer;
-        stow_msg_writer_init(&writer, out, budget);
-        zassert_ok(stow_msg_write(
-            &writer, &(struct stow_msg){ .code = STOW_MSG_ERROR, .tag = failed.tag, .error = failed.error }));
-        size_t len = 0;
-        zassert_ok(stow_msg_finish(&writer, &len));
-        zassert_equal(len, answer->len, "%s: %s", vector->name, answer->edn);
-        zassert_mem_equal(out, answer->data, len, "%s: %s", vector->name, answer->edn);
-    }
+    check_steps(vector, 1, skipped(vector, 0, check_malformed_request(vector)));
 }
+
+#define CHECK(name) \
+    ZTEST(stow_msg_vectors, test_##name) { check(&stow_vector_##name); }
+
+#define CHECK_MALFORMED(name) \
+    ZTEST(stow_msg_vectors, test_##name) { check_malformed(&stow_vector_##name); }
+
+STOW_EXCHANGES(CHECK)
+STOW_MALFORMED(CHECK_MALFORMED)
