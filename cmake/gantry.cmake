@@ -306,17 +306,14 @@ function(gantry_register_analysis)
       set(_cppcheck_comment "Gantry: running cppcheck on application")
     endif()
 
+    set(_cppcheck_flags_file ${ZEPHYR_GANTRY_MODULE_DIR}/config/cppcheck-flags.txt)
+    file(STRINGS ${_cppcheck_flags_file} _cppcheck_flags)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_cppcheck_flags_file})
+
     find_program(GANTRY_CPPCHECK_CMD NAMES cppcheck)
     if(GANTRY_CPPCHECK_CMD)
       add_custom_target(gantry_cppcheck ALL
-        COMMAND ${GANTRY_CPPCHECK_CMD}
-          --quiet
-          --inline-suppr
-          --enable=warning,performance,portability
-          --check-level=exhaustive
-          --error-exitcode=1
-          --inconclusive
-          ${_cppcheck_dirs}
+        COMMAND ${GANTRY_CPPCHECK_CMD} ${_cppcheck_flags} ${_cppcheck_dirs}
         WORKING_DIRECTORY ${APPLICATION_SOURCE_DIR}
         COMMENT "${_cppcheck_comment}"
         VERBATIM)

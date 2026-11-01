@@ -1,5 +1,6 @@
 board := "nrf52840dk/nrf52840"
 sample := "samples/example_app"
+cppcheck_flags := replace_regex(read("config/cppcheck-flags.txt"), '\s+', " ")
 
 default:
   @just --list
@@ -59,7 +60,7 @@ rtt:
 analyze:
   uv run tools/check_headers.py
   uv run --project tools/resource_check resource-check lib/ {{sample}}/src/ --annotations include --annotations {{sample}}/inc
-  cppcheck --quiet --inline-suppr --enable=warning,performance,portability --check-level=exhaustive --error-exitcode=1 --inconclusive lib/ {{sample}}/src/
+  cppcheck {{cppcheck_flags}} lib/ {{sample}}/src/
 
 # Validate the protocol golden vectors and check every message kind has one
 vectors:

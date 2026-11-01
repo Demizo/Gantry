@@ -1,0 +1,6 @@
+--quiet
+--inline-suppr
+--enable=warning,performance,portability
+--check-level=exhaustive
+--error-exitcode=1
+--inconclusive
