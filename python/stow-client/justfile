@@ -1,0 +1,3 @@
+# Run the Python client's tests
+test *args:
+  uv run --package stow-client pytest {{args}}

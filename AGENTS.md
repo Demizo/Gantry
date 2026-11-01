@@ -41,11 +41,11 @@ The rest of this document is guidance for contributing to and using the repo. Th
 
 Run inside `nix develop` (or `just docker-run`), on Linux or WSL.
 
-Review the `justfile` for available commands.
+`just` lists the recipes in groups: setup, build, check, test and docs. Each tool's and sample's own commands live in a justfile in its directory, run as `just <module> <recipe>` from the root or `just <recipe>` from that directory.
 
 ## Verifying
 
-Run `just format`, `just analyze` and `just lint` rather than invoking the tools by hand. Run the tests relevant to what you changed, and only those tests.
+Run `just fix`, then `just check`, rather than invoking the tools by hand. Run the tests relevant to what you changed, and only those tests, through `just test-suite NAME` or a module's `test`.
 
 ## Plans and work artifacts
 

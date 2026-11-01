@@ -1,0 +1,3 @@
+# Run the controller and sensor as a simulated network
+test *args:
+  uv run --package link-broker pytest {{args}}

@@ -1,0 +1,3 @@
+# Run the resource checker's own tests
+test *args:
+  uv run pytest {{args}}

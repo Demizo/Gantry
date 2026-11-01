@@ -1,0 +1,3 @@
+# Run the Stow generator's tests
+test *args:
+  uv run --package stow-gen pytest {{args}}

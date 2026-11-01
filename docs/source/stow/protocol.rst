@@ -258,7 +258,7 @@ Once subscribed, the server pushes ``Update`` messages to the client whenever th
 Golden Vectors
 --------------
 
-``protocols/stow/vectors.yaml`` holds exchanges between a client and a server, written in CBOR diagnostic notation and recorded against ``protocols/stow/schema.yaml``. The server replays every exchange, and the message codec and the Python client are checked against them. ``just vectors`` validates every message against the CDDL and checks that every request and response kind has a vector. ``tools/protocol_spec/README.md`` describes the format and the rules for playing a vector. Client authors outside the repo can export the vectors with ``protocol-spec json protocols/stow --output vectors.json``.
+``protocols/stow/vectors.yaml`` holds exchanges between a client and a server, written in CBOR diagnostic notation and recorded against ``protocols/stow/schema.yaml``. The server replays every exchange, and the message codec and the Python client are checked against them. ``just check`` validates every message against the CDDL and checks that every request and response kind has a vector. ``tools/protocol_spec/README.md`` describes the format and the rules for playing a vector. Client authors outside the repo can export the vectors with ``protocol-spec json protocols/stow --output vectors.json``.
 
 Stow Description
 ================

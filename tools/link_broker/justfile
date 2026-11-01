@@ -1,0 +1,3 @@
+# Run the link broker's tests
+test *args:
+  uv run --package link-broker pytest {{args}}

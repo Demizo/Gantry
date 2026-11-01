@@ -56,76 +56,27 @@ nix develop
 
 > Alternatively, with `direnv` installed, run `direnv allow` to automatically enabled the environment when entering the project folder.
 
-This project uses `just` to easily run commands and scripts. Run `just` to view available commands.
-
-## Documentation
-
-The documentation is available at [demizo.github.io/Gantry/](https://demizo.github.io/Gantry/).
-
-To locally generate and open the HTML docs:
-
-```sh
-# Build the documentation
-just docs
-# Open the library documentation
-just docs-open
-# Open the source code documentation
-just doxy-open
-```
-
-### Initialize the Workspace
+### Initialize the workspace
 
 ```sh
 just init
 ```
 
-To re-sync after the West manifest changes run:
+## Development
 
 ```sh
-just update-workspace
+just build   # Build the example app for the nRF52840 DK
+just flash   # Flash it over OpenOCD
+just fix     # Apply the formatters and the copyright header
+just check   # Check headers, formatting, lint, leaks, cppcheck and vectors
+just test    # Run every test suite that needs no hardware
 ```
 
-## Building and Flashing
+Run `just` to list every command.
 
-Build the example application for the nRF52840 DK. Gantry does not have specific hardware requirements so most 32-bit targets should work:
+## Documentation
 
-```sh
-just build
-```
-
-For a pristine rebuild:
-
-```sh
-just rebuild
-```
-
-Flash to a connected board via OpenOCD:
-
-```sh
-just flash
-```
-
-Mass-erase the board:
-
-```sh
-just erase
-```
-
-## Running Unit Tests
-
-Run all unit tests on the native simulator:
-
-```sh
-just test-all
-```
-
-Run tests for a specific component:
-
-```sh
-just test stow
-just test memory
-...
-```
+The documentation is available at [demizo.github.io/Gantry/](https://demizo.github.io/Gantry/).
 
 ## License
 

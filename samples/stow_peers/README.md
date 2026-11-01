@@ -14,7 +14,7 @@ Each app's `main.c` is its whole story: the client endpoint for the peer, static
 On Linux, or on Windows in WSL, inside `nix develop`:
 
 ```sh
-just test-peers
+just stow_peers test
 ```
 
 ## Two boards

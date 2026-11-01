@@ -15,7 +15,7 @@ SAMPLE_INC = REPO / "samples" / "example_app" / "inc"
 
 
 def _annotations_with(include_dir: Path):
-    """Annotations from the same places as `just analyze`, the checked trees included."""
+    """Annotations from the same places as `just check`, the checked trees included."""
     registry, findings = load_annotations(
         [BUNDLED_ANNOTATIONS, include_dir, SAMPLE_INC, LIB, SAMPLE_SRC]
     )

@@ -1,0 +1,8 @@
+# Run the protocol tool's tests
+test *args:
+  uv run --package protocol-spec pytest {{args}}
+
+# Validate a protocol folder's vectors and check every message kind has one
+[no-cd]
+check folder:
+  uv run --package protocol-spec --extra vectors protocol-spec check {{folder}}

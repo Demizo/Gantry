@@ -61,4 +61,4 @@ The ``samples/stow_peers`` controller and sensor are the first such network. Eac
 
 .. code-block:: sh
 
-    just test-peers
+    just stow_peers test

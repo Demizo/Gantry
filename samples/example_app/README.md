@@ -40,15 +40,15 @@ Tests are located in `tests/integration/` and use `pytest` via `uv`.
 
 ### Running
 
-From the example app folder, pass the serial port of the connected device:
+Pass the serial port of the connected device:
 
 ```sh
-uv run pytest -s tests --uart-port /dev/ttyACM0
+just example_app test -s --uart-port /dev/ttyACM0
 ```
 
 The port can also be set via the `STOW_UART_PORT` environment variable:
 
 ```sh
 export STOW_UART_PORT=/dev/ttyACM0
-uv run pytest -s tests
+just example_app test -s
 ```
