@@ -1,4 +1,13 @@
 board := "nrf52840dk/nrf52840"
+# Each supported board, then its chip as `probe-rs chip list` names it
+boards := '''
+  nrf52840dk/nrf52840                     nRF52840_xxAA
+'''
+chip := if boards =~ '(?m)^' + board + ' ' {
+  replace_regex(boards, '(?ms).*^' + board + ' +(\S+).*', '$1')
+} else {
+  error('unknown board ' + board + ", choose one of:\n" + boards)
+}
 sample := "samples/example_app"
 c_sources := "find lib include samples tests -path '*/build' -prune -o -name '*.[ch]' -print"
 cppcheck_flags := replace_regex(read("config/cppcheck-flags.txt"), '\s+', " ")
@@ -38,7 +47,7 @@ alias b := build
 # Build the sample application
 [group('build')]
 build:
-  west build -b {{board}} {{sample}} -d build
+  west build -p auto -b {{board}} {{sample}} -d build
 
 alias p := rebuild
 # Pristine rebuild of the sample application
@@ -47,26 +56,34 @@ rebuild:
   west build -p -b {{board}} {{sample}} -d build
 
 alias f := flash
-# Flash the sample
+# Flash the sample and reset the board
 [group('build')]
 flash:
-  west flash --runner openocd
+  probe-rs download --chip {{chip}} build/zephyr/zephyr.elf
+  probe-rs reset --chip {{chip}}
 
 alias e := erase
-# Mass-erase the board
+# Mass-erase the board, keeping debug access open
 [group('build')]
-erase:
-  openocd -f {{sample}}/openocd.cfg -c "init; halt; nrf5 mass_erase; mww 0x4001e504 1; mww 0x10001208 0x5a; mww 0x4001e504 0; exit"
+erase *flags:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  probe-rs erase --chip {{chip}} {{flags}}
+  if [[ {{chip}} == nRF52840_xxAA ]]; then
+    # Recent nRF52840 revisions lock debug access at reset unless UICR APPROTECT reads HwDisabled
+    probe-rs write --chip {{chip}} b32 0x4001e504 1     # NVMC CONFIG: write enabled
+    probe-rs write --chip {{chip}} b32 0x10001208 0x5a  # UICR APPROTECT: HwDisabled
+    probe-rs write --chip {{chip}} b32 0x4001e504 0     # NVMC CONFIG: read only
+  fi
 
-# Recover the board
+# Unlock a protected board by erasing everything on it
 [group('build')]
-recover:
-  openocd -f {{sample}}/openocd.cfg -c "init; nrf52_recover; exit"
+recover: (erase "--allow-erase-all")
 
-# View RTT logs
+# View RTT logs, leaving the board running through a reset or fault
 [group('build')]
 rtt:
-  uv run tools/rtt_logger.py --device {{board}} --config {{sample}}/openocd.cfg
+  probe-rs attach --chip {{chip}} --no-catch-reset --no-catch-hardfault build/zephyr/zephyr.elf
 
 # Check headers, formatting, lint, leaks, cppcheck and vectors, changing no file
 [group('check')]

@@ -66,13 +66,15 @@ just init
 
 ```sh
 just build   # Build the example app for the nRF52840 DK
-just flash   # Flash it over OpenOCD
+just flash   # Flash it with probe-rs
 just fix     # Apply the formatters and the copyright header
 just check   # Check headers, formatting, lint, leaks, cppcheck and vectors
 just test    # Run every test suite that needs no hardware
 ```
 
 Run `just` to list every command.
+
+The hardware recipes use [probe-rs](https://probe.rs). Install probe-rs's [udev rules](https://probe.rs/docs/getting-started/probe-setup/#linux-udev-rules) to reach the probe without root.
 
 ## Documentation
 

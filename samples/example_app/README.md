@@ -20,7 +20,7 @@ For a pristine rebuild:
 just rebuild
 ```
 
-Flash to a connected board via OpenOCD:
+Flash to a connected board with probe-rs, and reset it:
 
 ```sh
 just flash
@@ -31,6 +31,8 @@ Stream RTT logs from the running device:
 ```sh
 just rtt
 ```
+
+`just flash` and `just rtt` share the probe, so stop `just rtt` before flashing and run it again afterwards. If the logs stop after a reset, run it again too.
 
 ## Testing
 
