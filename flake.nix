@@ -29,17 +29,7 @@
     (flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-          config = {
-            allowUnfree = true;
-            segger-jlink.acceptLicense = true;
-            allowBroken = true;
-            permittedInsecurePackages = [
-              "segger-jlink-qt4-824"
-            ];
-          };
-        };
+        pkgs = nixpkgs.legacyPackages.${system};
 
         zephyr = zephyr-nix.packages.${system};
 
@@ -65,7 +55,7 @@
         ];
 
         extraPackages = with pkgs; [
-          nrfutil
+          probe-rs-tools
           gdb
           just-lsp
         ];
