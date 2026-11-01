@@ -21,6 +21,8 @@
 #include <zephyr/sys/atomic.h>
 #include <zephyr/ztest.h>
 
+#include "test_settle.h"
+
 /**
  * @brief Size of each buffer the links carry
  */
@@ -118,11 +120,6 @@ struct stow_client_peer* test_connect(
  * @releases stow_client_peer peer
  */
 void test_disconnect(struct test_link* link, struct stow_client_peer** peer);
-
-/**
- * @brief Let the client and server threads run until they have nothing left to do
- */
-void test_settle(void);
 
 /**
  * @brief Close the link's session on the client side only

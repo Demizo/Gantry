@@ -17,7 +17,7 @@ target_sources(app PRIVATE
     src/test_stow_client_compat.c
     src/test_stow_client_faults.c
     src/test_stow_client_mux.c
-    ${GANTRY_ROOT}/tests/stow_protocol/src/stow_storage_stub.c
+    ${GANTRY_ROOT}/tests/common/stow_storage_stub.c
     ${GANTRY_LIB}/memory.c
     ${GANTRY_LIB}/event.c
     ${GANTRY_LIB}/string_utils.c
@@ -42,4 +42,5 @@ target_sources(app PRIVATE
 
 target_include_directories(app PRIVATE
     ${GANTRY_INC}
+    ${GANTRY_ROOT}/tests/common
 )

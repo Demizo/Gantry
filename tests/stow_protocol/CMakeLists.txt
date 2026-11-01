@@ -19,7 +19,7 @@ target_sources(app PRIVATE
     src/test_stow_cobs_transport.c
     src/test_stow_protocol_errors.c
     src/test_stow_protocol_vectors.c
-    src/stow_storage_stub.c
+    ${GANTRY_ROOT}/tests/common/stow_storage_stub.c
     ${GANTRY_LIB}/memory.c
     ${GANTRY_LIB}/event.c
     ${GANTRY_LIB}/string_utils.c
@@ -40,6 +40,7 @@ target_sources(app PRIVATE
 
 target_include_directories(app PRIVATE
     ${GANTRY_INC}
+    ${GANTRY_ROOT}/tests/common
 )
 
 gantry_protocol_vectors(app ${GANTRY_ROOT}/protocols/stow stow)

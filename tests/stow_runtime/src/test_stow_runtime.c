@@ -15,6 +15,8 @@
 #include <zephyr/sys/atomic.h>
 #include <zephyr/ztest.h>
 
+#include "test_settle.h"
+
 #define TEST_PRIORITY 5
 #define TEST_QUEUE_SIZE 4
 #define TEST_BUF_COUNT 8
@@ -180,17 +182,6 @@ static struct stow_transport transport = {
     .pool = &send_pool,
 };
 
-/**
- * @brief Let the runtime threads run until each waits for something
- */
-static void settle(void)
-{
-    k_tid_t self = k_current_get();
-    int priority = k_thread_priority_get(self);
-    k_thread_priority_set(self, TEST_PRIORITY + 1);
-    k_thread_priority_set(self, priority);
-}
-
 static void open_gate(void) { k_sem_give(&gate); }
 
 static int open_on(const struct stow_endpoint* on, uint32_t session_id)
@@ -247,7 +238,7 @@ static void expect_no_call(void)
 static struct stow_session* open_session(uint32_t session_id)
 {
     zassert_equal(open_on(&answering_endpoint, session_id), 0);
-    settle();
+    test_settle();
     expect_call(CALL_ACCEPT, session_id);
     return expect_call(CALL_OPENED, session_id).session;
 }
@@ -258,7 +249,7 @@ static struct stow_session* open_session(uint32_t session_id)
 static void block_thread(uint32_t session_id)
 {
     zassert_equal(post(session_id, GATE), 0);
-    settle();
+    test_settle();
     expect_call(CALL_WORK, session_id);
 }
 
@@ -306,7 +297,7 @@ static void after_each(void* fixture)
         close_on(&receiving_endpoint, session_id);
         close_on(&late_endpoint, session_id);
     }
-    settle();
+    test_settle();
     k_msgq_purge(&calls);
     struct net_buf* buf = NULL;
     while (k_msgq_get(&sent, &buf, K_NO_WAIT) == 0)
@@ -319,7 +310,7 @@ static void after_each(void* fixture)
     zassert_equal(open_on(&answering_endpoint, SESSION_B), 0, "a slot stayed taken");
     close_on(&answering_endpoint, SESSION_A);
     close_on(&answering_endpoint, SESSION_B);
-    settle();
+    test_settle();
     k_msgq_purge(&calls);
 }
 
@@ -333,7 +324,7 @@ ZTEST(stow_runtime, test_a_session_opened_before_start_opens_once_started)
     deliver_message(&late_endpoint, SESSION_A, 6);
 
     zassert_equal(stow_runtime_start(&late), 0);
-    settle();
+    test_settle();
     expect_call(CALL_OPENED, SESSION_A);
     zassert_equal(expect_call(CALL_RECEIVE, SESSION_A).value, 6);
     expect_no_call();
@@ -356,7 +347,7 @@ ZTEST(stow_runtime, test_accept_can_refuse_an_open)
     accept_result = -EPERM;
     zassert_equal(open_on(&answering_endpoint, SESSION_A), -EPERM);
     deliver_message(&answering_endpoint, SESSION_A, 1);
-    settle();
+    test_settle();
     expect_call(CALL_ACCEPT, SESSION_A);
     expect_no_call();
 
@@ -372,7 +363,7 @@ ZTEST(stow_runtime, test_opened_comes_before_anything_for_the_session)
     zassert_equal(post(SESSION_A, 8), 0);
     zassert_equal(receiving_endpoint.session_opened(&receiving_endpoint, SESSION_A, 0, &transport), 0);
     deliver_message(&receiving_endpoint, SESSION_A, 9);
-    settle();
+    test_settle();
 
     expect_call(CALL_ACCEPT, SESSION_A);
     expect_call(CALL_OPENED, SESSION_A);
@@ -392,7 +383,7 @@ ZTEST(stow_runtime, test_a_session_opened_while_the_queue_drains_is_opened_befor
     deliver_message(&answering_endpoint, SESSION_B, 5);
     expect_call(CALL_ACCEPT, SESSION_B);
     open_gate();
-    settle();
+    test_settle();
 
     expect_call(CALL_OPENED, SESSION_B);
     zassert_equal(expect_call(CALL_ANSWER, SESSION_B).value, 5);
@@ -403,7 +394,7 @@ ZTEST(stow_runtime, test_closed_is_called_only_for_an_opened_session)
 {
     open_session(SESSION_A);
     close_on(&answering_endpoint, SESSION_A);
-    settle();
+    test_settle();
     expect_call(CALL_CLOSED, SESSION_A);
     expect_call(CALL_FREED, SESSION_A);
     expect_no_call();
@@ -414,7 +405,7 @@ ZTEST(stow_runtime, test_a_session_closed_before_it_opened_gets_neither_call)
     zassert_equal(open_on(&answering_endpoint, SESSION_A), 0);
     deliver_message(&answering_endpoint, SESSION_A, 1);
     close_on(&answering_endpoint, SESSION_A);
-    settle();
+    test_settle();
 
     expect_call(CALL_ACCEPT, SESSION_A);
     expect_call(CALL_FREED, SESSION_A);
@@ -433,7 +424,7 @@ ZTEST(stow_runtime, test_open_and_close_survive_a_full_queue)
     zassert_equal(open_on(&answering_endpoint, SESSION_B), 0);
     expect_call(CALL_ACCEPT, SESSION_B);
     open_gate();
-    settle();
+    test_settle();
 
     expect_call(CALL_CLOSED, SESSION_A);
     expect_call(CALL_FREED, SESSION_A);
@@ -451,7 +442,7 @@ ZTEST(stow_runtime, test_entries_for_an_earlier_session_in_the_slot_are_dropped)
     deliver_message(&answering_endpoint, SESSION_A, 2);
     close_on(&answering_endpoint, SESSION_A);
     open_gate();
-    settle();
+    test_settle();
     expect_call(CALL_CLOSED, SESSION_A);
     expect_call(CALL_FREED, SESSION_A);
     expect_call(CALL_WORK, SESSION_B);
@@ -459,7 +450,7 @@ ZTEST(stow_runtime, test_entries_for_an_earlier_session_in_the_slot_are_dropped)
     zassert_equal(open_on(&answering_endpoint, SESSION_A), 0);
     expect_call(CALL_ACCEPT, SESSION_A);
     open_gate();
-    settle();
+    test_settle();
 
     expect_call(CALL_OPENED, SESSION_A);
     expect_no_call();
@@ -480,7 +471,7 @@ ZTEST(stow_runtime, test_post_refuses_a_closed_session_and_a_full_queue_and_rele
     zassert_equal(stow_runtime_post(&answering, &answering_endpoint, SESSION_A, 0, message(TEST_QUEUE_SIZE)), -ENOBUFS);
     zassert_equal(free_buffers(&message_pool), TEST_BUF_COUNT - TEST_QUEUE_SIZE);
     open_gate();
-    settle();
+    test_settle();
 
     for (int i = 0; i < TEST_QUEUE_SIZE; i++)
     {
@@ -498,7 +489,7 @@ ZTEST(stow_runtime, test_broadcast_reaches_each_opened_session_once)
     event_t* event = NULL;
     zassert_equal(EVENT_ALLOC(&test_event, 0, &event), 0);
     zassert_equal(stow_runtime_broadcast(&answering, event), 0);
-    settle();
+    test_settle();
 
     expect_call(CALL_CLOSED, SESSION_B);
     expect_call(CALL_FREED, SESSION_B);
@@ -527,7 +518,7 @@ ZTEST(stow_runtime, test_a_reference_keeps_the_slot_until_freed)
     struct stow_session* session = stow_session_ref(open_session(SESSION_A));
     open_session(SESSION_B);
     close_on(&answering_endpoint, SESSION_A);
-    settle();
+    test_settle();
     expect_call(CALL_CLOSED, SESSION_A);
     expect_no_call();
 
@@ -543,7 +534,7 @@ ZTEST(stow_runtime, test_the_answer_is_sent_with_the_tag_the_role_returns)
 {
     open_session(SESSION_A);
     deliver_message(&answering_endpoint, SESSION_A, 3);
-    settle();
+    test_settle();
     expect_call(CALL_ANSWER, SESSION_A);
 
     struct net_buf* buf = next_sent();
@@ -559,7 +550,7 @@ ZTEST(stow_runtime, test_an_answer_that_does_not_fit_becomes_an_error)
 {
     open_session(SESSION_A);
     deliver_message(&answering_endpoint, SESSION_A, TOO_LARGE);
-    settle();
+    test_settle();
     expect_call(CALL_ANSWER, SESSION_A);
 
     struct net_buf* buf = next_sent();
@@ -578,7 +569,7 @@ ZTEST(stow_runtime, test_a_refused_answer_is_released)
     open_session(SESSION_A);
     atomic_set(&refuse_sends, 1);
     deliver_message(&answering_endpoint, SESSION_A, 4);
-    settle();
+    test_settle();
     expect_call(CALL_ANSWER, SESSION_A);
     zassert_equal(k_msgq_num_used_get(&sent), 0);
     zassert_equal(free_buffers(&send_pool), TEST_BUF_COUNT, "a refused answer leaked");

@@ -21,6 +21,8 @@
 #include <zephyr/ztest.h>
 #include <zephyr/ztest_assert.h>
 
+#include "test_settle.h"
+
 /**
  * @brief Sessions available to tests; one slot is reserved for @ref test_sync
  */
@@ -165,11 +167,6 @@ void test_drain_captures(void);
  * response below the protocol thread's priority, so the thread is idle on return.
  */
 void test_sync(void);
-
-/**
- * @brief Let the protocol thread run until it has nothing left to do, without sending it anything
- */
-void test_settle(void);
 
 /**
  * @brief Decode the outer array header, message code and request tag of a captured response

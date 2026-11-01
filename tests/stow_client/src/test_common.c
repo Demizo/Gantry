@@ -219,14 +219,6 @@ void test_link_init(struct test_link* link, const struct stow_client_endpoint* c
     };
 }
 
-void test_settle(void)
-{
-    k_tid_t self = k_current_get();
-    int priority = k_thread_priority_get(self);
-    k_thread_priority_set(self, MAX(CONFIG_STOW_CLIENT_THREAD_PRIORITY, CONFIG_STOW_PROTOCOL_THREAD_PRIORITY) + 1);
-    k_thread_priority_set(self, priority);
-}
-
 void test_close_client(struct test_link* link)
 {
     link->client->endpoint.session_closed(&link->client->endpoint, link->session_id);
