@@ -5,7 +5,7 @@ project(stow_client_only_test)
 
 gantry_stow_client_generate(
     PREFIX device
-    YAML   ${CMAKE_CURRENT_SOURCE_DIR}/../stow_client/stow_test.yaml
+    YAML   ${CMAKE_CURRENT_SOURCE_DIR}/../stow_client/stow.yaml
     ITEMS  Counter Mode Position
 )
 

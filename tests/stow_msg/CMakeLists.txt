@@ -8,7 +8,7 @@ set(GANTRY_LIB ${GANTRY_ROOT}/lib)
 set(GANTRY_INC ${GANTRY_ROOT}/include)
 
 # The fixture's generated items give the test resolver its codecs, and Describe Responses their items
-gantry_stow_generate(YAML ${GANTRY_ROOT}/protocols/stow/schema.yaml APP_DIR ${GANTRY_ROOT}/protocols/stow)
+gantry_stow_generate(YAML ${GANTRY_ROOT}/protocols/stow/stow.yaml APP_DIR ${GANTRY_ROOT}/protocols/stow)
 
 target_sources(app PRIVATE
     src/test_common.c

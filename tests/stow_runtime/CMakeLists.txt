@@ -8,7 +8,7 @@ set(GANTRY_LIB ${GANTRY_ROOT}/lib)
 set(GANTRY_INC ${GANTRY_ROOT}/include)
 
 # The fixture's generated items set the nesting depth the message codec is built for
-gantry_stow_generate(YAML ${GANTRY_ROOT}/protocols/stow/schema.yaml APP_DIR ${GANTRY_ROOT}/protocols/stow)
+gantry_stow_generate(YAML ${GANTRY_ROOT}/protocols/stow/stow.yaml APP_DIR ${GANTRY_ROOT}/protocols/stow)
 
 target_sources(app PRIVATE
     src/test_stow_runtime.c

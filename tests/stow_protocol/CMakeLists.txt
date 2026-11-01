@@ -7,7 +7,7 @@ set(GANTRY_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 set(GANTRY_LIB ${GANTRY_ROOT}/lib)
 set(GANTRY_INC ${GANTRY_ROOT}/include)
 
-gantry_stow_generate(YAML ${GANTRY_ROOT}/protocols/stow/schema.yaml APP_DIR ${GANTRY_ROOT}/protocols/stow)
+gantry_stow_generate(YAML ${GANTRY_ROOT}/protocols/stow/stow.yaml APP_DIR ${GANTRY_ROOT}/protocols/stow)
 
 target_sources(app PRIVATE
     src/test_common.c

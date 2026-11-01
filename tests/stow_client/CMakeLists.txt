@@ -7,9 +7,9 @@ set(GANTRY_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 set(GANTRY_LIB ${GANTRY_ROOT}/lib)
 set(GANTRY_INC ${GANTRY_ROOT}/include)
 
-gantry_stow_generate(YAML stow_test.yaml)
-gantry_stow_client_generate(PREFIX peer YAML stow_test.yaml)
-gantry_stow_client_generate(PREFIX variant YAML variant.stow.yaml)
+gantry_stow_generate(YAML stow.yaml)
+gantry_stow_client_generate(PREFIX peer YAML stow.yaml)
+gantry_stow_client_generate(PREFIX variant YAML variant/stow.yaml)
 
 target_sources(app PRIVATE
     src/test_common.c

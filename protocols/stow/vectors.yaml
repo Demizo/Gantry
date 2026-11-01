@@ -1,11 +1,11 @@
-# Golden vectors of the Stow protocol, recorded against schema.yaml. Format: tools/protocol_spec/README.md.
+# Golden vectors of the Stow protocol, recorded against stow.yaml. Format: tools/protocol_spec/README.md.
 
 cddl: stow.cddl
 sides:
   client: request
   server: response
 values:
-  stow_hash: [stow-gen, hash, --yaml, schema.yaml]
+  stow_hash: [stow-gen, hash, --yaml, stow.yaml]
 
 exchanges:
   - name: connect

@@ -8,7 +8,7 @@ sides:
   client: request
   server: response
 values:
-  stow_hash: [stow-gen, hash, --yaml, schema.yaml]
+  stow_hash: [stow-gen, hash, --yaml, stow.yaml]
 ```
 
 ## Vectors
