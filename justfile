@@ -3,6 +3,7 @@ board := "nrf52840dk/nrf52840"
 boards := '''
   nrf52840dk/nrf52840                     nRF52840_xxAA
   nrf54l15dk/nrf54l15/cpuapp              nRF54L15
+  nrf54lm20dk/nrf54lm20a/cpuapp           nRF54LM20A
 '''
 chip := if boards =~ '(?m)^' + board + ' ' {
   replace_regex(boards, '(?ms).*^' + board + ' +(\S+).*', '$1')

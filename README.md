@@ -72,7 +72,7 @@ just check   # Check headers, formatting, lint, leaks, cppcheck and vectors
 just test    # Run every test suite that needs no hardware
 ```
 
-The example app supports the nRF52840 DK (default) and the nRF54L15 DK. Pick another board with `just board=<board> build`, see the [example app's README](samples/example_app/README.md) for each board's target and serial port.
+The example app supports the nRF52840 DK (default), the nRF54L15 DK and the nRF54LM20 DK. Pick another board with `just board=<board> build`, see the [example app's README](samples/example_app/README.md) for each board's target and serial port.
 
 Run `just` to list every command.
 

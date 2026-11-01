@@ -12,6 +12,7 @@ A sample application using the Gantry library. It includes:
 | --- | --- | --- | --- |
 | nRF52840 DK | `nrf52840dk/nrf52840` (default) | `nRF52840_xxAA` | The DK's only serial port, often `/dev/ttyACM0` |
 | nRF54L15 DK | `nrf54l15dk/nrf54l15/cpuapp` | `nRF54L15` | VCOM1, the port that prints the boot banner |
+| nRF54LM20 DK | `nrf54lm20dk/nrf54lm20a/cpuapp` | `nRF54LM20A` | VCOM1, the port that prints the boot banner |
 
 The Stow serial port is the console UART, which reaches the host through the DK's onboard debugger.
 
