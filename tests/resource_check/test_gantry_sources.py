@@ -97,6 +97,18 @@ def test_a_response_neither_sent_nor_dropped_is_reported(tmp_path, library_annot
     assert any("'buf'" in f.text and "not released" in f.text for f in findings)
 
 
+def test_keeping_a_borrowed_buffer_is_reported(tmp_path, library_annotations):
+    findings = _check_mutated(
+        tmp_path,
+        library_annotations,
+        LIB / "stow" / "stow_runtime.c",
+        "deliver(runtime, &entry, buf);\n    release_buf(buf);",
+        "deliver(runtime, &entry, buf);",
+    )
+
+    assert any("'buf'" in f.text and "not released" in f.text for f in findings)
+
+
 def test_keeping_a_set_entry_is_reported(tmp_path, library_annotations):
     findings = _check_mutated(
         tmp_path,

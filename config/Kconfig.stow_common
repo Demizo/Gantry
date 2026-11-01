@@ -22,3 +22,8 @@ config STOW_MSG_LOG_LEVEL
     int "Stow message codec log level"
     default 3
     depends on GANTRY_STOW_TYPES
+
+config STOW_RUNTIME_LOG_LEVEL
+    int "Stow session runtime log level"
+    default 3
+    depends on GANTRY_STOW_TYPES
