@@ -157,7 +157,7 @@ static int stow_set_handler(const char* name, size_t len, settings_read_cb read_
         LOG_ERR("Failed to read %s", name);
         MEM_UNREF(&read_block);
         (void)delete_stored_value(name);
-        return ret;
+        return -EIO;
     }
 
     /* A struct value takes a backup per level of nesting */
