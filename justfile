@@ -88,25 +88,39 @@ recover: (erase "--allow-erase-all")
 rtt:
   probe-rs attach --chip {{chip}} --no-catch-reset --no-catch-hardfault build/zephyr/zephyr.elf
 
+# Bash for check and test: `step NAME CMD...` runs a command, `summary` prints each step's result and fails if any did
+steps := '''
+results=() failed=0
+step() {
+  local name=$1 start=$SECONDS status=ok; shift
+  printf '\n=== %s\n' "$name"
+  "$@" || { status=FAILED; failed=1; }
+  results+=("$(printf '%-22s %-7s %4ss' "$name" "$status" $((SECONDS - start)))")
+}
+summary() {
+  echo
+  printf '%s\n' "${results[@]}"
+  (( failed )) && echo FAILED || echo passed
+  return $failed
+}
+'''
+
+twister := "west twister --clobber-output --inline-logs"
+python_suites := "stow_gen protocol_spec python_client link_broker resource_check"
+
 # Check headers, formatting, lint, leaks, cppcheck and vectors, changing no file
 [group('check')]
 check:
   #!/usr/bin/env bash
-  failed=()
-  run() { local name=$1; shift; "$@" || failed+=("$name"); }
-  run headers uv run tools/check_headers.py
-  run clang-format clang-format --dry-run -Werror $({{c_sources}})
-  run ruff uv run ruff check .
-  run "ruff format" uv run ruff format --check .
-  run resource-check uv run --project tools/resource_check resource-check lib/ {{sample}}/src/ --annotations include --annotations {{sample}}/inc
-  run cppcheck cppcheck {{cppcheck_flags}} lib/ {{sample}}/src/
-  for folder in protocols/*/; do
-    run "$folder" {{just_executable()}} protocol_spec check "$folder"
-  done
-  if (( ${#failed[@]} )); then
-    echo "check failed: ${failed[*]}" >&2
-    exit 1
-  fi
+  {{steps}}
+  step headers uv run tools/check_headers.py
+  step clang-format clang-format --dry-run -Werror $({{c_sources}})
+  step ruff uv run ruff check .
+  step "ruff format" uv run ruff format --check .
+  step resource-check uv run --project tools/resource_check resource-check lib/ {{sample}}/src/ --annotations include --annotations {{sample}}/inc
+  step cppcheck cppcheck {{cppcheck_flags}} lib/ {{sample}}/src/
+  for folder in protocols/*/; do step "$folder" {{just_executable()}} protocol_spec check "$folder"; done
+  summary
 
 # Apply clang-format, ruff and the copyright header
 [group('check')]
@@ -116,28 +130,29 @@ fix:
   uv run ruff check --fix-only .
   uv run ruff format .
 
-# Run every test suite that needs no hardware, and build the sample for each board
+# Run test tiers that need no hardware: unit (Python and native_sim suites), network (stow_peers over link_broker), boards (sample builds)
 [group('test')]
-test:
+test *tiers='unit network boards':
   #!/usr/bin/env bash
-  failed=()
-  run() { local name=$1; shift; "$@" || failed+=("$name"); }
-  run twister west twister -T tests/ -T {{sample}} -p native_sim {{board_platforms}} --clobber-output -i -v
-  run tests/resource_check uv run --project tools/resource_check pytest tests/resource_check
-  run tests/check_headers uv run pytest tests/check_headers
-  # The example app's tests need a board
-  for module in stow_peers python_client protocol_spec stow_gen resource_check link_broker; do
-    run "$module" {{just_executable()}} "$module" test
+  {{steps}}
+  unit() {
+    for suite in {{python_suites}}; do step "$suite" {{just_executable()}} "$suite" test -q; done
+    step tests/check_headers uv run pytest -q tests/check_headers
+    step tests/resource_check uv run --project tools/resource_check pytest -q tests/resource_check
+    step native_sim {{twister}} -T tests -p native_sim -O twister-out-native_sim
+  }
+  network() { step stow_peers {{just_executable()}} stow_peers test -q; }
+  boards() { step boards {{twister}} -T {{sample}} {{board_platforms}} -O twister-out-boards; }
+  for tier in {{tiers}}; do
+    case $tier in unit|network|boards) ;; *) echo "unknown tier '$tier': choose unit, network or boards" >&2; exit 2 ;; esac
   done
-  if (( ${#failed[@]} )); then
-    echo "test failed: ${failed[*]}" >&2
-    exit 1
-  fi
+  for tier in {{tiers}}; do "$tier"; done
+  summary
 
 # Run one twister suite, such as `just test-suite memory`
 [group('test')]
 test-suite name:
-  west twister -T tests/{{name}} -p native_sim --clobber-output -i -vv
+  {{twister}} -vv -T tests/{{name}} -p native_sim -O twister-out-{{name}}
 
 # Build the documentation
 [group('docs')]

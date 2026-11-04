@@ -65,11 +65,12 @@ just init
 ## Development
 
 ```sh
-just build   # Build the example app for the nRF52840 DK
-just flash   # Flash it with probe-rs
-just fix     # Apply the formatters and the copyright header
-just check   # Check headers, formatting, lint, leaks, cppcheck and vectors
-just test    # Run every test suite that needs no hardware
+just build       # Build the example app for the nRF52840 DK
+just flash       # Flash it with probe-rs
+just fix         # Apply the formatters and the copyright header
+just check       # Check headers, formatting, lint, leaks, cppcheck and vectors
+just test unit   # Run the Python and native_sim test suites
+just test        # Run every test that needs no hardware, including the board builds
 ```
 
 The example app supports the nRF52840 DK (default), the nRF54L15 DK and the nRF54LM20 DK. Pick another board with `just board=<board> build`, see the [example app's README](samples/example_app/README.md) for each board's target and serial port.
