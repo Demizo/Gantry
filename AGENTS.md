@@ -59,3 +59,14 @@ Never commit spec, plans, or scratch files. These should be placed in the .scrat
 - Try to define a single source of truth for code and documentation.
 - An acquired resource is released in the same function, or passed to a function annotated `@releases`. `PASS_OWNERSHIP` marks an exception. It flags that the reviewer must take care to understand the ownership model and lifecycle.
 - When possible, Modules read from and publish to the Stow rather than exposing a direct function API to each other.
+
+## Documentation
+
+Pages in `docs/` explain a concept and its common path. Doxygen documents the full library interface.
+
+- Write each page or section for one reader's task. A user page says how to use a feature. Contributor workflow (tests, vectors, recipes, regeneration) goes in the owning tool's README, or in this file when no tool owns it.
+- Name a file only when the reader must create, open or edit it.
+- Link to the API reference rather than restating a contract, error code or ownership rule.
+- Document the common path. A sentence that exists because a test exists is not user documentation.
+- Describe the system as it is, with no change history, rationale for a change, or roadmap.
+- A change to an existing feature adds sentences, not sections. If a doc diff is longer than the user-visible change, cut it.
