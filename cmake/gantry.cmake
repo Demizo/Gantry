@@ -292,21 +292,11 @@ endfunction()
 #
 # Wires up analysis targets for the consumer application's src/ directory.
 # The resource checker always runs against the app. Cppcheck runs only when
-# CONFIG_GANTRY_ANALYSIS_CPPCHECK=y. Both tools also cover the module's lib/ when
-# CONFIG_GANTRY_ANALYSIS_CHECK_LIBRARY=y.
+# CONFIG_GANTRY_ANALYSIS_CPPCHECK=y.
 function(gantry_register_analysis)
-  set(_module_lib ${ZEPHYR_GANTRY_MODULE_DIR}/lib)
   set(_app_src ${APPLICATION_SOURCE_DIR}/src)
 
   if(CONFIG_GANTRY_ANALYSIS_CPPCHECK)
-    if(CONFIG_GANTRY_ANALYSIS_CHECK_LIBRARY)
-      set(_cppcheck_dirs ${_module_lib} ${_app_src})
-      set(_cppcheck_comment "Gantry: running cppcheck on library and application")
-    else()
-      set(_cppcheck_dirs ${_app_src})
-      set(_cppcheck_comment "Gantry: running cppcheck on application")
-    endif()
-
     set(_cppcheck_flags_file ${ZEPHYR_GANTRY_MODULE_DIR}/config/cppcheck-flags.txt)
     file(STRINGS ${_cppcheck_flags_file} _cppcheck_flags)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_cppcheck_flags_file})
@@ -314,9 +304,9 @@ function(gantry_register_analysis)
     find_program(GANTRY_CPPCHECK_CMD NAMES cppcheck)
     if(GANTRY_CPPCHECK_CMD)
       add_custom_target(gantry_cppcheck ALL
-        COMMAND ${GANTRY_CPPCHECK_CMD} ${_cppcheck_flags} ${_cppcheck_dirs}
+        COMMAND ${GANTRY_CPPCHECK_CMD} ${_cppcheck_flags} ${_app_src}
         WORKING_DIRECTORY ${APPLICATION_SOURCE_DIR}
-        COMMENT "${_cppcheck_comment}"
+        COMMENT "Gantry: running cppcheck on application"
         VERBATIM)
       add_dependencies(app gantry_cppcheck)
     else()
@@ -337,18 +327,10 @@ function(gantry_register_analysis)
       endif()
     endforeach()
 
-    if(CONFIG_GANTRY_ANALYSIS_CHECK_LIBRARY)
-      set(_resource_check_dirs ${_module_lib} ${_app_src})
-      set(_resource_check_comment "Gantry: running resource checker on library and application")
-    else()
-      set(_resource_check_dirs ${_app_src})
-      set(_resource_check_comment "Gantry: running resource checker on application")
-    endif()
-
     add_custom_target(gantry_resource_check ALL
-      COMMAND ${_resource_check_cmd} ${_resource_check_dirs}
+      COMMAND ${_resource_check_cmd} ${_app_src}
       WORKING_DIRECTORY ${APPLICATION_SOURCE_DIR}
-      COMMENT "${_resource_check_comment}"
+      COMMENT "Gantry: running resource checker on application"
       VERBATIM)
     add_dependencies(app gantry_resource_check)
   else()

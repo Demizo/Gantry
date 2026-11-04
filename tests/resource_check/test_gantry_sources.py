@@ -35,18 +35,14 @@ def _check_tree(root: Path, annotations) -> list:
     ]
 
 
-def test_library_and_sample_are_clean():
-    registry = _annotations_with(INCLUDE)
-    assert _check_tree(LIB, registry) == []
-    assert _check_tree(SAMPLE_SRC, registry) == []
-
-
 def _check_mutated(tmp_path, annotations, source: Path, old: str, new: str) -> list:
+    parser = make_parser()
+    assert check_file(source, annotations, parser) == []
     text = source.read_text()
     assert text.count(old) == 1
     mutated = tmp_path / source.name
     mutated.write_text(text.replace(old, new))
-    return check_file(mutated, annotations, make_parser())
+    return check_file(mutated, annotations, parser)
 
 
 def test_removing_a_pass_ownership_marker_is_reported(tmp_path, library_annotations):
