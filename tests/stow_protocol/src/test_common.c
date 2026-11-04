@@ -26,7 +26,7 @@ NET_BUF_POOL_DEFINE(test_rx_pool, 16, TEST_BUF_DATA_SIZE, TEST_BUF_USER_DATA, NU
 K_MSGQ_DEFINE(test_capture_msgq, sizeof(struct test_capture), TEST_MAX_PENDING_TX, sizeof(void*));
 K_MSGQ_DEFINE(test_sync_msgq, sizeof(struct net_buf*), 1, sizeof(void*));
 
-static bool g_protocol_initialized;
+static bool g_sync_session_open;
 
 static atomic_t g_refuse_sends;
 static atomic_t g_block_sends;
@@ -95,18 +95,16 @@ void test_await_blocked_send(void)
 //* Lifecycle
 //**********************************************************
 
-static void ensure_protocol_init(void)
+static void ensure_sync_session_open(void)
 {
-    if (g_protocol_initialized)
+    if (g_sync_session_open)
     {
         return;
     }
     stow_init();
-    int ret = stow_protocol_init();
-    zassert_equal(ret, 0, "stow_protocol_init failed: %d", ret);
-    ret = test_endpoint_open(TEST_SYNC_SESSION, STOW_ROLE_GUEST, &test_transport);
+    int ret = test_endpoint_open(TEST_SYNC_SESSION, STOW_ROLE_GUEST, &test_transport);
     zassert_equal(ret, 0, "sync session open failed: %d", ret);
-    g_protocol_initialized = true;
+    g_sync_session_open = true;
 }
 
 void test_drain_captures(void)
@@ -143,7 +141,7 @@ void test_sync(void)
 
 void test_reset(void)
 {
-    ensure_protocol_init();
+    ensure_sync_session_open();
     test_refuse_sends(false);
     test_drain_captures();
 }

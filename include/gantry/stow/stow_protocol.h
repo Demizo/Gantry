@@ -45,16 +45,6 @@ extern const struct stow_endpoint stow_protocol_endpoint;
 //**********************************************************
 
 /**
- * @brief Initialize the Stow protocol module and start its thread
- *
- * @details Must be called after @ref stow_init.
- *
- * @return SUCCESS when the module is started
- * @return -EALREADY when the module is already initialized
- */
-int stow_protocol_init(void);
-
-/**
  * @brief Update a session's roles
  *
  * @details Updates the session's roles. Active subscriptions that no longer satisfy

@@ -27,12 +27,12 @@
 #include <stddef.h>
 #include <string.h>
 #include <sys/errno.h>
+#include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/net_buf.h>
 #include <zephyr/sys/atomic.h>
 
-#include "gantry/flags.h"
 #include "gantry/stow/types/stow_types.h"
 #include "zephyr/toolchain.h"
 
@@ -97,15 +97,11 @@ static void handle_update(struct stow_session* base, event_t* event);
 static void emit_update(struct protocol_session* session, enum stow_item_id id, data_value_t value);
 static void remove_subscription(struct protocol_session* session, enum stow_item_id id);
 static void on_stow_update(event_t* event);
+static int start_server(void);
 
 //**********************************************************
 //* Static Variable Definitions
 //**********************************************************
-
-/**
- * @brief Module flags
- */
-FLAGS_DEFINE(stow_protocol_flags, (INITIALIZED), NO_FLAG_RULES);
 
 /**
  * @brief Internal stow subscription used by the protocol thread on behalf of
@@ -150,6 +146,11 @@ static const struct stow_runtime_role server_role = {
 STOW_RUNTIME_DEFINE(
     stow_protocol, server_role, sessions, base, CONFIG_STOW_PROTOCOL_QUEUE_SIZE, CONFIG_STOW_PROTOCOL_THREAD_STACK_SIZE,
     CONFIG_STOW_PROTOCOL_THREAD_PRIORITY);
+
+/**
+ * @brief Start the server at boot
+ */
+SYS_INIT(start_server, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
 
 //**********************************************************
 //* Static Function Definitions
@@ -632,25 +633,14 @@ static void on_stow_update(event_t* event)
     }
 }
 
+static int start_server(void) { return stow_runtime_start(&stow_protocol); }
+
 //**********************************************************
 //* Public Function Definitions
 //**********************************************************
 
-int stow_protocol_init(void)
-{
-    if (CHECK_FLAG(stow_protocol_flags, INITIALIZED))
-    {
-        return -EALREADY;
-    }
-
-    SET_FLAG(stow_protocol_flags, INITIALIZED);
-    return stow_runtime_start(&stow_protocol);
-}
-
 int stow_protocol_session_set_roles(uint32_t session_id, stow_role_t roles)
 {
-    ASSERT(CHECK_FLAG(stow_protocol_flags, INITIALIZED), "Not initialized");
-
     /* The resource checker takes only an identifier for a released argument */
     struct net_buf* no_buffer = NULL;
     int ret = stow_runtime_post(&stow_protocol, &stow_protocol_endpoint, session_id, roles, no_buffer);

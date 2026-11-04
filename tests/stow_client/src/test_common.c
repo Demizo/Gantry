@@ -21,8 +21,6 @@ K_MSGQ_DEFINE(test_held, sizeof(struct held_message), 16, sizeof(void*));
 K_MSGQ_DEFINE(test_hooks, sizeof(struct test_hook_event), 32, sizeof(void*));
 K_MSGQ_DEFINE(test_updates, sizeof(event_t*), 8, sizeof(void*));
 
-static bool started;
-
 STOW_CLIENT_ENDPOINT_DEFINE(test_peer_client, &peer_stow_client_schema, 0);
 STOW_CLIENT_ENDPOINT_DEFINE(test_variant_client, &variant_stow_client_schema, 0);
 static atomic_t block_disconnected;
@@ -165,12 +163,6 @@ static int send_to_client(struct stow_transport* transport, uint32_t session_id,
 
 void test_reset(void)
 {
-    if (!started)
-    {
-        stow_init();
-        zassert_equal(stow_protocol_init(), 0);
-        started = true;
-    }
     stow_init();
     test_release_held();
     purge_hooks();

@@ -101,9 +101,6 @@ static void uart_isr(const struct device* dev, void* user_data)
 
 static void peer_link_init(void)
 {
-    int ret = stow_protocol_init();
-    ASSERT(ret == SUCCESS, "Failed to initialize the Stow protocol");
-
     const struct stow_cobs_transport_config config = {
         .server = &stow_protocol_endpoint,
         .session_id = SESSION_ID,
@@ -113,7 +110,7 @@ static void peer_link_init(void)
         .write = queue_frame,
         .user_data = NULL,
     };
-    ret = stow_cobs_transport_init(&link, &config);
+    int ret = stow_cobs_transport_init(&link, &config);
     ASSERT(ret == SUCCESS, "Failed to initialize the peer link");
 
     ASSERT(device_is_ready(uart_dev), "Peer UART not ready");

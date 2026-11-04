@@ -82,9 +82,6 @@ static int queue_frame(struct net_buf* frame, void* user_data)
 
 static void session_manager_init(void)
 {
-    int ret = stow_protocol_init();
-    ASSERT(ret == SUCCESS, "Failed to initialize the stow protocol");
-
     const struct stow_cobs_transport_config uart_config = {
         .server = &stow_protocol_endpoint,
         .session_id = UART_SESSION_ID,
@@ -94,7 +91,7 @@ static void session_manager_init(void)
         .write = queue_frame,
         .user_data = &uart_tx_queue,
     };
-    ret = stow_cobs_transport_init(&uart_link, &uart_config);
+    int ret = stow_cobs_transport_init(&uart_link, &uart_config);
     ASSERT(ret == SUCCESS, "Failed to initialize the UART transport");
 
     const struct stow_cobs_transport_config ble_config = {
