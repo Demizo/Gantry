@@ -264,7 +264,7 @@ static int decode_entry(
     }
 
     data_value_t value = { 0 };
-    ret = stow_item_decode(entry->codec, decoder, &value);
+    ret = entry->codec->decode(decoder, &value);
     if (ret != SUCCESS)
     {
         return (ret == -ENOMEM || ret == -EINVAL) ? ret : -EBADMSG;

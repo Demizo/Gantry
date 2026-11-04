@@ -89,6 +89,24 @@ Applications describe their own resources by annotating their functions in place
 
 A new kind of resource only needs a new class name, for example ``@acquires lease handle on-success`` with a matching ``@releases lease handle``.
 
+Function-Pointer Fields
+=======================
+
+An interface implemented by several types, such as the Stow type interface, is a struct of function pointers. A tag in the doc comment directly above a field applies to every call through a field of that name, ``codec->get(...)`` or ``codec.get(...)``, which is then checked like a call to a tagged function:
+
+.. code-block:: c
+
+    struct stow_item_interface
+    {
+        /** @acquires memory out_value on-success */
+        int (*get)(void* src, data_value_t* out_value);
+
+        /** @releases memory value */
+        void (*release)(data_value_t* value);
+    };
+
+The functions assigned to the field are the interface's implementations and stay untagged. Each one defines what holding a value of its type means, so an int's ``release`` that does nothing and a buffer's ``release`` that unreferences a block are both correct. Fields of one name carry the same tags, with each target at the same parameter position.
+
 Obligations
 ===========
 
@@ -107,7 +125,7 @@ A response handler that finds a slot and returns without finishing it is reporte
 Two rules keep code checkable:
 
 - **Obligations live in locals.** A resource held in a struct field is not tracked, so code that holds one across a function keeps it in a local and passes the local.
-- **Resource calls go through named functions.** A call through a function pointer is not tracked, so wrap it in a named inline function that carries the annotations, such as ``stow_transport_send`` for a transport's ``send``.
+- **Tag the field.** A call through a function pointer is tracked only when its field is tagged. A field whose contract a tag can't express, such as a transport's ``send``, which releases only on success, is called through a named function that carries the annotations, such as ``stow_transport_send``.
 
 Limitations
 ===========
@@ -117,7 +135,8 @@ The checker works on one function at a time. It does not track:
 - uses of a released identifier other than passing the identifier, its address or a cast of it to a call
 - a value copied to a second variable
 - resources held in struct fields
-- calls through function pointers
+
+A field tag applies to every call through a field of that name, in any struct, because the checker has no types. A call through an untagged field that shares a tagged field's name is checked as if it were tagged.
 
 An identifier the function never acquired, such as a parameter or a local copied from a field, may be released once, unless the function first stored it through its own target.
 

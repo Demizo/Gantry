@@ -242,7 +242,7 @@ static inline void stow_msg_entry_release(struct stow_msg_entry* entry)
     data_value_t* value = &entry->value;
     if (entry->codec != NULL)
     {
-        stow_item_release(entry->codec, value);
+        entry->codec->release(value);
     }
 }
 

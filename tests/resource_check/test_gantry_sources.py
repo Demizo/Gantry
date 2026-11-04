@@ -75,6 +75,24 @@ def test_dropping_a_hand_off_to_the_caller_is_reported(tmp_path, library_annotat
     )
 
 
+def test_keeping_a_value_from_the_type_interface_is_reported(
+    tmp_path, library_annotations
+):
+    set_value = "ret = item->interface->set(item->value_ptr, decoded_value);"
+    findings = _check_mutated(
+        tmp_path,
+        library_annotations,
+        LIB / "stow" / "stow_storage.c",
+        f"{set_value}\n    item->interface->release(&decoded_value);",
+        set_value,
+    )
+
+    assert any(
+        "'decoded_value'" in finding.text and "not released" in finding.text
+        for finding in findings
+    )
+
+
 def test_keeping_a_message_the_queue_refused_is_reported(tmp_path, library_annotations):
     findings = _check_mutated(
         tmp_path,

@@ -21,6 +21,7 @@ _TAG_LINE = re.compile(r"@(acquires|releases)\b(.*)")
 _COMMENT_PREFIX = re.compile(r"^\s*(?:/\*+|//[/!]?)?\s*\**")
 _DECLARATION_TYPES = (
     "declaration",
+    "field_declaration",
     "function_definition",
     "preproc_def",
     "preproc_function_def",
@@ -63,19 +64,27 @@ class Spec:
 @dataclass
 class Scan:
     specs: list[Spec] = field(default_factory=list)
+    fields: list[Spec] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
 
 
 class Annotations:
+    """Tags of functions and macros by name, and of function pointer fields by field name."""
+
     def __init__(self):
         self._specs: dict[str, Spec] = {}
+        self._fields: dict[str, Spec] = {}
 
     def get(self, name: str | None) -> Spec | None:
         return self._specs.get(name) if name is not None else None
 
+    def get_field(self, name: str | None) -> Spec | None:
+        return self._fields.get(name) if name is not None else None
+
     def copy(self) -> "Annotations":
         clone = Annotations()
         clone._specs = dict(self._specs)
+        clone._fields = dict(self._fields)
         return clone
 
     def add(self, spec: Spec) -> Finding | None:
@@ -89,6 +98,36 @@ class Annotations:
             spec.file,
             spec.line,
             f"tags on '{spec.name}' conflict with the tags at {existing.file}:{existing.line}",
+        )
+
+    def add_scan(self, scan: Scan) -> list[Finding]:
+        """Adds a scan's functions and fields, returning a finding for each conflict."""
+        conflicts = [
+            *(self.add(spec) for spec in scan.specs),
+            *(self.add_field(spec) for spec in scan.fields),
+        ]
+        return [conflict for conflict in conflicts if conflict is not None]
+
+    def add_field(self, spec: Spec) -> Finding | None:
+        """Every field of one name has the same tags, with each target at the same position, as calls match by position."""
+        existing = self._fields.get(spec.name)
+        if existing is None:
+            self._fields[spec.name] = spec
+            return None
+        if existing.tags != spec.tags:
+            problem = "conflict with the tags"
+        elif any(
+            existing.arg_index(tag.target) != spec.arg_index(tag.target)
+            for tag in spec.tags
+            if tag.target != RETURN_TARGET
+        ):
+            problem = "put a target at a different parameter position than the field"
+        else:
+            return None
+        return _error(
+            spec.file,
+            spec.line,
+            f"tags on field '{spec.name}' {problem} at {existing.file}:{existing.line}",
         )
 
 
@@ -121,6 +160,16 @@ class Declaration:
     returns_void: bool
 
 
+def _pointer_field_name(declarator: Node | None) -> Node | None:
+    """The name in a function pointer field's `(*name)`."""
+    if declarator is None or declarator.type != "parenthesized_declarator":
+        return None
+    pointer = declarator.named_children[0] if declarator.named_children else None
+    if pointer is None or pointer.type != "pointer_declarator":
+        return None
+    return pointer.child_by_field_name("declarator")
+
+
 def describe_declaration(node: Node) -> Declaration | None:
     if node.type == "preproc_def":
         return Declaration(text(node.child_by_field_name("name")), (), False)
@@ -136,7 +185,9 @@ def describe_declaration(node: Node) -> Declaration | None:
     if declarator is None or declarator.type != "function_declarator":
         return None
     name = declarator.child_by_field_name("declarator")
-    if name is None or name.type != "identifier":
+    if node.type == "field_declaration":
+        name = _pointer_field_name(name)
+    if name is None or name.type not in ("identifier", "field_identifier"):
         return None
     type_node = node.child_by_field_name("type")
     returns_void = (
@@ -247,7 +298,7 @@ def scan_tree(tree: Tree, file: str) -> Scan:
                 _error(
                     file,
                     tags[0].line,
-                    "tag is not followed by a function or macro declaration",
+                    "tag is not followed by a function or macro declaration, or a function pointer field",
                 )
             )
             continue
@@ -264,7 +315,8 @@ def scan_tree(tree: Tree, file: str) -> Scan:
         scan.findings.extend(conflicts)
         if conflicts or not valid:
             continue
-        scan.specs.append(
+        specs = scan.fields if following.type == "field_declaration" else scan.specs
+        specs.append(
             Spec(
                 described.name,
                 described.params,
@@ -304,7 +356,5 @@ def load_annotations(
             seen.add(path.resolve())
             scan = scan_file(path, parser)
             findings.extend(scan.findings)
-            findings.extend(
-                f for spec in scan.specs if (f := registry.add(spec)) is not None
-            )
+            findings.extend(registry.add_scan(scan))
     return registry, findings

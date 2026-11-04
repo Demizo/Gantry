@@ -111,6 +111,115 @@ def test_unnamed_and_variadic_parameters_keep_argument_positions():
     assert spec.arg_index("p") == 1
 
 
+def test_function_pointer_field_tags():
+    scan = _scan("""
+        struct codec {
+            /** @acquires memory out_value on-success */
+            int (*get)(void* src, data_value_t* out_value);
+            /** @acquires net_buf return */
+            struct net_buf* (*take)(void);
+            int (*encode)(data_value_t value); /**< untagged */
+        };
+    """)
+    assert scan.findings == []
+    assert scan.specs == []
+    get, take = scan.fields
+    assert get.name == "get"
+    assert get.params == ("src", "out_value")
+    assert get.acquires == [Tag("acquires", "memory", "out_value", "on-success")]
+    assert take.acquires == [Tag("acquires", "net_buf", "return")]
+
+
+def test_function_pointer_field_targets_are_its_parameters():
+    scan = _scan("""
+        struct codec {
+            /** @releases memory nope */
+            void (*release)(data_value_t* value);
+        };
+    """)
+    assert scan.fields == []
+    assert "'nope' is not a parameter of 'release'" in scan.findings[0].text
+
+
+def test_tag_on_a_field_that_is_not_a_function_pointer_is_an_error():
+    scan = _scan("""
+        struct codec {
+            /** @releases memory value */
+            data_value_t* value;
+        };
+    """)
+    assert scan.fields == []
+    assert "not followed by" in scan.findings[0].text
+
+
+def test_fields_and_functions_of_one_name_do_not_collide():
+    registry = Annotations()
+    field = _scan("""
+        struct codec {
+            /** @releases memory value */
+            void (*release)(data_value_t* value);
+        };
+    """).fields[0]
+    function = _only_spec("""
+        /** @releases * block */
+        static void release(void* block);
+    """)
+
+    assert registry.add_field(field) is None
+    assert registry.add(function) is None
+    assert registry.get("release") == function
+    assert registry.get_field("release") == field
+
+
+@pytest.mark.parametrize(
+    ("other", "message"),
+    [
+        (
+            "/** @releases * value */\nvoid (*release)(data_value_t* value);",
+            "conflict with the tags",
+        ),
+        (
+            "/** @releases memory value */\nvoid (*release)(void* item, data_value_t* value);",
+            "different parameter position",
+        ),
+    ],
+)
+def test_same_named_fields_must_match(other, message):
+    registry = Annotations()
+    first = _scan("""
+        struct codec {
+            /** @releases memory value */
+            void (*release)(data_value_t* value);
+        };
+    """).fields[0]
+    second = _scan(f"struct custom {{\n{other}\n}};").fields[0]
+
+    assert registry.add_field(first) is None
+    conflict = registry.add_field(second)
+    assert conflict is not None
+    assert "ANNOTATION ERROR" in conflict.text
+    assert message in conflict.text
+
+
+def test_same_named_fields_with_matching_tags_and_positions_agree():
+    registry = Annotations()
+    first = _scan("""
+        struct codec {
+            /** @acquires memory out_value on-success */
+            int (*get)(void* src, data_value_t* out_value);
+        };
+    """).fields[0]
+    second = _scan("""
+        struct custom {
+            /** @acquires memory out_value on-success */
+            int (*get)(const struct item* item, data_value_t* out_value);
+        };
+    """).fields[0]
+
+    assert registry.add_field(first) is None
+    assert registry.add_field(second) is None
+
+
 @pytest.mark.parametrize(
     ("source", "message"),
     [

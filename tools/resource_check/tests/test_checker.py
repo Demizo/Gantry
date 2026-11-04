@@ -61,6 +61,23 @@ def test_identifier_argument_rule_flags_non_identifier_argument(check_source):
     assert "p->field" in findings[0].text
 
 
+def test_identifier_argument_rule_applies_to_field_calls(check_source):
+    findings = check_source("""
+        struct codec {
+            /** @releases memory value */
+            void (*release)(data_value_t* value);
+        };
+
+        int f(const struct codec* codec, struct payload* p) {
+            codec->release(&(p->value));
+            return 0;
+        }
+    """)
+    assert len(findings) == 1
+    assert "POLICY ERROR" in findings[0].text
+    assert "p->value" in findings[0].text
+
+
 def test_identifier_rule_checks_the_annotated_parameter_only(check_source):
     findings = check_source("""
         int f(struct s* p) {

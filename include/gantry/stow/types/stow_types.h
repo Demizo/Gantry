@@ -159,6 +159,8 @@ struct stow_item_custom_interface
      * @details Invoked by @ref stow_get (and by subscriber notifications)
      *
      * @note Runs with interrupts masked, must be interrupt safe, any may not block.
+     *
+     * @acquires memory out_value on-success
      */
     int (*get)(const struct stow_item_const_metadata* item, data_value_t* out_value);
     /**
@@ -193,12 +195,32 @@ struct stow_item_interface
         const union stow_constraints* constraints,
         data_value_t value); /**< Function to determine if a given value is valid based on the provided constraints */
     bool (*is_equal)(data_value_t a, data_value_t b); /**< Function to check if two values of the same type are equal */
-    int (*set)(void* dest, data_value_t value);     /**< Function to copy a value's data to the provided destination */
-    int (*get)(void* src, data_value_t* out_value); /**< Function to get an item value from the provided source */
-    void (*ref)(data_value_t* value);     /**< Function to add a reference to an item value, kept until released */
-    void (*release)(data_value_t* value); /**< Function to release an item value. Note: the inner value may be NULL in
-                                             which case release should do nothing. */
-    int (*decode)(zcbor_state_t* decoder, data_value_t* out_value); /**< Function to decode an item value from CBOR */
+    int (*set)(void* dest, data_value_t value); /**< Function to copy a value's data to the provided destination */
+    /**
+     * @brief Function to get an item value from the provided source
+     *
+     * @acquires memory out_value on-success
+     */
+    int (*get)(void* src, data_value_t* out_value);
+    /**
+     * @brief Function to add a reference to an item value, kept until released
+     *
+     * @acquires memory value
+     */
+    void (*ref)(data_value_t* value);
+    /**
+     * @brief Function to release an item value. Note: the inner value may be NULL in which case release should do
+     * nothing.
+     *
+     * @releases memory value
+     */
+    void (*release)(data_value_t* value);
+    /**
+     * @brief Function to decode an item value from CBOR
+     *
+     * @acquires memory out_value on-success
+     */
+    int (*decode)(zcbor_state_t* decoder, data_value_t* out_value);
     int (*encode)(zcbor_state_t* encoder, data_value_t value); /**< Function to encode a data item value into CBOR */
     int (*encode_constraints)(
         zcbor_state_t* encoder,
@@ -250,43 +272,6 @@ static inline void stow_value_ref_block(data_value_t* value)
  * @param value Unused
  */
 static inline void stow_value_ref_none(data_value_t* value) { ARG_UNUSED(value); }
-
-/**
- * @brief Decode an item value from CBOR with its type's codec
- *
- * @param codec The item type's interface
- * @param decoder Decoder positioned at the value
- * @param[out] out_value The decoded value
- *
- * @return SUCCESS, or the codec's negative errno
- * @acquires memory out_value on-success
- */
-static inline int stow_item_decode(
-    const struct stow_item_interface* codec, zcbor_state_t* decoder, data_value_t* out_value)
-{
-    return codec->decode(decoder, out_value);
-}
-
-/**
- * @brief Add a reference to an item value with its type's codec
- *
- * @param codec The item type's interface
- * @param value The value to keep
- * @acquires memory value
- */
-static inline void stow_item_ref(const struct stow_item_interface* codec, data_value_t* value) { codec->ref(value); }
-
-/**
- * @brief Release an item value with its type's codec
- *
- * @param codec The item type's interface
- * @param value The value to release
- * @releases memory value
- */
-static inline void stow_item_release(const struct stow_item_interface* codec, data_value_t* value)
-{
-    codec->release(value);
-}
 
 /**
  * @}

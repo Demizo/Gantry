@@ -8,6 +8,7 @@ from .annotations import RETURN_TARGET, Annotations, Spec, Tag
 from .ast_nodes import (
     call_args,
     call_name,
+    called_field,
     line,
     result_identifier,
     text,
@@ -50,10 +51,16 @@ def _tracked_identifier(call_node: Node, spec: Spec, tag: Tag) -> Node | None:
     return unwrap_identifier_reference(arg) if arg is not None else None
 
 
+def callee_spec(annotations: Annotations, call_node: Node) -> Spec | None:
+    return annotations.get(call_name(call_node)) or annotations.get_field(
+        called_field(call_node)
+    )
+
+
 def call_events(annotations: Annotations, call_node: Node) -> list[Event]:
     if call_node.type != "call_expression":
         return []
-    spec = annotations.get(call_name(call_node))
+    spec = callee_spec(annotations, call_node)
     if spec is None:
         return []
     events = []
@@ -240,7 +247,7 @@ class IdentifierArgumentRuleKind:
     def check(self, cfg: CFG, file_path: str) -> Iterable[Finding]:
         for block in cfg.blocks:
             for call in block.calls:
-                spec = self.annotations.get(call_name(call))
+                spec = callee_spec(self.annotations, call)
                 if spec is None:
                     continue
                 targets = dict.fromkeys(
@@ -272,7 +279,7 @@ class UncapturedResultRuleKind:
         contract = contract_of(cfg.function, self.annotations)
         for block in cfg.blocks:
             for call in block.calls:
-                spec = self.annotations.get(call_name(call))
+                spec = callee_spec(self.annotations, call)
                 if spec is None or result_identifier(call) is not None:
                     continue
                 returns = [tag for tag in spec.acquires if tag.target == RETURN_TARGET]

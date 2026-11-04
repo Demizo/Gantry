@@ -848,7 +848,7 @@ void stow_client_release(const struct stow_client_endpoint* endpoint, struct sto
     if (value->id < endpoint->schema->item_count)
     {
         data_value_t* item_value = &value->value;
-        stow_item_release(endpoint->schema->items[value->id].interface, item_value);
+        endpoint->schema->items[value->id].interface->release(item_value);
     }
 }
 
@@ -857,7 +857,7 @@ void stow_client_ref(const struct stow_client_endpoint* endpoint, struct stow_cl
     if (value->id < endpoint->schema->item_count)
     {
         data_value_t* item_value = &value->value;
-        stow_item_ref(endpoint->schema->items[value->id].interface, item_value);
+        endpoint->schema->items[value->id].interface->ref(item_value);
         PASS_OWNERSHIP(item_value);
     }
 }

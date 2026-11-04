@@ -110,6 +110,7 @@ static const struct k_work_queue_config g_stow_flush_queue_config = { .name = "s
  * @param[out] out_value Pointer to be populated with the item's current value
  *
  * @return SUCCESS when the value was retrieved, otherwise the error code
+ * @acquires memory out_value on-success
  */
 static int get_item_value(const struct stow_item_const_metadata* item, data_value_t* out_value)
 {

@@ -78,6 +78,14 @@ def call_name(call_node: Node) -> str | None:
     return text(callee) if callee is not None and callee.type == "identifier" else None
 
 
+def called_field(call_node: Node) -> str | None:
+    """`field` in a call through a function pointer field, `p->field(...)` or `s.field(...)`."""
+    callee = call_node.child_by_field_name("function")
+    if callee is None or callee.type != "field_expression":
+        return None
+    return text(callee.child_by_field_name("field"))
+
+
 def call_args(call_node: Node) -> list[Node]:
     arg_list = call_node.child_by_field_name("arguments")
     return list(arg_list.named_children) if arg_list is not None else []

@@ -23,7 +23,7 @@ def check_file(path: Path, annotations: Annotations, parser: Parser) -> list[Fin
     scan = scan_tree(tree, str(path))
     visible = annotations.copy()
     findings = list(scan.findings)
-    findings.extend(f for spec in scan.specs if (f := visible.add(spec)) is not None)
+    findings.extend(visible.add_scan(scan))
 
     rule_kinds = build_rule_kinds(visible)
     for node in iter_unparsed_code(tree.root_node):
