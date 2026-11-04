@@ -19,21 +19,21 @@ static bool g_dynamic_called = false;
 
 static void static_handle_callback(event_t* event)
 {
-    struct stow_update_event_payload* payload = (struct stow_update_event_payload*)event->data.buf;
+    const struct stow_update_event_payload* payload = stow_update_payload(event);
     g_static_handle_called = true;
     g_static_handle_id = (int)payload->metadata->id;
 }
 
 static void static_copy_callback(event_t* event)
 {
-    struct stow_update_event_payload* payload = (struct stow_update_event_payload*)event->data.buf;
+    const struct stow_update_event_payload* payload = stow_update_payload(event);
     g_static_copy_called = true;
     g_static_copy_value = payload->value_copy.data.int_value;
 }
 
 static void static_multi_callback(event_t* event)
 {
-    struct stow_update_event_payload* payload = (struct stow_update_event_payload*)event->data.buf;
+    const struct stow_update_event_payload* payload = stow_update_payload(event);
     g_static_multi_called = true;
     g_static_multi_id = (int)payload->metadata->id;
 }

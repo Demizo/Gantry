@@ -48,12 +48,18 @@ DEFINE_EVENT_TYPE(EVENT_ID_STOW_UPDATE, stow_update_event, stow_event_on_free);
 //* Public Function Definitions
 //**********************************************************
 
+const struct stow_update_event_payload* stow_update_payload(const event_t* event)
+{
+    ASSERT(event->type == &stow_update_event, "Unexpected event type %d", event->type->id);
+    return (const struct stow_update_event_payload*)event->data.buf;
+}
+
 void stow_event_on_free(event_t* event)
 {
-    ASSERT(event->type->id == EVENT_ID_STOW_UPDATE, "Unexpected event type %d", event->type->id);
-    struct stow_update_event_payload* payload = (struct stow_update_event_payload*)event->data.buf;
+    const struct stow_update_event_payload* payload = stow_update_payload(event);
     if (payload->mode == STOW_SUBSCRIPTION_COPY)
     {
-        payload->metadata->interface->release(&(payload->value_copy));
+        data_value_t value_copy = payload->value_copy;
+        payload->metadata->interface->release(&value_copy);
     }
 }

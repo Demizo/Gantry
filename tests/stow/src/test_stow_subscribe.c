@@ -14,14 +14,14 @@ static int g_callback_copy_value = -1;
 
 static void handle_callback(event_t* event)
 {
-    struct stow_update_event_payload* payload = (struct stow_update_event_payload*)event->data.buf;
+    const struct stow_update_event_payload* payload = stow_update_payload(event);
     g_callback_called = true;
     g_callback_handle_id = (int)payload->metadata->id;
 }
 
 static void copy_callback(event_t* event)
 {
-    struct stow_update_event_payload* payload = (struct stow_update_event_payload*)event->data.buf;
+    const struct stow_update_event_payload* payload = stow_update_payload(event);
     g_callback_called = true;
     g_callback_copy_value = payload->value_copy.data.int_value;
 }

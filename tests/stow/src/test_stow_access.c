@@ -90,3 +90,34 @@ ZTEST(stow_access, test_valid_ids)
         zassert_true(stow_is_id_valid(id));
     }
 }
+
+ZTEST(stow_access, test_can_read_with_a_granted_role)
+{
+    zassert_true(stow_can_read(STOW_ROLE_SESSION, STOW_ID_TEST_SESSION_ONLY));
+}
+
+ZTEST(stow_access, test_cannot_read_with_a_denied_role)
+{
+    zassert_false(stow_can_read(STOW_ROLE_GUEST, STOW_ID_TEST_SESSION_ONLY));
+}
+
+ZTEST(stow_access, test_cannot_read_with_no_role) { zassert_false(stow_can_read(0, STOW_ID_TEST_READ_ONLY)); }
+
+ZTEST(stow_access, test_find_an_item_by_name)
+{
+    const struct stow_item_const_metadata* item = stow_item_find("TestInt", strlen("TestInt"));
+    zassert_not_null(item);
+    zassert_equal(item->id, STOW_ID_TEST_INT);
+}
+
+ZTEST(stow_access, test_find_an_absent_name) { zassert_is_null(stow_item_find("TestMissing", strlen("TestMissing"))); }
+
+ZTEST(stow_access, test_find_a_prefix_of_a_name) { zassert_is_null(stow_item_find("TestIn", strlen("TestIn"))); }
+
+ZTEST(stow_access, test_find_matches_exactly_len_bytes)
+{
+    const char* name = "TestStaticSubscribeInt2";
+    const struct stow_item_const_metadata* item = stow_item_find(name, strlen("TestStaticSubscribeInt"));
+    zassert_not_null(item);
+    zassert_equal(item->id, STOW_ID_TEST_STATIC_SUBSCRIBE_INT);
+}

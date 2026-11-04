@@ -217,7 +217,7 @@ static void apply_current_device_name(void)
 
 static void handle_update(event_t* event)
 {
-    const struct stow_update_event_payload* payload = (const struct stow_update_event_payload*)event->data.buf;
+    const struct stow_update_event_payload* payload = stow_update_payload(event);
     const enum stow_item_id id = (enum stow_item_id)payload->metadata->id;
 
     switch (id)

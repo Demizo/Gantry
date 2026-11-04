@@ -331,3 +331,16 @@ items:
         value: 0
     constraints:
       - struct: NestedStruct
+
+  - name: TestSessionOnly
+    description: "A test item only a session can read"
+    categories: [General]
+    type: INT
+    storage: EPHEMERAL
+    permissions:
+      - read: [Session]
+      - write: [Session]
+    default: 0
+    constraints:
+      - min: 0
+      - max: 100

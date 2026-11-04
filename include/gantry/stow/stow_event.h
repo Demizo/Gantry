@@ -69,6 +69,15 @@ struct stow_update_event_payload
 //**********************************************************
 
 /**
+ * @brief Get the payload of a Stow update event
+ *
+ * @param event A @ref stow_update_event
+ *
+ * @return The event's payload
+ */
+const struct stow_update_event_payload* stow_update_payload(const event_t* event);
+
+/**
  * @brief Release the data copy within a @ref stow_update_event_payload
  *
  * @param event Event being freed

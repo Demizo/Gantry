@@ -19,6 +19,7 @@
 #include <gantry/stow/stow_storage.h>
 #include <gantry/stow/types/stow_types.h>
 #include <generated_stow_items.h>
+#include <string.h>
 #include <sys/errno.h>
 #include <zephyr/init.h>
 #include <zephyr/logging/log.h>
@@ -396,6 +397,24 @@ void stow_init(void)
 
 bool stow_is_id_valid(uint32_t id) { return id < STOW_ID_COUNT; }
 
+bool stow_can_read(stow_role_t roles, enum stow_item_id id)
+{
+    return (g_stow_const_metadata[id].permissions.read_permissions & roles) != 0;
+}
+
+const struct stow_item_const_metadata* stow_item_find(const char* name, size_t len)
+{
+    for (int i = 0; i < STOW_ID_COUNT; i++)
+    {
+        const struct stow_item_const_metadata* item = &g_stow_const_metadata[i];
+        if (strlen(item->name) == len && memcmp(item->name, name, len) == 0)
+        {
+            return item;
+        }
+    }
+    return NULL;
+}
+
 int stow_flush(void)
 {
     int first_error = SUCCESS;
@@ -503,9 +522,7 @@ int stow_set(enum stow_item_id id, data_value_t value)
 
 int stow_get_external(stow_role_t roles, enum stow_item_id id, data_value_t* out_value)
 {
-    const struct stow_item_const_metadata* item = &g_stow_const_metadata[id];
-
-    if ((item->permissions.read_permissions & roles) == 0)
+    if (!stow_can_read(roles, id))
     {
         LOG_ERR("Insufficient permissions to read item id: %d", id);
         return -EACCES;
@@ -551,9 +568,7 @@ int stow_decode(zcbor_state_t* decoder, enum stow_item_id id, data_value_t* out_
 
 int stow_subscribe_external(stow_role_t roles, enum stow_item_id id, struct stow_subscription* subscription)
 {
-    const struct stow_item_const_metadata* item = &g_stow_const_metadata[id];
-
-    if ((item->permissions.read_permissions & roles) == 0)
+    if (!stow_can_read(roles, id))
     {
         LOG_ERR("Insufficient permissions to subscribe to item id: %d", id);
         return -EACCES;

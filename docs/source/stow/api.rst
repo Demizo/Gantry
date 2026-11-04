@@ -110,8 +110,7 @@ The Stow API allows modules to subscribe to items. The subscription callback wil
 
    void on_update(event_t* event)
    {
-       struct stow_update_event_payload* payload =
-           (struct stow_update_event_payload*)event->data.buf;
+       const struct stow_update_event_payload* payload = stow_update_payload(event);
        LOG_INF("New value: %d", payload->value_copy.data.int_value);
    }
 

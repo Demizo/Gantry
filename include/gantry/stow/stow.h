@@ -105,6 +105,26 @@ void stow_init(void);
 bool stow_is_id_valid(uint32_t id);
 
 /**
+ * @brief Check whether a caller's roles may read an item
+ *
+ * @param roles The caller's role bitmask
+ * @param id Item ID to check
+ *
+ * @return true when @p roles overlap the item's read permissions
+ */
+bool stow_can_read(stow_role_t roles, enum stow_item_id id);
+
+/**
+ * @brief Find an item by name
+ *
+ * @param name The name to look up, which need not be NULL terminated
+ * @param len Length of @p name
+ *
+ * @return The item's metadata, or NULL when no item has that name
+ */
+const struct stow_item_const_metadata* stow_item_find(const char* name, size_t len);
+
+/**
  * @brief Write modified persistent items to storage
  *
  * @details Writes are normally flushed by a background job. Call this to persist

@@ -186,14 +186,7 @@ static int peer_item_id(const char* name)
  */
 static const struct stow_item_const_metadata* local_item(const char* name)
 {
-    for (size_t id = 0; id < STOW_ID_COUNT; id++)
-    {
-        if (strcmp(g_stow_const_metadata[id].name, name) == 0)
-        {
-            return &g_stow_const_metadata[id];
-        }
-    }
-    return NULL;
+    return stow_item_find(name, strlen(name));
 }
 
 /**

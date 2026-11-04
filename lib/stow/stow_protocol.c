@@ -283,14 +283,10 @@ static void handle_describe(struct stow_msg_reader* reader, const struct stow_ms
     {
         struct zcbor_string name;
         (void)stow_msg_next_name(reader, &name);
-        for (uint32_t id = 0; id < STOW_ID_COUNT; id++)
+        const struct stow_item_const_metadata* item = stow_item_find((const char*)name.value, name.len);
+        if (item != NULL)
         {
-            const char* item_name = g_stow_const_metadata[id].name;
-            if (strlen(item_name) == name.len && memcmp(item_name, name.value, name.len) == 0)
-            {
-                atomic_set_bit(named, (int)id);
-                break;
-            }
+            atomic_set_bit(named, (int)item->id);
         }
     }
 
@@ -429,7 +425,7 @@ static int apply_subscribe(struct protocol_session* session, const struct stow_m
         return SUCCESS;
     }
 
-    if ((g_stow_const_metadata[id].permissions.read_permissions & session->base.roles) == 0)
+    if (!stow_can_read(session->base.roles, id))
     {
         return -EACCES;
     }
@@ -542,7 +538,7 @@ static void change_roles(struct stow_session* base, uint32_t roles, struct net_b
         {
             continue;
         }
-        if ((g_stow_const_metadata[id].permissions.read_permissions & base->roles) == 0)
+        if (!stow_can_read(base->roles, (enum stow_item_id)id))
         {
             remove_subscription(session, (enum stow_item_id)id);
         }
@@ -558,7 +554,7 @@ static void change_roles(struct stow_session* base, uint32_t roles, struct net_b
 static void handle_update(struct stow_session* base, event_t* event)
 {
     struct protocol_session* session = CONTAINER_OF(base, struct protocol_session, base);
-    const struct stow_update_event_payload* payload = (const struct stow_update_event_payload*)event->data.buf;
+    const struct stow_update_event_payload* payload = stow_update_payload(event);
     const enum stow_item_id id = (enum stow_item_id)payload->metadata->id;
 
     if (!atomic_test_bit(session->subscriptions, (int)id))
@@ -566,7 +562,7 @@ static void handle_update(struct stow_session* base, event_t* event)
         return;
     }
 
-    if ((payload->metadata->permissions.read_permissions & base->roles) == 0)
+    if (!stow_can_read(base->roles, id))
     {
         // Auto-revoke defensively in case the role handler missed it.
         remove_subscription(session, id);
