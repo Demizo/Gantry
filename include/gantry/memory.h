@@ -102,6 +102,16 @@ extern volatile mem_trace_info_t g_current_mem_trace;
 //* Typedefs, Enums, and Structs
 //**********************************************************
 
+/**
+ * @brief Function that releases what a block holds before the block is freed
+ *
+ * @details Called once, after the last reference is released, with the block's contents intact. The reference count
+ * is already 0, so calling @ref mem_ref on the block fails its assert: a block being freed can't be referenced again.
+ *
+ * @param block The block being freed
+ */
+typedef void (*mem_on_free_t)(void* block);
+
 //**********************************************************
 //* Functions
 //**********************************************************
@@ -176,13 +186,20 @@ void mem_unref(void** block_ptr);
 #define MEM_UNREF(data) TRACE_WRAP_VOID(mem_unref(data))
 
 /**
- * @brief Get the current reference count for a memory block
+ * @brief Decrement the reference count of a memory block, releasing what it holds before it is freed
  *
- * @param block The memory block to get the reference count of
+ * @details The decrement and the decision that it released the last reference are one atomic step, so @p on_free runs
+ * exactly once however the holders interleave. It runs outside the IRQ lock, then the block is freed.
  *
- * @return The current reference count of the provided memory block
+ * @note If block_ptr already points to a NULL pointer, this function will assume that the block was already freed and
+ * do nothing.
+ *
+ * @param[in,out] block_ptr A pointer to the memory block pointer to be dereferenced. If the reference count reaches 0,
+ * the block pointer will be set to NULL.
+ * @param[in] on_free Called with the block when the reference count reaches 0, can be NULL
+ * @releases memory block_ptr
  */
-uint32_t mem_get_ref_count(void* block);
+void mem_unref_with(void** block_ptr, mem_on_free_t on_free);
 
 /**
  * @brief Get the number of active memory pools

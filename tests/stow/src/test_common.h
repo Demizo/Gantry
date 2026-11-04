@@ -26,3 +26,16 @@ static inline void reset_stow(void* fixture)
     stow_init();
     stow_storage_stub_reset();
 }
+
+static inline uint32_t blocks_in_use(void)
+{
+    uint32_t total_used = 0;
+    for (uint8_t pool = 0; pool < CONFIG_MEM_POOL_COUNT; pool++)
+    {
+        uint32_t used = 0;
+        uint32_t total = 0;
+        (void)mem_get_pool_usage(pool, &used, &total);
+        total_used += used;
+    }
+    return total_used;
+}

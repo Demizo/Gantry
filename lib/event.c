@@ -37,6 +37,8 @@ LOG_MODULE_REGISTER(event, CONFIG_EVENT_LOG_LEVEL);
 //* Static Function Declarations
 //**********************************************************
 
+static void release_event(void* block);
+
 //**********************************************************
 //* Static Variable Definitions
 //**********************************************************
@@ -44,6 +46,20 @@ LOG_MODULE_REGISTER(event, CONFIG_EVENT_LOG_LEVEL);
 //**********************************************************
 //* Static Function Definitions
 //**********************************************************
+
+/**
+ * @brief Call the event type's on_free, if it has one, before the event's block is freed
+ *
+ * @param block The event being freed
+ */
+static void release_event(void* block)
+{
+    event_t* event = block;
+    if (event->type->on_free != NULL)
+    {
+        event->type->on_free(event);
+    }
+}
 
 //**********************************************************
 //* Public Function Definitions
@@ -99,17 +115,11 @@ void event_unref(event_t** event)
     current = *event;
     while (current != NULL && (chain_length < LINKED_EVENT_CHAIN_LEN_MAX))
     {
-        // If the event will be freed, call on_free if defined for the current event type
-        if (mem_get_ref_count((void*)current) == 1 && current->type->on_free != NULL)
-        {
-            current->type->on_free(current);
-        }
-
         // Get the linked event first in case the block is freed
         next = current->next_event;
 
         void** current_block = (void**)&current;
-        mem_unref(current_block);
+        mem_unref_with(current_block, release_event);
 
         if (chain_length == 0)
         {

@@ -355,11 +355,14 @@ void mem_ref(void* block)
     irq_unlock(key);
 }
 
-void mem_unref(void** block_ptr)
+void mem_unref(void** block_ptr) { mem_unref_with(block_ptr, NULL); }
+
+void mem_unref_with(void** block_ptr, mem_on_free_t on_free)
 {
     ASSERT(block_ptr != NULL, "Invalid memory block");
 
-    if (*block_ptr == NULL)
+    void* block = *block_ptr;
+    if (block == NULL)
     {
         // Assume that the data is already freed
         return;
@@ -367,49 +370,38 @@ void mem_unref(void** block_ptr)
 
     uint32_t key = irq_lock();
 
-    mem_block_header_t* header = validate_and_get_header(*block_ptr);
+    mem_block_header_t* header = validate_and_get_header(block);
     ASSERT(((header != NULL) && header->ref_count > 0), "Invalid memory block");
 
     header->ref_count--;
 
-    if (header->ref_count == 0)
-    {
-        // Free the block when there are no more references
-        struct k_mem_slab* pool = mem_pools[header->pool];
-        void* block_header = block_to_header(*block_ptr);
-
-        k_mem_slab_free(pool, block_header);
-#ifdef CONFIG_MEM_TRACE
-        LOG_DBG(
-            "Freed block %p, allocated by %s [%s:%d]", *block_ptr, header->func ? header->func : "unknown",
-            g_current_mem_trace.file ? g_current_mem_trace.file : "unknown", g_current_mem_trace.line);
-#endif
-        *block_ptr = NULL;
-    }
-    else
+    if (header->ref_count > 0)
     {
 #ifdef CONFIG_MEM_TRACE
         LOG_DBG(
-            "Dereferenced block %p (count: %d), allocated by %s [%s:%d]", *block_ptr, header->ref_count,
+            "Dereferenced block %p (count: %d), allocated by %s [%s:%d]", block, header->ref_count,
             header->func ? header->func : "unknown", g_current_mem_trace.file ? g_current_mem_trace.file : "unknown",
             g_current_mem_trace.line);
 #endif
+        irq_unlock(key);
+        return;
     }
 
     irq_unlock(key);
-}
 
-uint32_t mem_get_ref_count(void* block)
-{
-    uint32_t key = irq_lock();
+    // At a count of 0 no one else holds the block, so releasing and freeing it need no lock
+    if (on_free != NULL)
+    {
+        on_free(block);
+    }
 
-    mem_block_header_t* header = validate_and_get_header(block);
-    ASSERT(header != NULL, "Invalid memory block");
-    uint32_t current_count = header->ref_count;
-
-    irq_unlock(key);
-
-    return current_count;
+#ifdef CONFIG_MEM_TRACE
+    LOG_DBG(
+        "Freed block %p, allocated by %s [%s:%d]", block, header->func ? header->func : "unknown",
+        g_current_mem_trace.file ? g_current_mem_trace.file : "unknown", g_current_mem_trace.line);
+#endif
+    k_mem_slab_free(mem_pools[header->pool], header);
+    *block_ptr = NULL;
 }
 
 uint8_t mem_get_pool_count(void) { return CONFIG_MEM_POOL_COUNT; }

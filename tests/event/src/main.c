@@ -6,6 +6,7 @@
 
 #include <errno.h>
 #include <gantry/error.h>
+#include <zephyr/irq_offload.h>
 #include <zephyr/ztest.h>
 
 #include "event.c"
@@ -33,6 +34,19 @@ static void reset_free_call_count(void* fixture)
 {
     ARG_UNUSED(fixture);
     free_call_count = 0;
+}
+
+static uint32_t blocks_in_use(void)
+{
+    uint32_t total_used = 0;
+    for (uint8_t pool = 0; pool < CONFIG_MEM_POOL_COUNT; pool++)
+    {
+        uint32_t used = 0;
+        uint32_t total = 0;
+        (void)mem_get_pool_usage(pool, &used, &total);
+        total_used += used;
+    }
+    return total_used;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,16 +90,6 @@ ZTEST(event_alloc, test_alloc_payload_is_writable)
     payload->value = 42;
 
     zassert_equal(((struct test_payload*)event->data.buf)->value, 42);
-
-    EVENT_UNREF(&event);
-}
-
-ZTEST(event_alloc, test_alloc_starts_with_ref_count_one)
-{
-    event_t* event = NULL;
-    EVENT_ALLOC(&test_event_no_free, 0, &event);
-
-    zassert_equal(mem_get_ref_count(event), 1);
 
     EVENT_UNREF(&event);
 }
@@ -138,31 +142,6 @@ ZTEST(event_alloc, test_alloc_pool_exhausted)
 
 ZTEST_SUITE(event_ref_unref, NULL, NULL, NULL, NULL, NULL);
 
-ZTEST(event_ref_unref, test_ref_increments_count)
-{
-    event_t* event = NULL;
-    EVENT_ALLOC(&test_event_no_free, 0, &event);
-
-    EVENT_REF(event);
-    zassert_equal(mem_get_ref_count(event), 2);
-
-    EVENT_UNREF(&event);
-    EVENT_UNREF(&event);
-}
-
-ZTEST(event_ref_unref, test_unref_decrements_count)
-{
-    event_t* event = NULL;
-    EVENT_ALLOC(&test_event_no_free, 0, &event);
-    EVENT_REF(event);
-    zassert_equal(mem_get_ref_count(event), 2);
-
-    EVENT_UNREF(&event);
-    zassert_equal(mem_get_ref_count(event), 1);
-
-    EVENT_UNREF(&event);
-}
-
 ZTEST(event_ref_unref, test_unref_frees_at_zero)
 {
     event_t* event = NULL;
@@ -187,19 +166,21 @@ ZTEST(event_ref_unref, test_unref_nulls_pointer_on_final_release)
     zassert_is_null(event, "event pointer is not null after released");
 }
 
-ZTEST(event_ref_unref, test_unref_leaves_pointer_valid_while_references_remain)
+ZTEST(event_ref_unref, test_unref_keeps_event_while_references_remain)
 {
     event_t* event = NULL;
     EVENT_ALLOC(&test_event_no_free, 0, &event);
     EVENT_REF(event);
+    uint32_t blocks = blocks_in_use();
 
     EVENT_UNREF(&event);
 
     zassert_not_null(event, "event pointer should not be nullified until release");
-    zassert_equal(mem_get_ref_count(event), 1);
+    zassert_equal(blocks_in_use(), blocks);
 
     EVENT_UNREF(&event);
     zassert_is_null(event);
+    zassert_equal(blocks_in_use(), blocks - 1);
 }
 
 ZTEST(event_ref_unref, test_unref_null_ptr_no_op)
@@ -249,30 +230,71 @@ ZTEST(event_on_free, test_on_free_not_called_when_type_has_none)
     zassert_equal(free_call_count, 0);
 }
 
+#define HOLDER_STACK_SIZE 1024
+#define HOLDER_PRIORITY 5
+
+K_THREAD_STACK_DEFINE(holder_stack, HOLDER_STACK_SIZE);
+static struct k_thread holder_thread;
+
+static void release_from_thread(void* arg1, void* arg2, void* arg3)
+{
+    ARG_UNUSED(arg2);
+    ARG_UNUSED(arg3);
+    event_t** held = arg1;
+    EVENT_UNREF(held);
+}
+
+static void release_from_isr(const void* arg)
+{
+    event_t** held = (event_t**)arg;
+    EVENT_UNREF(held);
+}
+
+static void release_on_second_thread(event_t** held)
+{
+    k_tid_t tid = k_thread_create(
+        &holder_thread, holder_stack, HOLDER_STACK_SIZE, release_from_thread, held, NULL, NULL, HOLDER_PRIORITY, 0,
+        K_NO_WAIT);
+    k_thread_join(tid, K_FOREVER);
+}
+
+ZTEST(event_on_free, test_two_holders_releasing_from_thread_then_isr_free_once)
+{
+    uint32_t blocks = blocks_in_use();
+    event_t* first = NULL;
+    EVENT_ALLOC(&test_event_with_free, 0, &first);
+    event_t* second = first;
+    EVENT_REF(second);
+
+    release_on_second_thread(&first);
+    irq_offload(release_from_isr, &second);
+
+    zassert_equal(free_call_count, 1);
+    zassert_equal(blocks_in_use(), blocks);
+}
+
+ZTEST(event_on_free, test_two_holders_releasing_from_isr_then_thread_free_once)
+{
+    uint32_t blocks = blocks_in_use();
+    event_t* first = NULL;
+    EVENT_ALLOC(&test_event_with_free, 0, &first);
+    event_t* second = first;
+    EVENT_REF(second);
+
+    irq_offload(release_from_isr, &first);
+    release_on_second_thread(&second);
+
+    zassert_equal(free_call_count, 1);
+    zassert_equal(blocks_in_use(), blocks);
+}
+
 // ---------------------------------------------------------------------------
 // Suite: event chains
 // ---------------------------------------------------------------------------
 
 ZTEST_SUITE(event_link, NULL, NULL, reset_free_call_count, NULL, NULL);
 
-ZTEST(event_link, test_ref_increments_every_linked_event)
-{
-    event_t* head = NULL;
-    event_t* tail = NULL;
-    EVENT_ALLOC(&test_event_no_free, 0, &head);
-    EVENT_ALLOC(&test_event_no_free, 0, &tail);
-    head->next_event = tail;
-
-    EVENT_REF(head);
-
-    zassert_equal(mem_get_ref_count(head), 2);
-    zassert_equal(mem_get_ref_count(tail), 2);
-
-    EVENT_UNREF(&head);
-    EVENT_UNREF(&head);
-}
-
-ZTEST(event_link, test_unref_decrements_every_linked_event)
+ZTEST(event_link, test_ref_and_unref_cover_every_linked_event)
 {
     event_t* head = NULL;
     event_t* tail = NULL;
@@ -280,14 +302,15 @@ ZTEST(event_link, test_unref_decrements_every_linked_event)
     EVENT_ALLOC(&test_event_no_free, 0, &tail);
     head->next_event = tail;
     EVENT_REF(head);
+    uint32_t blocks = blocks_in_use();
 
     EVENT_UNREF(&head);
 
     zassert_not_null(head, "chain must survive a release that isn't the last reference");
-    zassert_equal(mem_get_ref_count(head), 1);
-    zassert_equal(mem_get_ref_count(tail), 1);
+    zassert_equal(blocks_in_use(), blocks);
 
     EVENT_UNREF(&head);
+    zassert_equal(blocks_in_use(), blocks - 2);
 }
 
 ZTEST(event_link, test_unref_frees_whole_chain_when_all_reach_zero)
@@ -336,13 +359,15 @@ ZTEST(event_link, test_chain_length_is_capped)
 
     event_t* head = nodes[0];
     event_t* orphan = nodes[LINKED_EVENT_CHAIN_LEN_MAX];
+    uint32_t blocks = blocks_in_use();
 
     EVENT_UNREF(&head);
 
     // The cap was reached before the last node in the chain, so it's still alive
-    zassert_equal(mem_get_ref_count(orphan), 1);
+    zassert_equal(blocks_in_use(), blocks - LINKED_EVENT_CHAIN_LEN_MAX);
 
     EVENT_UNREF(&orphan);
+    zassert_equal(blocks_in_use(), blocks - LINKED_EVENT_CHAIN_LEN_MAX - 1);
 }
 
 // ---------------------------------------------------------------------------

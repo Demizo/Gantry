@@ -15,6 +15,19 @@
 // Helpers
 // ---------------------------------------------------------------------------
 
+static uint32_t blocks_in_use(void)
+{
+    uint32_t total_used = 0;
+    for (uint8_t pool = 0; pool < CONFIG_MEM_POOL_COUNT; pool++)
+    {
+        uint32_t used = 0;
+        uint32_t total = 0;
+        (void)mem_get_pool_usage(pool, &used, &total);
+        total_used += used;
+    }
+    return total_used;
+}
+
 static void free_all_blocks(void** blocks, int count)
 {
     for (int i = 0; i < count; i++)
@@ -111,29 +124,20 @@ ZTEST(mem_alloc, test_alloc_exhausted)
 
 ZTEST_SUITE(mem_ref_unref, NULL, NULL, NULL, NULL, NULL);
 
-ZTEST(mem_ref_unref, test_ref_increments_count)
+ZTEST(mem_ref_unref, test_block_is_kept_until_its_last_unref)
 {
-    void* block = NULL;
-    MEM_ALLOC(8, &block);
-    zassert_equal(mem_get_ref_count(block), 1);
-
-    MEM_REF(block);
-    zassert_equal(mem_get_ref_count(block), 2);
-
-    MEM_UNREF(&block);
-    MEM_UNREF(&block);
-}
-
-ZTEST(mem_ref_unref, test_unref_decrements_count)
-{
+    uint32_t baseline = blocks_in_use();
     void* block = NULL;
     MEM_ALLOC(8, &block);
     MEM_REF(block);
-    zassert_equal(mem_get_ref_count(block), 2);
 
     MEM_UNREF(&block);
-    zassert_equal(mem_get_ref_count(block), 1);
+    zassert_not_null(block);
+    zassert_equal(blocks_in_use(), baseline + 1);
+
     MEM_UNREF(&block);
+    zassert_is_null(block);
+    zassert_equal(blocks_in_use(), baseline);
 }
 
 ZTEST(mem_ref_unref, test_unref_frees_at_zero)
@@ -150,6 +154,69 @@ ZTEST(mem_ref_unref, test_unref_null_ptr_no_op)
     // Should not assert or crash
     MEM_UNREF(&block);
     zassert_is_null(block);
+}
+
+// ---------------------------------------------------------------------------
+// Suite: mem_unref_with
+// ---------------------------------------------------------------------------
+
+static int on_free_call_count;
+static uint32_t on_free_saw_value;
+
+static void record_on_free(void* block)
+{
+    on_free_call_count++;
+    on_free_saw_value = *(uint32_t*)block;
+}
+
+static void reset_on_free(void* fixture)
+{
+    ARG_UNUSED(fixture);
+    on_free_call_count = 0;
+    on_free_saw_value = 0;
+}
+
+ZTEST_SUITE(mem_unref_with, NULL, NULL, reset_on_free, NULL, NULL);
+
+ZTEST(mem_unref_with, test_on_free_runs_once_on_the_last_unref_with_contents_readable)
+{
+    uint32_t baseline = blocks_in_use();
+    void* block = NULL;
+    MEM_ALLOC(sizeof(uint32_t), &block);
+    *(uint32_t*)block = 0xC0FFEE;
+    MEM_REF(block);
+
+    mem_unref_with(&block, record_on_free);
+    zassert_equal(on_free_call_count, 0);
+    zassert_not_null(block);
+
+    mem_unref_with(&block, record_on_free);
+    zassert_equal(on_free_call_count, 1);
+    zassert_equal(on_free_saw_value, 0xC0FFEE);
+    zassert_is_null(block);
+    zassert_equal(blocks_in_use(), baseline);
+}
+
+ZTEST(mem_unref_with, test_null_on_free_frees_the_block)
+{
+    uint32_t baseline = blocks_in_use();
+    void* block = NULL;
+    MEM_ALLOC(8, &block);
+
+    mem_unref_with(&block, NULL);
+
+    zassert_is_null(block);
+    zassert_equal(blocks_in_use(), baseline);
+}
+
+ZTEST(mem_unref_with, test_null_block_is_a_no_op)
+{
+    void* block = NULL;
+
+    mem_unref_with(&block, record_on_free);
+
+    zassert_is_null(block);
+    zassert_equal(on_free_call_count, 0);
 }
 
 // ---------------------------------------------------------------------------

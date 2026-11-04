@@ -87,19 +87,6 @@ static void releaser_thread(void* arg1, void* arg2, void* arg3)
     stow_release(STOW_ID_TEST_NESTED_STRUCT_ITEM, held);
 }
 
-static uint32_t blocks_in_use(void)
-{
-    uint32_t total_used = 0;
-    for (uint8_t pool = 0; pool < CONFIG_MEM_POOL_COUNT; pool++)
-    {
-        uint32_t used = 0;
-        uint32_t total = 0;
-        (void)mem_get_pool_usage(pool, &used, &total);
-        total_used += used;
-    }
-    return total_used;
-}
-
 ZTEST(stow_concurrency, test_two_holders_releasing_a_nested_struct_at_once_free_every_block)
 {
     uint8_t buf_storage[sizeof(buffer_t) + 1];

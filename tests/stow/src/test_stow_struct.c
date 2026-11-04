@@ -206,6 +206,7 @@ ZTEST(stow_struct, test_a_referenced_value_outlives_the_original)
     TestStruct_t* s = (TestStruct_t*)kept.data.raw_value;
     zassert_equal(s->int_field, 7);
     zassert_equal(s->buf_field->len, 0);
-    zassert_equal(mem_get_ref_count(s), 1, "the kept value is not its block's last reference");
+    uint32_t blocks = blocks_in_use();
     stow_release(STOW_ID_TEST_STRUCT_ITEM, &kept);
+    zassert_true(blocks_in_use() < blocks, "the kept value is not its block's last reference");
 }
