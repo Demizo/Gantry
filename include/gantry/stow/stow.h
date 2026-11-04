@@ -140,9 +140,9 @@ int stow_set(enum stow_item_id id, data_value_t value);
 /**
  * @brief Set the value of a data item on behalf of an external client
  *
- * @details Checks @p current_auth against the item's write permissions before delegating to @ref stow_set.
+ * @details Checks @p roles against the item's write permissions before delegating to @ref stow_set.
  *
- * @param current_auth The caller's role bitmask
+ * @param roles The caller's role bitmask
  * @param id Item ID to modify
  * @param value The desired value
  *
@@ -152,12 +152,12 @@ int stow_set(enum stow_item_id id, data_value_t value);
  * @return -EINVAL when the provided value is invalid
  * @return -ENOMEM when the value cannot be stored
  */
-int stow_set_external(stow_role_t current_auth, enum stow_item_id id, data_value_t value);
+int stow_set_external(stow_role_t roles, enum stow_item_id id, data_value_t value);
 
 /**
  * @brief Convenience macro for @ref stow_set_external with memory tracing
  */
-#define STOW_SET_EXTERNAL(current_auth, id, value) TRACE_WRAP(stow_set_external(current_auth, id, value))
+#define STOW_SET_EXTERNAL(roles, id, value) TRACE_WRAP(stow_set_external(roles, id, value))
 
 /**
  * @brief Get the current value of a data item
@@ -184,9 +184,9 @@ int stow_get(enum stow_item_id id, data_value_t* out_value);
 /**
  * @brief Get the current value of a data item on behalf of an external client
  *
- * @details Checks @p current_auth against the item's read permissions before delegating to @ref stow_get.
+ * @details Checks @p roles against the item's read permissions before delegating to @ref stow_get.
  *
- * @param[in] current_auth The caller's role bitmask
+ * @param[in] roles The caller's role bitmask
  * @param[in] id Item ID to retrieve
  * @param[out] out_value Pointer to be populated with the item's current value
  *
@@ -196,14 +196,14 @@ int stow_get(enum stow_item_id id, data_value_t* out_value);
  * @return -ENOMEM when the value cannot be retrieved
  * @acquires memory out_value on-success
  */
-int stow_get_external(stow_role_t current_auth, enum stow_item_id id, data_value_t* out_value);
+int stow_get_external(stow_role_t roles, enum stow_item_id id, data_value_t* out_value);
 
 /**
  * @brief Convenience macro for @ref stow_get_external with memory tracing
  *
  * @acquires memory out_value on-success
  */
-#define STOW_GET_EXTERNAL(current_auth, id, out_value) TRACE_WRAP(stow_get_external(current_auth, id, out_value))
+#define STOW_GET_EXTERNAL(roles, id, out_value) TRACE_WRAP(stow_get_external(roles, id, out_value))
 
 /**
  * @brief Release a previously retrieved data item value
@@ -290,9 +290,9 @@ int stow_subscribe(enum stow_item_id id, struct stow_subscription* subscription)
 /**
  * @brief Subscribe to a data item on behalf of an external client
  *
- * @details Checks @p current_auth against the item's read permissions before delegating to @ref stow_subscribe.
+ * @details Checks @p roles against the item's read permissions before delegating to @ref stow_subscribe.
  *
- * @param current_auth The caller's role bitmask
+ * @param roles The caller's role bitmask
  * @param id Item ID to subscribe to
  * @param subscription The stow subscription
  *
@@ -301,7 +301,7 @@ int stow_subscribe(enum stow_item_id id, struct stow_subscription* subscription)
  * @return -EALREADY when the requested subscription already exists
  * @return -ENOMEM when there is no memory to create a subscription
  */
-int stow_subscribe_external(stow_role_t current_auth, enum stow_item_id id, struct stow_subscription* subscription);
+int stow_subscribe_external(stow_role_t roles, enum stow_item_id id, struct stow_subscription* subscription);
 
 /**
  * @brief Unsubscribe from a data item

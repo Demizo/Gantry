@@ -427,11 +427,11 @@ int stow_flush(void)
     return first_error;
 }
 
-int stow_set_external(stow_role_t current_auth, enum stow_item_id id, data_value_t value)
+int stow_set_external(stow_role_t roles, enum stow_item_id id, data_value_t value)
 {
     const struct stow_item_const_metadata* item = &g_stow_const_metadata[id];
 
-    if ((item->permissions.write_permissions & current_auth) == 0)
+    if ((item->permissions.write_permissions & roles) == 0)
     {
         LOG_ERR("Insufficient permissions to write item id: %d", id);
         return -EACCES;
@@ -501,11 +501,11 @@ int stow_set(enum stow_item_id id, data_value_t value)
     return SUCCESS;
 }
 
-int stow_get_external(stow_role_t current_auth, enum stow_item_id id, data_value_t* out_value)
+int stow_get_external(stow_role_t roles, enum stow_item_id id, data_value_t* out_value)
 {
     const struct stow_item_const_metadata* item = &g_stow_const_metadata[id];
 
-    if ((item->permissions.read_permissions & current_auth) == 0)
+    if ((item->permissions.read_permissions & roles) == 0)
     {
         LOG_ERR("Insufficient permissions to read item id: %d", id);
         return -EACCES;
@@ -549,11 +549,11 @@ int stow_decode(zcbor_state_t* decoder, enum stow_item_id id, data_value_t* out_
     return item->interface->decode(decoder, out_value);
 }
 
-int stow_subscribe_external(stow_role_t current_auth, enum stow_item_id id, struct stow_subscription* subscription)
+int stow_subscribe_external(stow_role_t roles, enum stow_item_id id, struct stow_subscription* subscription)
 {
     const struct stow_item_const_metadata* item = &g_stow_const_metadata[id];
 
-    if ((item->permissions.read_permissions & current_auth) == 0)
+    if ((item->permissions.read_permissions & roles) == 0)
     {
         LOG_ERR("Insufficient permissions to subscribe to item id: %d", id);
         return -EACCES;

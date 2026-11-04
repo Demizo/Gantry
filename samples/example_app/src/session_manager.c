@@ -88,7 +88,7 @@ static void session_manager_init(void)
     const struct stow_cobs_transport_config uart_config = {
         .server = &stow_protocol_endpoint,
         .session_id = UART_SESSION_ID,
-        .roles = UART_SESSION_AUTH,
+        .roles = UART_SESSION_ROLES,
         .message_pool = &message_pool,
         .frame_pool = &uart_frame_pool,
         .write = queue_frame,
@@ -100,7 +100,7 @@ static void session_manager_init(void)
     const struct stow_cobs_transport_config ble_config = {
         .server = &stow_protocol_endpoint,
         .session_id = BLE_SESSION_ID,
-        .roles = BLE_SESSION_AUTH,
+        .roles = BLE_SESSION_ROLES,
         .message_pool = &message_pool,
         .frame_pool = &ble_frame_pool,
         .write = queue_frame,
