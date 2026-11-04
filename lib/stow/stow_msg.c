@@ -13,7 +13,6 @@
  */
 
 #include <gantry/error.h>
-#include <gantry/memory.h>
 #include <gantry/stow/stow_cbor.h>
 #include <gantry/stow/stow_msg.h>
 #include <string.h>

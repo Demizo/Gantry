@@ -15,8 +15,8 @@
 #include "ble_interface.h"
 
 #include <gantry/error.h>
-#include <gantry/memory.h>
 #include <gantry/module.h>
+#include <gantry/ownership.h>
 #include <gantry/stow/stow_cobs_transport.h>
 #include <generated_stow_items.h>
 #include <zephyr/bluetooth/bluetooth.h>

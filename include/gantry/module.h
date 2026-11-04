@@ -14,6 +14,7 @@
 #pragma once
 
 #include <gantry/event.h>
+#include <gantry/ownership.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>

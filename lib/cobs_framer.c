@@ -13,7 +13,7 @@
 
 #include <gantry/cobs_framer.h>
 #include <gantry/error.h>
-#include <gantry/memory.h>
+#include <gantry/ownership.h>
 #include <string.h>
 #include <sys/errno.h>
 #include <zephyr/data/cobs.h>

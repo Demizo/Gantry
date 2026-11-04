@@ -31,6 +31,7 @@
 #include <gantry/error.h>
 #include "generated_{{ prefix }}stow_enums.h"
 #include <gantry/memory.h>
+#include <gantry/ownership.h>
 {% for field in struct.fields %}
 {% if field.type == 'STRUCT' %}
 #include "generated_{{ prefix }}struct_{{ field.nested_struct_name }}.h"

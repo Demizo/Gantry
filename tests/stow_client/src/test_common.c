@@ -7,6 +7,7 @@
 #include "test_common.h"
 
 #include <gantry/error.h>
+#include <gantry/ownership.h>
 #include <string.h>
 
 NET_BUF_POOL_DEFINE(test_link_pool, 48, TEST_BUF_SIZE, 0, NULL);

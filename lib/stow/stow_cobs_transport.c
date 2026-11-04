@@ -14,6 +14,7 @@
 
 #include <gantry/cobs_framer.h>
 #include <gantry/error.h>
+#include <gantry/ownership.h>
 #include <gantry/stow/stow_cobs_transport.h>
 #include <gantry/stow/stow_mux.h>
 #include <gantry/stow/stow_transport.h>

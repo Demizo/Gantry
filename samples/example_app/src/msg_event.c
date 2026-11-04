@@ -15,7 +15,6 @@
 
 #include <gantry/error.h>
 #include <gantry/event.h>
-#include <gantry/memory.h>
 
 //**********************************************************
 //* Local Definitions

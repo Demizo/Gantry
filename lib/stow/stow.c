@@ -14,6 +14,7 @@
 
 #include <gantry/error.h>
 #include <gantry/memory.h>
+#include <gantry/ownership.h>
 #include <gantry/stow/stow.h>
 #include <gantry/stow/stow_event.h>
 #include <gantry/stow/stow_storage.h>

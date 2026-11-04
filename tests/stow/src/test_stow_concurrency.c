@@ -5,6 +5,7 @@
  */
 
 #include <gantry/error.h>
+#include <gantry/ownership.h>
 #include <zephyr/kernel.h>
 
 #include "generated_struct_NestedStruct.h"

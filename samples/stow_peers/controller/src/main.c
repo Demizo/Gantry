@@ -14,6 +14,7 @@
 #include <gantry/error.h>
 #include <gantry/event.h>
 #include <gantry/module.h>
+#include <gantry/ownership.h>
 #include <generated_sensor_stow_client.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>

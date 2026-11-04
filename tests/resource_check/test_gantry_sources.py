@@ -163,8 +163,8 @@ def test_removing_the_release_annotation_is_reported(tmp_path):
 def test_removing_the_pass_ownership_annotation_is_reported(tmp_path):
     include = tmp_path / "include"
     shutil.copytree(INCLUDE, include)
-    memory_h = include / "gantry" / "memory.h"
-    memory_h.write_text(memory_h.read_text().replace(" * @releases * data\n", ""))
+    ownership_h = include / "gantry" / "ownership.h"
+    ownership_h.write_text(ownership_h.read_text().replace(" * @releases * data\n", ""))
 
     findings = _check_tree(LIB, _annotations_with(include))
 

@@ -15,6 +15,7 @@
 #include <gantry/buffer.h>
 #include <gantry/error.h>
 #include <gantry/memory.h>
+#include <gantry/ownership.h>
 #include <gantry/stow/stow_cbor.h>
 #include <gantry/stow/types/stow_type_buffer.h>
 #include <gantry/stow/types/stow_types.h>

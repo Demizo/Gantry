@@ -17,6 +17,7 @@
 
 #include <gantry/buffer.h>
 #include <gantry/memory.h>
+#include <gantry/ownership.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stow_wire_codes.h> /* generated from protocols/stow/stow.cddl during the build */

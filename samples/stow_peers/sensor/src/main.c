@@ -13,6 +13,7 @@
 
 #include <gantry/error.h>
 #include <gantry/module.h>
+#include <gantry/ownership.h>
 #include <gantry/stow/stow.h>
 #include <generated_controller_stow_client.h>
 #include <generated_stow_items.h>

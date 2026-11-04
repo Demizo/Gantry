@@ -126,3 +126,8 @@ A second release and a use after release are only reported when every path to th
 An identifier holds one reference. Two references held in the same identifier and released twice are reported as a second release; hold the second reference in its own variable.
 
 See :ref:`mem-leak-detection` for the memory rules.
+
+API Reference
+=============
+
+.. doxygendefine:: PASS_OWNERSHIP

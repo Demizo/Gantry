@@ -18,6 +18,7 @@
 #include <gantry/error.h>
 #include <gantry/event.h>
 #include <gantry/module.h>
+#include <gantry/ownership.h>
 #include <gantry/stow/stow.h>
 #include <generated_stow_items.h>
 #include <stdio.h>

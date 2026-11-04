@@ -5,6 +5,7 @@
  */
 
 #include <gantry/error.h>
+#include <gantry/ownership.h>
 #include <gantry/stow/stow_cobs_transport.h>
 #include <gantry/stow/stow_msg.h>
 
