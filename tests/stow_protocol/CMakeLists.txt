@@ -42,4 +42,4 @@ target_include_directories(app PRIVATE
     ${GANTRY_ROOT}/tests/common
 )
 
-gantry_protocol_vectors(app ${GANTRY_ROOT}/protocols/stow stow)
+_gantry_protocol_vectors(app ${GANTRY_ROOT}/protocols/stow stow)

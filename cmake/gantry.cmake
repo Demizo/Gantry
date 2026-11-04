@@ -35,12 +35,12 @@ function(_gantry_tool package doing)
   endif()
 endfunction()
 
-# gantry_protocol_constants(<folder> <header>)
+# _gantry_protocol_constants(<folder> <header>)
 #
 # Renders the CDDL integers a protocol folder's constants.yaml names as
 # <header> in the build directory, and adds it to the include path. The mapping,
 # CDDL and the tool become configure dependencies.
-function(gantry_protocol_constants folder header)
+function(_gantry_protocol_constants folder header)
   set(_tool ${ZEPHYR_GANTRY_MODULE_DIR}/tools/protocol_spec)
   set(_dir ${CMAKE_BINARY_DIR}/gantry_generated/inc/protocols)
   file(GLOB _inputs ${folder}/constants.yaml ${folder}/*.cddl ${_tool}/src/protocol_spec/*.py ${_tool}/src/protocol_spec/templates/*)
@@ -53,12 +53,12 @@ function(gantry_protocol_constants folder header)
   zephyr_include_directories(${_dir})
 endfunction()
 
-# gantry_protocol_vectors(<target> <folder> <prefix>)
+# _gantry_protocol_vectors(<target> <folder> <prefix>)
 #
 # Renders the vectors of a protocol folder as C data named <prefix>_*, and adds
 # it to <target> with its header <prefix>_vectors.h, which lists each vector by
 # name. Editing any file in the folder, or the tool, renders it again.
-function(gantry_protocol_vectors target folder prefix)
+function(_gantry_protocol_vectors target folder prefix)
   set(_tool ${ZEPHYR_GANTRY_MODULE_DIR}/tools/protocol_spec)
   set(_dir ${CMAKE_CURRENT_BINARY_DIR}/protocol_vectors)
   set(_outputs ${_dir}/${prefix}_vectors.c ${_dir}/${prefix}_vectors.h)
@@ -74,18 +74,6 @@ function(gantry_protocol_vectors target folder prefix)
   )
   target_sources(${target} PRIVATE ${_outputs})
   target_include_directories(${target} PRIVATE ${_dir})
-endfunction()
-
-# gantry_stow_raise_depth(<file>)
-#
-# Raises STOW_DEPTH_MAX to the depth a Stow generator wrote to <file>.
-function(gantry_stow_raise_depth file)
-  file(READ ${file} _depth)
-  string(STRIP "${_depth}" _depth)
-  get_property(_max TARGET gantry_stow_depth PROPERTY STOW_DEPTH_MAX)
-  if("${_max}" STREQUAL "" OR _depth GREATER _max)
-    set_property(TARGET gantry_stow_depth PROPERTY STOW_DEPTH_MAX ${_depth})
-  endif()
 endfunction()
 
 # gantry_stow_add_fragment(<path>)
@@ -133,7 +121,13 @@ function(_gantry_stow_run)
   )
 
   zephyr_include_directories(${ARG_OUTPUT_DIR}/inc/stow)
-  gantry_stow_raise_depth(${ARG_OUTPUT_DIR}/${ARG_DEPTH})
+
+  file(READ ${ARG_OUTPUT_DIR}/${ARG_DEPTH} _depth)
+  string(STRIP "${_depth}" _depth)
+  get_property(_max TARGET gantry_stow_depth PROPERTY STOW_DEPTH_MAX)
+  if("${_max}" STREQUAL "" OR _depth GREATER _max)
+    set_property(TARGET gantry_stow_depth PROPERTY STOW_DEPTH_MAX ${_depth})
+  endif()
 endfunction()
 
 # gantry_stow_generate([YAML <path>] [APP_DIR <dir>] [OUTPUT_DIR <dir>])
@@ -288,12 +282,12 @@ function(_gantry_stow_client_run)
   target_sources(app PRIVATE ${_sources})
 endfunction()
 
-# gantry_register_analysis()
+# _gantry_register_analysis()
 #
 # Wires up analysis targets for the consumer application's src/ directory.
 # The resource checker always runs against the app. Cppcheck runs only when
 # CONFIG_GANTRY_ANALYSIS_CPPCHECK=y.
-function(gantry_register_analysis)
+function(_gantry_register_analysis)
   set(_app_src ${APPLICATION_SOURCE_DIR}/src)
 
   if(CONFIG_GANTRY_ANALYSIS_CPPCHECK)
