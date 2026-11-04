@@ -15,7 +15,6 @@ target_sources(app PRIVATE
     src/test_stow_msg.c
     src/test_stow_msg_vectors.c
     ${GANTRY_LIB}/memory.c
-    ${GANTRY_LIB}/string_utils.c
     ${GANTRY_LIB}/stow/stow_msg.c
     ${GANTRY_LIB}/stow/types/stow_type_enum.c
     ${GANTRY_LIB}/stow/types/stow_type_int.c

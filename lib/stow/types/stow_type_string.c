@@ -17,7 +17,6 @@
 #include <gantry/stow/stow_cbor.h>
 #include <gantry/stow/types/stow_type_string.h>
 #include <gantry/stow/types/stow_types.h>
-#include <gantry/string_utils.h>
 #include <stdint.h>
 #include <string.h>
 #include <sys/errno.h>
@@ -90,7 +89,7 @@ static int get(void* src, data_value_t* out_value)
     ret = mem_alloc(len, &string_block);
     if (ret == SUCCESS)
     {
-        strscpy((char*)string_block, (const char*)src, len);
+        memcpy(string_block, src, len);
 
         out_value->type = STOW_ITEM_TYPE_STRING;
         out_value->data.string_value = string_block;

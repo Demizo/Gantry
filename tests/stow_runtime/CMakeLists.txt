@@ -14,7 +14,6 @@ target_sources(app PRIVATE
     src/test_stow_runtime.c
     ${GANTRY_LIB}/memory.c
     ${GANTRY_LIB}/event.c
-    ${GANTRY_LIB}/string_utils.c
     ${GANTRY_LIB}/stow/stow_msg.c
     ${GANTRY_LIB}/stow/stow_runtime.c
     ${GANTRY_LIB}/stow/types/stow_type_enum.c

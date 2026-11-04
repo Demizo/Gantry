@@ -26,8 +26,6 @@ endif()
 if(CONFIG_GANTRY_BUILD_LIBRARY)
   zephyr_library_named(gantry)
 
-  zephyr_library_sources(lib/string_utils.c)
-
   if(CONFIG_GANTRY_MEMORY)
     zephyr_library_sources(lib/memory.c)
   endif()

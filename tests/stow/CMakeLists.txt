@@ -29,7 +29,6 @@ target_sources(app PRIVATE
     src/stow_storage_stub.c
     ${GANTRY_LIB}/memory.c
     ${GANTRY_LIB}/event.c
-    ${GANTRY_LIB}/string_utils.c
     ${GANTRY_LIB}/stow/stow.c
     ${GANTRY_LIB}/stow/stow_event.c
     ${GANTRY_LIB}/stow/types/stow_type_enum.c

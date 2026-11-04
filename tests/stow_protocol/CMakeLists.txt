@@ -22,7 +22,6 @@ target_sources(app PRIVATE
     ${GANTRY_ROOT}/tests/common/stow_storage_stub.c
     ${GANTRY_LIB}/memory.c
     ${GANTRY_LIB}/event.c
-    ${GANTRY_LIB}/string_utils.c
     ${GANTRY_LIB}/cobs_framer.c
     ${GANTRY_LIB}/stow/stow.c
     ${GANTRY_LIB}/stow/stow_event.c
