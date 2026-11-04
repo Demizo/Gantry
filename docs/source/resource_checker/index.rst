@@ -5,7 +5,7 @@ Resource Checker
 Overview
 ========
 
-The resource checker reports a resource acquired in a function and not released on some path to a ``return``, a resource released a second time, and a resource used after its release. It covers Gantry's reference counted memory, events and Stow values, and common Zephyr resources such as IRQ locks, mutexes, spinlocks and ``net_buf``. It runs automatically when Gantry is included as a module.
+The resource checker reports a resource acquired in a function and not released on some path out of the function, a resource released a second time, and a resource used after its release. It covers Gantry's reference counted memory, events and Stow values, and common Zephyr resources such as IRQ locks, mutexes, spinlocks and ``net_buf``. It runs automatically when Gantry is included as a module.
 
 The checker is a Python tool built on `tree-sitter <https://tree-sitter.github.io/tree-sitter/>`_. It reads the unexpanded source, so it needs no build, include paths or compile flags. It lives in ``tools/resource_check`` as the standalone ``resource-check`` package and does not depend on Gantry, so it can be installed into other projects.
 

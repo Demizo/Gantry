@@ -3,7 +3,13 @@ from typing import Literal
 
 from tree_sitter import Node
 
-from .ast_nodes import contains_label, find_calls, find_writes
+from .ast_nodes import (
+    contains_label,
+    find_calls,
+    find_writes,
+    strip_parentheses,
+    text,
+)
 
 
 @dataclass
@@ -66,7 +72,9 @@ class _CFGBuilder:
     def build(self, function_node: Node) -> CFG:
         entry = self.new_block()
         body = function_node.child_by_field_name("body")
-        self.build_compound(body, entry)
+        end = self.build_compound(body, entry)
+        # A void function's last path has no return statement
+        self.build_return(body.children[-1], end)
         for goto_block, label in self.pending_gotos:
             self.add_edge(goto_block, self.label_blocks.get(label))
         return CFG(function=function_node, entry=entry, blocks=self.blocks)
@@ -189,7 +197,8 @@ class _CFGBuilder:
         self.frames.pop()
 
         self.add_edge(body_exit, condition_block)
-        self.add_edge(condition_block, after)
+        if not _always_true(node.child_by_field_name("condition")):
+            self.add_edge(condition_block, after)
         return after
 
     def build_do(self, node: Node, current: BasicBlock | None) -> BasicBlock | None:
@@ -207,9 +216,11 @@ class _CFGBuilder:
         self.frames.pop()
 
         self.add_edge(body_exit, condition_block)
-        self.record(condition_block, node.child_by_field_name("condition"))
+        condition = node.child_by_field_name("condition")
+        self.record(condition_block, condition)
         self.add_edge(condition_block, body_entry)
-        self.add_edge(condition_block, after)
+        if not _always_true(condition):
+            self.add_edge(condition_block, after)
         return after
 
     def build_for(self, node: Node, current: BasicBlock | None) -> BasicBlock | None:
@@ -284,6 +295,12 @@ class _CFGBuilder:
 
         self.frames.pop()
         return after
+
+
+def _always_true(condition: Node | None) -> bool:
+    """A `while (1)` or `while (true)` loop is left only by break, return or goto, like `for (;;)`."""
+    condition = strip_parentheses(condition)
+    return condition is not None and text(condition) in ("1", "true")
 
 
 _STMT_HANDLERS = {

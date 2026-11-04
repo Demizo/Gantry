@@ -30,3 +30,33 @@ int leak_infinite_loop_with_break(void)
     }
     return 0; // LEAK: buf
 }
+
+void clean_thread_holding_a_resource_in_a_while_true_loop(void)
+{
+    void* buf;
+    MEM_ALLOC(4, &buf);
+    while (true)
+    {
+        do_work(buf);
+    }
+}
+
+void clean_thread_holding_a_resource_in_a_while_1_loop(void)
+{
+    void* buf;
+    MEM_ALLOC(4, &buf);
+    while (1)
+    {
+        do_work(buf);
+    }
+}
+
+void clean_thread_holding_a_resource_in_a_do_while_1_loop(void)
+{
+    void* buf;
+    MEM_ALLOC(4, &buf);
+    do
+    {
+        do_work(buf);
+    } while (1);
+}

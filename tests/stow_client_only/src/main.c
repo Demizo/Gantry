@@ -5,6 +5,7 @@
  */
 
 #include <gantry/error.h>
+#include <gantry/ownership.h>
 #include <gantry/stow/stow_client.h>
 #include <gantry/stow/stow_cobs_transport.h>
 #include <generated_device_stow_client.h>
@@ -32,6 +33,7 @@ static int write_frame(struct net_buf* frame, void* user_data)
 static void on_connected(struct stow_client_peer* peer, int err)
 {
     device = stow_client_peer_ref(peer);
+    PASS_OWNERSHIP(device);
     (void)k_msgq_put(&verifications, &err, K_NO_WAIT);
 }
 

@@ -300,6 +300,7 @@ static void notify_subscribers(const struct stow_item_const_metadata* item)
         }
 
         update_payload->value_copy = current_value;
+        PASS_OWNERSHIP(current_value);
     }
 
     // Notify subscribers

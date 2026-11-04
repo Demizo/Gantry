@@ -269,6 +269,19 @@ def test_multiple_return_points_all_reachable():
     assert len(return_blocks) == 3
 
 
+def test_reaching_the_end_of_the_body_returns():
+    cfg = _cfg_of("""
+        void f(int x) {
+            if (x) {
+                return;
+            }
+            foo();
+        }
+    """)
+    return_nodes = [block.return_node.text for block in cfg.blocks if block.is_return]
+    assert return_nodes == [b"return;", b"}"]
+
+
 def test_if_records_condition_and_targets():
     cfg = _cfg_of("""
         int f(int x) {
