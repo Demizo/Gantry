@@ -73,7 +73,7 @@ function(gantry_protocol_vectors target folder prefix)
     ARGS    c ${folder} --prefix ${prefix} --output-dir ${_dir}
   )
   target_sources(${target} PRIVATE ${_outputs})
-  target_include_directories(${target} PRIVATE ${_dir} ${ZEPHYR_GANTRY_MODULE_DIR}/tests/common)
+  target_include_directories(${target} PRIVATE ${_dir})
 endfunction()
 
 # gantry_stow_raise_depth(<file>)

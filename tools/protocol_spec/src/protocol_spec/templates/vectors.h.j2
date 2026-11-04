@@ -4,7 +4,37 @@
 
 #pragma once
 
-#include <protocol_vectors.h>
+#include <stddef.h>
+#include <stdint.h>
+
+/* Every protocol folder's header defines these, so that one target can include two of them */
+#ifndef PROTOCOL_VECTOR_TYPES
+#define PROTOCOL_VECTOR_TYPES
+
+/**
+ * @brief One message of an exchange
+ */
+struct protocol_step
+{
+    uint8_t side;        /**< Index into the sides; 0 is the first declared side */
+    const uint8_t* data; /**< Encoded message */
+    size_t len;          /**< Length of data */
+    const char* edn;     /**< The message in diagnostic notation, or NULL when written as raw bytes */
+};
+
+/**
+ * @brief A golden vector: a script of messages between two sides on one fresh session
+ */
+struct protocol_vector
+{
+    const char* name;                  /**< Vector name */
+    const char* meaning;               /**< What the vector shows */
+    const char* const* roles;          /**< Role names of the session, NULL-terminated */
+    const struct protocol_step* steps; /**< Messages in order */
+    size_t step_count;                 /**< Number of steps */
+};
+
+#endif
 
 extern const char* const {{ prefix }}_sides[2];
 {% for section, vectors in sections.items() %}

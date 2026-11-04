@@ -305,7 +305,6 @@ def test_c_output_compiles_and_lists_the_vectors_by_name(tmp_path: Path):
             "-std=c11",
             "-Wall",
             "-Werror",
-            f"-I{REPO / 'tests' / 'common'}",
             f"-I{tmp_path}",
             str(tmp_path / "main.c"),
             str(tmp_path / "toy_vectors.c"),

@@ -5,6 +5,7 @@
  */
 
 #include <gantry/error.h>
+#include <protocol_vector_print.h>
 #include <stow_vectors.h>
 #include <string.h>
 

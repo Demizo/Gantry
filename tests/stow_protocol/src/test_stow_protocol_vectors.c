@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <protocol_vector_print.h>
 #include <stow_vectors.h>
 
 #include "test_common.h"

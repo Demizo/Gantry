@@ -26,6 +26,7 @@ target_sources(app PRIVATE
 
 target_include_directories(app PRIVATE
     ${GANTRY_INC}
+    ${GANTRY_ROOT}/tests/common
 )
 
 gantry_protocol_vectors(app ${GANTRY_ROOT}/protocols/stow stow)
