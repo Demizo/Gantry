@@ -112,6 +112,7 @@ void event_unref(event_t** event)
 
     // Iterate over linked events, decrementing the reference count
     current = *event;
+    PASS_OWNERSHIP(event);
     while (current != NULL && (chain_length < LINKED_EVENT_CHAIN_LEN_MAX))
     {
         // Get the linked event first in case the block is freed

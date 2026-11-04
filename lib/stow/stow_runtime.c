@@ -579,6 +579,7 @@ void stow_session_unref(struct stow_session** session)
 {
     struct stow_session* released = *session;
     *session = NULL;
+    PASS_OWNERSHIP(session);
     if (released == NULL || atomic_dec(&released->refs) != 1)
     {
         return;

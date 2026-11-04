@@ -429,6 +429,7 @@ static void release_values(struct stow_client_peer* peer, struct stow_client_val
         struct stow_client_value* value = &values[i];
         stow_client_release(peer_endpoint(peer), value);
     }
+    PASS_OWNERSHIP(values);
 }
 
 /**
@@ -750,6 +751,7 @@ void stow_client_peer_unref(struct stow_client_peer** peer)
 {
     struct stow_client_peer* released = *peer;
     *peer = NULL;
+    PASS_OWNERSHIP(peer);
     if (released != NULL)
     {
         struct stow_session* session = &released->session;
@@ -845,19 +847,16 @@ int stow_client_unsubscribe_async(
 
 void stow_client_release(const struct stow_client_endpoint* endpoint, struct stow_client_value* value)
 {
-    if (value->id < endpoint->schema->item_count)
-    {
-        data_value_t* item_value = &value->value;
-        endpoint->schema->items[value->id].interface->release(item_value);
-    }
+    ASSERT(value->id < endpoint->schema->item_count, "Released a value of unknown item %u", value->id);
+    data_value_t* item_value = &value->value;
+    endpoint->schema->items[value->id].interface->release(item_value);
+    PASS_OWNERSHIP(value);
 }
 
 void stow_client_ref(const struct stow_client_endpoint* endpoint, struct stow_client_value* value)
 {
-    if (value->id < endpoint->schema->item_count)
-    {
-        data_value_t* item_value = &value->value;
-        endpoint->schema->items[value->id].interface->ref(item_value);
-        PASS_OWNERSHIP(item_value);
-    }
+    ASSERT(value->id < endpoint->schema->item_count, "Referenced a value of unknown item %u", value->id);
+    data_value_t* item_value = &value->value;
+    endpoint->schema->items[value->id].interface->ref(item_value);
+    PASS_OWNERSHIP(item_value);
 }

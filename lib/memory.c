@@ -366,6 +366,7 @@ void mem_unref_with(void** block_ptr, mem_on_free_t on_free)
     if (block == NULL)
     {
         // Assume that the data is already freed
+        PASS_OWNERSHIP(block_ptr);
         return;
     }
 
@@ -375,6 +376,7 @@ void mem_unref_with(void** block_ptr, mem_on_free_t on_free)
     ASSERT(((header != NULL) && header->ref_count > 0), "Invalid memory block");
 
     header->ref_count--;
+    PASS_OWNERSHIP(block_ptr);
 
     if (header->ref_count > 0)
     {

@@ -12,7 +12,7 @@ from .ast_nodes import (
     value_node,
 )
 from .cfg import CFG, BasicBlock
-from .dataflow import Event, EventsOf, Key, affects
+from .dataflow import Edge, Event, EventsOf, FailureEdges, Key, affects
 
 Subject = Callable[[Node], bool]
 
@@ -200,10 +200,15 @@ def _tested_acquire(block: BasicBlock, key: Key, events_of: EventsOf) -> Event |
     return last
 
 
-def find_failure_edges(
-    cfg: CFG, key: Key, events_of: EventsOf
-) -> dict[tuple[int, int], Node]:
-    edges: dict[tuple[int, int], Node] = {}
+def _arm_edge(block: BasicBlock, arm: str | None) -> Edge | None:
+    """The edge into the "true" or "false" arm of the block's branch."""
+    branch = block.branch
+    target = {"true": branch.true_target, "false": branch.false_target}.get(arm)
+    return (block.id, target.id) if target is not None else None
+
+
+def find_failure_edges(cfg: CFG, key: Key, events_of: EventsOf) -> FailureEdges:
+    edges: FailureEdges = {}
     for block in cfg.blocks:
         branch = block.branch
         if branch is None or branch.false_target is None:
@@ -214,9 +219,34 @@ def find_failure_edges(
         subject = _subject_of(acquire.call, branch.condition, cfg.function)
         if subject is None:
             continue
-        arm = _failing_arm(branch.condition, subject, acquire.condition)
-        if arm == "true":
-            edges[(block.id, branch.true_target.id)] = acquire.call
-        elif arm == "false":
-            edges[(block.id, branch.false_target.id)] = acquire.call
+        edge = _arm_edge(
+            block, _failing_arm(branch.condition, subject, acquire.condition)
+        )
+        if edge is not None:
+            edges[edge] = acquire.call
+    return edges
+
+
+def find_null_edges(cfg: CFG, parameter: str) -> set[Edge]:
+    """Edges on the arm where `parameter`, still as the caller passed it, was tested equal to NULL."""
+    body_start = cfg.function.child_by_field_name("body").start_byte
+
+    def is_parameter(node: Node | None) -> bool:
+        return (
+            node is not None and node.type == "identifier" and text(node) == parameter
+        )
+
+    edges: set[Edge] = set()
+    for block in cfg.blocks:
+        branch = block.branch
+        if branch is None or branch.false_target is None:
+            continue
+        condition = branch.condition
+        if _written_between(
+            cfg.function, parameter, body_start, condition.end_byte
+        ) or _address_escapes(cfg.function, parameter, condition.end_byte):
+            continue
+        edge = _arm_edge(block, _failing_arm(condition, is_parameter, "on-non-null"))
+        if edge is not None:
+            edges.add(edge)
     return edges

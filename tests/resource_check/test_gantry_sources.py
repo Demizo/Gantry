@@ -105,6 +105,21 @@ def test_keeping_a_message_the_queue_refused_is_reported(tmp_path, library_annot
     assert any("'held'" in f.text and "not released" in f.text for f in findings)
 
 
+def test_breaking_a_release_promise_is_reported(tmp_path, library_annotations):
+    findings = _check_mutated(
+        tmp_path,
+        library_annotations,
+        LIB / "stow" / "stow_runtime.c",
+        "        release_buf(buf);\n        return ret;",
+        "        return ret;",
+    )
+
+    assert any(
+        "'buf'" in finding.text and "not released" in finding.text
+        for finding in findings
+    )
+
+
 def test_sending_a_response_twice_is_reported(tmp_path, library_annotations):
     send = "stow_transport_send(session->transport, session->id, buf);"
     findings = _check_mutated(

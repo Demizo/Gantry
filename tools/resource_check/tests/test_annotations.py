@@ -232,6 +232,10 @@ def test_same_named_fields_with_matching_tags_and_positions_agree():
             "'return' target on void function 'f'",
         ),
         (
+            "/** @releases memory return */\nvoid* f(void);",
+            "'return' is not a valid @releases target",
+        ),
+        (
             "/** @acquires memory p */\nstruct s { int a; };",
             "not followed by a function or macro",
         ),

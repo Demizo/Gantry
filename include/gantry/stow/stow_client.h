@@ -428,7 +428,7 @@ int stow_client_unsubscribe_async(
  * @brief Release a value returned by @ref stow_client_get or kept with @ref stow_client_ref
  *
  * @param endpoint Endpoint of the peer the value came from
- * @param[in,out] value The item and value to release
+ * @param[in,out] value The item and value to release; its item must be in @p endpoint's schema
  * @releases memory value
  */
 void stow_client_release(const struct stow_client_endpoint* endpoint, struct stow_client_value* value);
@@ -444,7 +444,7 @@ void stow_client_release(const struct stow_client_endpoint* endpoint, struct sto
  * @brief Add a reference to a value; release it with @ref stow_client_release
  *
  * @param endpoint Endpoint of the peer the value came from
- * @param[in] value The item and value to keep
+ * @param[in] value The item and value to keep; its item must be in @p endpoint's schema
  * @acquires memory value
  */
 void stow_client_ref(const struct stow_client_endpoint* endpoint, struct stow_client_value* value);

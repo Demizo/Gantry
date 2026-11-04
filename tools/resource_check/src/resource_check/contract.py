@@ -19,6 +19,7 @@ class Contract:
     """A definition's own tags, with each parameter target named as the definition names it."""
 
     acquires: dict[str, Tag]
+    releases: dict[str, Tag]
     returns: Tag | None = None
 
     @property
@@ -31,18 +32,18 @@ def contract_of(function: Node, annotations: Annotations) -> Contract:
     declaration = describe_declaration(function)
     spec = annotations.get(declaration.name) if declaration is not None else None
     if spec is None:
-        return Contract({})
+        return Contract({}, {})
     params = declaration.params
-    acquires: dict[str, Tag] = {}
+    targets: dict[str, dict[str, Tag]] = {"acquires": {}, "releases": {}}
     returns = None
-    for tag in spec.acquires:
+    for tag in spec.tags:
         if tag.target == RETURN_TARGET:
             returns = tag
             continue
         index = spec.arg_index(tag.target)
         if index is not None and index < len(params):
-            acquires[params[index]] = tag
-    return Contract(acquires, returns)
+            targets[tag.kind][params[index]] = tag
+    return Contract(targets["acquires"], targets["releases"], returns)
 
 
 def hand_off_events(contract: Contract, events_of: EventsOf, node: Node) -> list[Event]:

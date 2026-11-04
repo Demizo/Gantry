@@ -12,10 +12,11 @@
 #pragma once
 
 /**
- * @brief Marks a point where ownership of a resource leaves the function
+ * @brief Marks a point where the function's obligation for a resource ends without a tagged release
  *
- * @details Tells the resource checker that the caller (or another owner) is now responsible for releasing the value, so
- * it is not reported as leaked on this path. It releases the identifier whatever resource class it was acquired as.
+ * @details Tells the resource checker that the value is not leaked on this path: another owner, such as the caller or
+ * a queue, is now responsible for releasing it, or the function implements the resource's class and has released it
+ * itself. It releases the identifier whatever resource class it was acquired as.
  *
  * @releases * data
  */

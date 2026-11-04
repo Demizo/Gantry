@@ -238,6 +238,8 @@ def _parse_tag(kind: TagKind, rest: str, line: int, file: str) -> Tag | Finding:
 
 def _validate_target(tag: Tag, described: Declaration, file: str) -> Finding | None:
     if tag.target == RETURN_TARGET:
+        if tag.kind == "releases":
+            return _error(file, tag.line, "'return' is not a valid @releases target")
         if described.returns_void:
             return _error(
                 file, tag.line, f"'return' target on void function '{described.name}'"

@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass
 from typing import Literal, NamedTuple
 
@@ -101,15 +101,21 @@ def _solve(
     return in_fact
 
 
-FailureEdges = dict[tuple[int, int], Node]
+Edge = tuple[int, int]
+FailureEdges = dict[Edge, Node]
 
 
-def find_unmatched_exits(
-    cfg: CFG, key: Key, events_of: EventsOf, failure_edges: FailureEdges | None = None
-) -> list[BasicBlock]:
-    failure_edges = failure_edges or {}
+def _edge_transfer(
+    key: Key,
+    events_of: EventsOf,
+    failure_edges: FailureEdges,
+    empty_edges: Collection[Edge],
+) -> EdgeTransfer:
+    """Nothing is held along an empty edge, and a failure edge skips the acquire that failed."""
 
-    def failure_edge(predecessor: BasicBlock, block: BasicBlock, fact: bool):
+    def edge(predecessor: BasicBlock, block: BasicBlock, fact: bool) -> bool | None:
+        if (predecessor.id, block.id) in empty_edges:
+            return True
         skipped = failure_edges.get((predecessor.id, block.id))
         if skipped is None:
             return None
@@ -117,11 +123,22 @@ def find_unmatched_exits(
             _operations(predecessor), fact, key, events_of, skip_call=skipped
         )
 
+    return edge
+
+
+def find_unmatched_exits(
+    cfg: CFG,
+    key: Key,
+    events_of: EventsOf,
+    failure_edges: FailureEdges,
+    held_at_entry: bool,
+    empty_edges: Collection[Edge],
+) -> list[BasicBlock]:
     in_fact = _solve(
         cfg,
-        True,
+        not held_at_entry,
         lambda block, fact: _transfer(_operations(block), fact, key, events_of),
-        failure_edge,
+        _edge_transfer(key, events_of, failure_edges, empty_edges),
     )
     return [
         block

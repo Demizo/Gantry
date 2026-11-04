@@ -77,6 +77,8 @@ A function that takes ownership of an argument carries ``@releases`` on that par
 
 Under ``on-success`` or ``on-non-null`` the caller owns nothing when the function fails, so a hand-off followed by a literal failure return, such as ``return -EIO;`` or ``return NULL;``, is reported as a leak, and releasing the handed-off resource where every path then returns such a failure is not a second release. After a hand-off, returning a variable or the result of a call, such as ``return ret;``, is trusted to pass the result through.
 
+A ``@releases`` parameter is held from the start of the function, and every path must release it or hand it off, except the arm where the parameter itself is tested equal to NULL. A function that implements its class with bookkeeping rather than another tagged call, such as ``mem_unref_with``, marks the parameter with :any:`PASS_OWNERSHIP` where the obligation ends.
+
 Custom Resources
 ================
 

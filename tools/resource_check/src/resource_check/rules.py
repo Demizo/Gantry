@@ -1,4 +1,5 @@
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
+from dataclasses import dataclass
 from functools import partial
 from typing import Protocol
 
@@ -15,7 +16,7 @@ from .ast_nodes import (
     unwrap_identifier_reference,
 )
 from .cfg import CFG
-from .conditions import find_failure_edges
+from .conditions import find_failure_edges, find_null_edges
 from .contract import (
     Contract,
     contract_of,
@@ -24,6 +25,7 @@ from .contract import (
     passes_through,
 )
 from .dataflow import (
+    Edge,
     Event,
     EventsOf,
     Key,
@@ -95,6 +97,36 @@ def _with_hand_offs(
     ]
 
 
+@dataclass(frozen=True)
+class _Obligations:
+    """A definition's own tags, the parameters it promises to release, and the calls that acquire each key."""
+
+    contract: Contract
+    held_at_entry: set[Key]
+    acquires: dict[Key, list[Node]]
+
+    def null_edges(self, cfg: CFG, key: Key) -> Collection[Edge]:
+        """A parameter held from entry holds nothing on the arm where it was tested equal to NULL."""
+        return find_null_edges(cfg, key.identifier) if key in self.held_at_entry else ()
+
+
+def _obligations_of(
+    cfg: CFG, annotations: Annotations, events_of: EventsOf
+) -> _Obligations:
+    contract = contract_of(cfg.function, annotations)
+    held_at_entry = {
+        Key(param, tag.resource_class) for param, tag in contract.releases.items()
+    }
+    acquires: dict[Key, list[Node]] = {}
+    for block in cfg.blocks:
+        for call in block.calls:
+            for event in events_of(call):
+                if event.kind == "acquire":
+                    key = Key(event.identifier, event.resource_class)
+                    acquires.setdefault(key, []).append(call)
+    return _Obligations(contract, held_at_entry, acquires)
+
+
 def _exits_by_failure(cfg: CFG, contract: Contract) -> dict[str | None, set[int]]:
     """Return blocks grouped by the own condition whose failure they return, None for the rest."""
     exits: dict[str | None, set[int]] = {}
@@ -137,26 +169,28 @@ class LeakRuleKind:
         self.events_of = partial(call_events, annotations)
 
     def check(self, cfg: CFG, file_path: str) -> Iterable[Finding]:
-        starts: dict[Key, Node] = {}
-        for block in cfg.blocks:
-            for call in block.calls:
-                for event in self.events_of(call):
-                    if event.kind != "acquire":
-                        continue
-                    key = Key(event.identifier, event.resource_class)
-                    if key not in starts or line(call) < line(starts[key]):
-                        starts[key] = call
+        obligations = _obligations_of(cfg, self.annotations, self.events_of)
+        starts: dict[Key, Node] = {
+            key: min(calls, key=line) for key, calls in obligations.acquires.items()
+        }
+        starts.update(dict.fromkeys(obligations.held_at_entry, cfg.function))
 
-        contract = contract_of(cfg.function, self.annotations)
+        contract = obligations.contract
         variants = [
             (partial(_with_hand_offs, contract, self.events_of, failed), exit_ids)
             for failed, exit_ids in _exits_by_failure(cfg, contract).items()
         ]
         for key, start_call in starts.items():
             failure_edges = find_failure_edges(cfg, key, self.events_of)
+            null_edges = obligations.null_edges(cfg, key)
             for events_of, exit_ids in variants:
                 for exit_block in find_unmatched_exits(
-                    cfg, key, events_of, failure_edges
+                    cfg,
+                    key,
+                    events_of,
+                    failure_edges,
+                    held_at_entry=key in obligations.held_at_entry,
+                    empty_edges=null_edges,
                 ):
                     if exit_block.id not in exit_ids:
                         continue

@@ -18,6 +18,7 @@
 
 #include <gantry/error.h>
 #include <gantry/memory.h>
+#include <gantry/ownership.h>
 #include <sys/errno.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -206,6 +207,7 @@ bool z_stow_client_slot_cancel(struct stow_client_peer* peer, struct slot* slot,
         detach_slot(peer, slot, &ids, &event);
     }
     k_spin_unlock(&peer->lock, key);
+    PASS_OWNERSHIP(slot);
 
     if (current)
     {
@@ -222,6 +224,7 @@ void z_stow_client_slot_finish(struct stow_client_peer* peer, struct slot* slot,
     event_t* event = slot->event;
     slot->event = NULL;
     free_slot(peer, slot);
+    PASS_OWNERSHIP(slot);
 
     if (sync != NULL)
     {
@@ -273,6 +276,7 @@ int z_stow_client_slot_send(struct stow_client_peer* peer, struct slot* slot, st
         return -EBUSY;
     }
     mark_sent(peer, slot);
+    PASS_OWNERSHIP(slot);
     return SUCCESS;
 }
 
