@@ -118,6 +118,7 @@ check:
   step ruff uv run ruff check .
   step "ruff format" uv run ruff format --check .
   step resource-check uv run --project tools/resource_check resource-check lib/ {{sample}}/src/ --annotations include --annotations {{sample}}/inc
+  step "resource-check peers" uv run --project tools/resource_check resource-check samples/stow_peers/common/src/ samples/stow_peers/controller/src/ samples/stow_peers/sensor/src/ --annotations include --annotations samples/stow_peers/common/inc
   step cppcheck cppcheck {{cppcheck_flags}} lib/ {{sample}}/src/
   for folder in protocols/*/; do step "$folder" {{just_executable()}} protocol_spec check "$folder"; done
   summary

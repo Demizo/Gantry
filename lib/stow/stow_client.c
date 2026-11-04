@@ -184,7 +184,6 @@ static int encode_request(
     }
     net_buf_add(buf, len);
     *buf_out = buf;
-    PASS_OWNERSHIP(buf);
     return SUCCESS;
 }
 

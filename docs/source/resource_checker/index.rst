@@ -52,13 +52,16 @@ Most allocations only acquire when they succeed. ``on-success`` means success is
     }
     MEM_UNREF(&buf);
 
+.. _ownership-transfer:
+
 Ownership Transfer
 ==================
 
-A function that takes ownership of an argument carries ``@releases`` on that parameter, so its callers need no marker. When ownership leaves a function any other way, through a field, an out parameter or a queue, mark the point with :any:`PASS_OWNERSHIP`. The checker does not infer a transfer from a value being stored in a field, returned, or passed to an unannotated function.
+A function that takes ownership of an argument carries ``@releases`` on that parameter, so its callers need no marker. A function that gives a resource to its caller carries ``@acquires`` on its own target, and handing the resource to that target needs no marker either: acquiring into the target, storing a held identifier through it (``*block = new_block``, ``block->field = new_block``), or returning a held identifier from a function tagged ``@acquires <class> return``. Such a function may also return a call's result directly, as in ``return net_buf_alloc(pool, K_NO_WAIT);``, when the callee's ``return`` tag has the same class and condition as its own. After a hand-off the function may still read the identifier, but releasing it is reported as a second release. When ownership leaves a function any other way, through a field, an untagged out parameter or a queue, mark the point with :any:`PASS_OWNERSHIP`. The checker does not infer any other transfer from a value being stored in a field, returned, or passed to an unannotated function.
 
 .. code-block:: c
 
+    /** @acquires memory block on-success */
     int custom_alloc(void** block)
     {
       void* new_block = NULL;
@@ -69,14 +72,15 @@ A function that takes ownership of an argument carries ``@releases`` on that par
       }
 
       *block = new_block;
-      PASS_OWNERSHIP(new_block);
       return SUCCESS;
     }
+
+Under ``on-success`` or ``on-non-null`` the caller owns nothing when the function fails, so a hand-off followed by a literal failure return, such as ``return -EIO;`` or ``return NULL;``, is reported as a leak, and releasing the handed-off resource where every path then returns such a failure is not a second release. After a hand-off, returning a variable or the result of a call, such as ``return ret;``, is trusted to pass the result through.
 
 Custom Resources
 ================
 
-Applications describe their own resources by annotating their functions in place. Annotating ``custom_alloc`` above in its header lets the checker require that callers release the block:
+Applications describe their own resources by annotating their functions in place. Other files see a function's tags through headers, so a function called from other files, such as ``custom_alloc`` above, carries its tag on its header declaration. The checker then requires every caller to release the block:
 
 .. code-block:: c
 
@@ -115,7 +119,7 @@ The checker works on one function at a time. It does not track:
 - resources held in struct fields
 - calls through function pointers
 
-An identifier the function never acquired, such as a parameter or a local copied from a field, may be released once.
+An identifier the function never acquired, such as a parameter or a local copied from a field, may be released once, unless the function first stored it through its own target.
 
 A second release and a use after release are only reported when every path to the call has already released the identifier. A release in a loop of something acquired before the loop is not reported.
 

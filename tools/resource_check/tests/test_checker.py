@@ -9,15 +9,17 @@ from resource_check.parser import make_parser
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 _EXPECTED_COMMENT = re.compile(
-    r"//\s*(LEAK|RELEASED TWICE|USED AFTER RELEASE):\s*(\w+)"
+    r"//\s*(LEAK|RELEASED TWICE|USED AFTER RELEASE|POLICY ERROR):\s*(\w+)"
 )
 _FINDING = re.compile(
-    r"Variable '(\w+)' .*(was not released|released twice|used after release)"
+    r"(?:Variable '(\w+)'|The result of (\w+)) "
+    r".*(was not released|released twice|used after release|must be assigned)"
 )
 _KINDS = {
     "was not released": "LEAK",
     "released twice": "RELEASED TWICE",
     "used after release": "USED AFTER RELEASE",
+    "must be assigned": "POLICY ERROR",
 }
 
 
@@ -35,7 +37,8 @@ def _actual_findings(path: Path, annotations) -> set[tuple[int, str, str]]:
     for finding in check_file(path, annotations, make_parser()):
         match = _FINDING.search(finding.text)
         assert match, f"finding text has no identifier or kind: {finding.text}"
-        actual.add((finding.line, _KINDS[match.group(2)], match.group(1)))
+        name = match.group(1) or match.group(2)
+        actual.add((finding.line, _KINDS[match.group(3)], name))
     return actual
 
 

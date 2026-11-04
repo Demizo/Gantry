@@ -271,7 +271,6 @@ static int decode_entry(
         return (ret == -ENOMEM || ret == -EINVAL) ? ret : -EBADMSG;
     }
     entry->value = value;
-    PASS_OWNERSHIP(value);
     return SUCCESS;
 }
 
@@ -730,7 +729,6 @@ int stow_msg_next_entry(struct stow_msg_reader* reader, struct stow_msg_entry* e
     reader->left--;
     int ret = decode_entry(reader->states, reader->items, shape == SHAPE_PAIRS, entry);
     ASSERT(ret != -EBADMSG, "Message %u changed after it was read", reader->code);
-    PASS_OWNERSHIP(entry);
     return ret;
 }
 

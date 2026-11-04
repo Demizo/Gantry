@@ -51,6 +51,7 @@ static int cobs_send(struct stow_transport* transport, uint32_t session_id, stru
         net_buf_unref(frame);
         return ret;
     }
+    PASS_OWNERSHIP(frame);
 
     net_buf_unref(buf);
     return SUCCESS;

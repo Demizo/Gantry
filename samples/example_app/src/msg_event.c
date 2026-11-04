@@ -63,6 +63,5 @@ int msg_event_alloc(struct net_buf* buf, event_t** event_ptr)
     struct msg_event_payload* payload = (struct msg_event_payload*)(*event_ptr)->data.buf;
     payload->buf = buf;
 
-    PASS_OWNERSHIP(event_ptr);
     return SUCCESS;
 }

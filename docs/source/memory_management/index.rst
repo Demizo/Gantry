@@ -35,26 +35,7 @@ To avoid memory leaks, the general memory model is as follows: **the function th
 
 This model allows the :doc:`Resource Checker </resource_checker/index>` to automatically detect memory leaks. It also keeps memory management consistent and clear. If a function allocates or references memory, it must also free it.
 
-There will be exceptions to this rule. For example, when making a helper function that allocates memory and provides it to the caller. In these cases, the :any:`PASS_OWNERSHIP` macro can be used to indicate to the resource checker that the memory is intentionally not freed. A function that returns early because :any:`MEM_ALLOC` failed needs no marker: the resource checker knows that a failed allocation holds nothing, as long as the result is tested directly (see :doc:`/resource_checker/index`).
-
-.. code-block:: c
-
-   int custom_alloc(void** block)
-   {
-      void* new_block = NULL;
-      int ret = mem_alloc(42, &new_block);
-      if (ret != SUCCESS)
-      {
-         // Alloc didn't succeed so there is nothing to free
-         return ret;
-      }
-
-      *block = new_block;
-
-      // The intent is to give ownership to the caller
-      PASS_OWNERSHIP(new_block);
-      return SUCCESS;
-   }
+There will be exceptions to this rule. A helper function that allocates memory and provides it to the caller says so with an ``@acquires`` tag, and memory handed on any other way is marked with :any:`PASS_OWNERSHIP`; see :ref:`ownership-transfer`. A function that returns early because :any:`MEM_ALLOC` failed needs no marker: the resource checker knows that a failed allocation holds nothing, as long as the result is tested directly (see :doc:`/resource_checker/index`).
 
 .. note::
    You **must not** provide pointers as complex expressions to the memory API. This allows the :doc:`Resource Checker </resource_checker/index>` to identify memory leaks. The resource checker will warn you when complex expressions are used.

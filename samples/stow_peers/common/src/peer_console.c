@@ -205,7 +205,6 @@ static struct stow_client_peer* take_peer(void)
         peer = stow_client_peer_ref(connected_peer);
     }
     k_mutex_unlock(&peer_lock);
-    PASS_OWNERSHIP(peer);
     return peer;
 }
 

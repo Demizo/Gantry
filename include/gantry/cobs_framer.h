@@ -130,6 +130,7 @@ int cobs_frame_decoder_feed(struct cobs_frame_decoder* frame_decoder, const uint
  * @return -EINVAL if any pointer argument is NULL
  * @return -ENOMEM if the output net_buf cannot be allocated from @p pool
  * @return -ENOSPC if the allocated net_buf is too small for the encoded output
+ * @acquires net_buf output on-success
  */
 int cobs_frame_encode(struct net_buf_pool* pool, const struct net_buf* input, struct net_buf** output);
 

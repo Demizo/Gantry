@@ -115,18 +115,18 @@ def _parameter_names(parameters: Node | None) -> tuple[str, ...]:
 
 
 @dataclass(frozen=True)
-class _Target:
+class Declaration:
     name: str
     params: tuple[str, ...]
     returns_void: bool
 
 
-def _describe(node: Node) -> _Target | None:
+def describe_declaration(node: Node) -> Declaration | None:
     if node.type == "preproc_def":
-        return _Target(text(node.child_by_field_name("name")), (), False)
+        return Declaration(text(node.child_by_field_name("name")), (), False)
     if node.type == "preproc_function_def":
         params = _parameter_names(node.child_by_field_name("parameters"))
-        return _Target(text(node.child_by_field_name("name")), params, False)
+        return Declaration(text(node.child_by_field_name("name")), params, False)
 
     declarator = node.child_by_field_name("declarator")
     returns_pointer = False
@@ -143,7 +143,7 @@ def _describe(node: Node) -> _Target | None:
         not returns_pointer and type_node is not None and text(type_node) == "void"
     )
     params = _parameter_names(declarator.child_by_field_name("parameters"))
-    return _Target(text(name), params, returns_void)
+    return Declaration(text(name), params, returns_void)
 
 
 def _comment_lines(comment: Node) -> Iterator[tuple[int, str]]:
@@ -185,7 +185,7 @@ def _parse_tag(kind: TagKind, rest: str, line: int, file: str) -> Tag | Finding:
     return Tag(kind, resource_class, target, modifier, line)
 
 
-def _validate_target(tag: Tag, described: _Target, file: str) -> Finding | None:
+def _validate_target(tag: Tag, described: Declaration, file: str) -> Finding | None:
     if tag.target == RETURN_TARGET:
         if described.returns_void:
             return _error(
@@ -238,7 +238,7 @@ def scan_tree(tree: Tree, file: str) -> Scan:
 
         following = comment.next_named_sibling
         described = (
-            _describe(following)
+            describe_declaration(following)
             if following is not None and following.type in _DECLARATION_TYPES
             else None
         )

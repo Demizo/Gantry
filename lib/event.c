@@ -71,8 +71,7 @@ int event_alloc(const event_type_t* type, size_t payload_size, event_t** event_p
 
     // Account for event header size in total size
     size_t total_size = sizeof(event_t) + payload_size;
-    void** event_block = (void**)event_ptr;
-    ret = mem_alloc(total_size, event_block);
+    ret = mem_alloc(total_size, (void**)event_ptr);
     if (ret)
     {
         LOG_ERR("Failed to allocate event: %d", ret);
@@ -83,7 +82,6 @@ int event_alloc(const event_type_t* type, size_t payload_size, event_t** event_p
 
     LOG_DBG("Event allocated: type: %d, payload size: %zu", type->id, payload_size);
 
-    PASS_OWNERSHIP(event_block);
     return SUCCESS;
 }
 

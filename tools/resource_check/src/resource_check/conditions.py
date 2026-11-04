@@ -4,6 +4,7 @@ from tree_sitter import Node
 
 from .ast_nodes import (
     declarator_identifier,
+    is_assignment,
     iter_nodes,
     result_identifier,
     strip_parentheses,
@@ -159,10 +160,7 @@ def _subject_of(call: Node, condition: Node, function: Node) -> Subject | None:
             return False
         if _same(node, call):
             return True
-        if (
-            node.type == "assignment_expression"
-            and text(node.child_by_field_name("operator")) == "="
-        ):
+        if is_assignment(node):
             return _same(strip_parentheses(node.child_by_field_name("right")), call)
         return False
 

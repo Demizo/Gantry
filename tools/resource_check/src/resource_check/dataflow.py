@@ -41,15 +41,17 @@ def _transfer(
     fact: bool,
     key: Key,
     events_of: EventsOf,
+    on_write: bool | None = None,
     skip_acquires: bool = False,
     skip_call: Node | None = None,
 ) -> bool:
-    """Whether `key` is released after `nodes`, given whether it was before."""
+    """Whether `key` is released after `nodes`, given whether it was before.
+
+    `on_write` is the fact after an assignment to the identifier, or None to ignore assignments.
+    """
     for node in nodes:
-        if node.type != "call_expression":
-            if text(written_identifier(node)) == key.identifier:
-                fact = False
-            continue
+        if on_write is not None and text(written_identifier(node)) == key.identifier:
+            fact = on_write
         for event in events_of(node):
             if not affects(event, key):
                 continue
@@ -111,12 +113,14 @@ def find_unmatched_exits(
         skipped = failure_edges.get((predecessor.id, block.id))
         if skipped is None:
             return None
-        return _transfer(predecessor.calls, fact, key, events_of, skip_call=skipped)
+        return _transfer(
+            _operations(predecessor), fact, key, events_of, skip_call=skipped
+        )
 
     in_fact = _solve(
         cfg,
         True,
-        lambda block, fact: _transfer(block.calls, fact, key, events_of),
+        lambda block, fact: _transfer(_operations(block), fact, key, events_of),
         failure_edge,
     )
     return [
@@ -124,16 +128,18 @@ def find_unmatched_exits(
         for block in cfg.blocks
         if block.is_return
         and not _transfer(
-            block.calls, in_fact[block.id], key, events_of, skip_acquires=True
+            _operations(block), in_fact[block.id], key, events_of, skip_acquires=True
         )
     ]
 
 
 def _operations(block: BasicBlock) -> list[Node]:
     # End offsets give evaluation order: arguments before their call, a call before the assignment of its result.
+    nodes = [*block.calls, *block.writes]
+    if block.return_node is not None:
+        nodes.append(block.return_node)
     return sorted(
-        [*block.calls, *block.writes],
-        key=lambda node: (node.end_byte, node.type != "call_expression"),
+        nodes, key=lambda node: (node.end_byte, node.type != "call_expression")
     )
 
 
@@ -142,7 +148,9 @@ def find_released_calls(cfg: CFG, key: Key, events_of: EventsOf) -> list[Node]:
     in_fact = _solve(
         cfg,
         False,
-        lambda block, fact: _transfer(_operations(block), fact, key, events_of),
+        lambda block, fact: _transfer(
+            _operations(block), fact, key, events_of, on_write=False
+        ),
     )
     released: list[Node] = []
     for block in cfg.blocks:
@@ -150,5 +158,5 @@ def find_released_calls(cfg: CFG, key: Key, events_of: EventsOf) -> list[Node]:
         for node in _operations(block):
             if fact and node.type == "call_expression":
                 released.append(node)
-            fact = _transfer([node], fact, key, events_of)
+            fact = _transfer([node], fact, key, events_of, on_write=False)
     return released

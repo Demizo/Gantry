@@ -24,22 +24,53 @@ def find_calls(node: Node | None) -> list[Node]:
     return calls
 
 
+def is_assignment(node: Node) -> bool:
+    return (
+        node.type == "assignment_expression"
+        and text(node.child_by_field_name("operator")) == "="
+    )
+
+
 def written_identifier(node: Node) -> Node | None:
     if node.type == "init_declarator":
         return declarator_identifier(node.child_by_field_name("declarator"))
-    if (
-        node.type == "assignment_expression"
-        and text(node.child_by_field_name("operator")) == "="
-    ):
+    if is_assignment(node):
         left = strip_parentheses(node.child_by_field_name("left"))
         return left if left is not None and left.type == "identifier" else None
     return None
 
 
 def find_writes(node: Node | None) -> list[Node]:
+    """Declarations and assignments, to an identifier or through one."""
     if node is None:
         return []
-    return [n for n in iter_nodes(node) if written_identifier(n) is not None]
+    return [
+        write
+        for write in iter_nodes(node)
+        if write.type == "init_declarator" or is_assignment(write)
+    ]
+
+
+def dereferenced_root(node: Node | None) -> Node | None:
+    """The identifier that `*p`, `p->field` or `p[i]` writes through."""
+    node = strip_parentheses(node)
+    dereferenced = False
+    while node is not None and node.type != "identifier":
+        if node.type == "pointer_expression":
+            if text(node.child_by_field_name("operator")) != "*":
+                return None
+        elif node.type not in ("field_expression", "subscript_expression"):
+            return None
+        node = strip_parentheses(node.child_by_field_name("argument"))
+        dereferenced = True
+    return node if dereferenced else None
+
+
+def uncast_identifier(node: Node | None) -> Node | None:
+    node = strip_parentheses(node)
+    while node is not None and node.type == "cast_expression":
+        node = strip_parentheses(node.child_by_field_name("value"))
+    return node if node is not None and node.type == "identifier" else None
 
 
 def call_name(call_node: Node) -> str | None:
@@ -117,6 +148,11 @@ def result_identifier(call_node: Node) -> Node | None:
         ):
             return left
     return None
+
+
+def is_returned(call_node: Node) -> bool:
+    parent = value_node(call_node).parent
+    return parent is not None and parent.type == "return_statement"
 
 
 def contains_label(node: Node) -> bool:

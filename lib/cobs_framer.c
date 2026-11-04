@@ -229,6 +229,5 @@ int cobs_frame_encode(struct net_buf_pool* pool, const struct net_buf* input, st
     }
 
     *output = out;
-    PASS_OWNERSHIP(out);
     return SUCCESS;
 }

@@ -49,12 +49,30 @@ def test_removing_a_pass_ownership_marker_is_reported(tmp_path, library_annotati
     findings = _check_mutated(
         tmp_path,
         library_annotations,
-        LIB / "event.c",
-        "PASS_OWNERSHIP(event_block);",
+        LIB / "stow" / "stow_client.c",
+        "PASS_OWNERSHIP(items);",
         "",
     )
 
-    assert any("'event_block'" in f.text for f in findings)
+    assert any(
+        "'items'" in finding.text and "not released" in finding.text
+        for finding in findings
+    )
+
+
+def test_dropping_a_hand_off_to_the_caller_is_reported(tmp_path, library_annotations):
+    findings = _check_mutated(
+        tmp_path,
+        library_annotations,
+        LIB / "stow" / "stow_client.c",
+        "*buf_out = buf;",
+        "",
+    )
+
+    assert any(
+        "'buf'" in finding.text and "not released" in finding.text
+        for finding in findings
+    )
 
 
 def test_keeping_a_message_the_queue_refused_is_reported(tmp_path, library_annotations):
