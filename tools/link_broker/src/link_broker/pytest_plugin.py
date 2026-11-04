@@ -1,13 +1,10 @@
-"""Pytest plugin that builds a topology's nodes and starts a fresh network for each test.
-
-The console commands it sends are listed in ``samples/stow_peers/README.md``.
-"""
+"""Pytest plugin that builds a topology's nodes and starts a fresh network for each test."""
 
 from __future__ import annotations
 
 import logging
 import subprocess
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -27,40 +24,23 @@ class Network:
     topology: topology.Topology
     nodes: dict[str, Node]
     broker: Broker
+    link_changed: LinkChanged
 
     def __getitem__(self, name: str) -> Node:
         return self.nodes[name]
 
     def link_down(self, link: str) -> None:
-        """Cut a link in the broker, then tell each node on it."""
+        """Cut a link in the broker, then tell the nodes on it."""
         self.broker.cut(link)
-        for node in self._ends(link):
-            _tell(node, "link down", r"^@link down$")
+        self.link_changed(self, link, False)
 
     def link_up(self, link: str) -> None:
-        """Restore a link in the broker, then bring it up on each node."""
+        """Restore a link in the broker, then tell the nodes on it."""
         self.broker.restore(link)
-        self.bring_up(link)
-
-    def bring_up(self, link: str) -> None:
-        """Tell each node on a link that it is up, then open their client sessions."""
-        ends = self._ends(link)
-        for node in ends:
-            _tell(node, "link up", r"^@link up (-?\d+)$")
-        for node in ends:
-            _tell(node, "peer connect", r"^@connect (-?\d+)$")
-
-    def _ends(self, link: str) -> list[Node]:
-        return [self.nodes[end] for end in self.topology.link(link).ends]
+        self.link_changed(self, link, True)
 
 
-def _tell(node: Node, line: str, answer: str) -> None:
-    """Send a console line and wait for its answer, failing if it captures a non-zero error."""
-    mark = node.mark()
-    node.send(line)
-    match = node.expect(answer, since=mark)
-    if match.re.groups and match.group(1) != "0":
-        raise RuntimeError(f"{node.name}: {line!r} failed with {match.group(1)}")
+LinkChanged = Callable[[Network, str, bool], None]
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -76,6 +56,14 @@ def link_topology_path() -> Path:
     """Path of the topology file; a suite overrides this."""
     pytest.fail(
         "Override the link_topology_path fixture with the suite's topology file"
+    )
+
+
+@pytest.fixture(scope="session")
+def link_changed() -> LinkChanged:
+    """A callable ``(network, link, up)`` that tells the nodes on a link it went up or down; a suite overrides this."""
+    pytest.fail(
+        "Override the link_changed fixture to tell the nodes on a link that it went up or down"
     )
 
 
@@ -119,7 +107,10 @@ def node_images(
 
 @pytest.fixture
 def network(
-    link_topology: topology.Topology, node_images: dict[str, Path], tmp_path: Path
+    link_changed: LinkChanged,
+    link_topology: topology.Topology,
+    node_images: dict[str, Path],
+    tmp_path: Path,
 ) -> Iterator[Network]:
     """Start every node and the broker with every link up, logging to the test's ``tmp_path``."""
     handler = logging.FileHandler(tmp_path / "frames.log")
@@ -137,9 +128,9 @@ def network(
             node.start()
         broker = Broker(link_topology, {name: node.pty for name, node in nodes.items()})
         broker.start()
-        network = Network(link_topology, nodes, broker)
+        network = Network(link_topology, nodes, broker, link_changed)
         for link in link_topology.links:
-            network.bring_up(link.name)
+            link_changed(network, link.name, True)
         yield network
     finally:
         if broker is not None:

@@ -49,11 +49,7 @@ Tests
 
 The broker's pytest plugin builds each node with ``west build`` for ``native_sim/native/64`` once per session. A suite names its topology by overriding the ``link_topology_path`` fixture. The ``network`` fixture starts every node and the broker for each test and brings every link up. Each test's frame log and node consoles are kept in its temporary directory.
 
-Raw COBS has no link layer, so the harness stands in for the app's link manager, using each node's console:
-
-- ``link up``: the link came up. The node opens its server session and answers ``@link up <err>``.
-- ``peer connect``: once both ends are up, the node opens its client session.
-- ``link down``: the link went down. The node closes its sessions and answers ``@link down``.
+Raw COBS has no link layer, so a suite also overrides the ``link_changed`` fixture, a callable ``(network, link, up)`` that stands in for the app's link manager and tells the nodes on a link that it went up or down.
 
 ``network.link_down(name)`` and ``network.link_up(name)`` cut or restore a link in the broker and tell the nodes on it.
 

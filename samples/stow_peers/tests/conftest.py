@@ -71,6 +71,33 @@ def link_topology_path() -> Path:
     return Path(__file__).parent.parent / "topology.yaml"
 
 
+def _tell(console: Console, line: str, answer: str) -> None:
+    """Send a console line and wait for its answer, failing if it captures a non-zero error."""
+    match = console.command(line, answer)
+    if match.re.groups and match.group(1) != "0":
+        raise RuntimeError(
+            f"{console.node.name}: {line!r} failed with {match.group(1)}"
+        )
+
+
+@pytest.fixture(scope="session")
+def link_changed():
+    """Tells each end's console that a link changed, standing in for the app's link manager."""
+
+    def changed(network, link: str, up: bool) -> None:
+        ends = [Console(network[end]) for end in network.topology.link(link).ends]
+        if not up:
+            for console in ends:
+                _tell(console, "link down", r"^@link down$")
+            return
+        for console in ends:
+            _tell(console, "link up", r"^@link up (-?\d+)$")
+        for console in ends:
+            _tell(console, "peer connect", r"^@connect (-?\d+)$")
+
+    return changed
+
+
 READY = {
     "controller": r"Watching the sensor's battery",
     "sensor": r"Paired with controller \S+",
