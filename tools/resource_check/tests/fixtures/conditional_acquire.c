@@ -315,7 +315,7 @@ int leak_earlier_acquire_still_held_on_failure(void)
 {
     void* buf = NULL;
     MEM_ALLOC(4, &buf);
-    if (MEM_ALLOC(4, &buf) != 0)
+    if (MEM_ALLOC(4, &buf) != 0) // ACQUIRED WHILE HELD: buf
     {
         return -1; // LEAK: buf
     }
@@ -328,7 +328,7 @@ int leak_loop_iteration_after_success(int count)
     void* buf = NULL;
     while (count--)
     {
-        if (MEM_ALLOC(8, &buf) != 0)
+        if (MEM_ALLOC(8, &buf) != 0) // ACQUIRED WHILE HELD: buf
         {
             return -1; // LEAK: buf
         }

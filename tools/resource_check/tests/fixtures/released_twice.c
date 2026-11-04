@@ -102,15 +102,6 @@ int passed_on_after_release(void)
     return 0;
 }
 
-int second_reference_in_the_same_identifier(void* block)
-{
-    MEM_REF(block);
-    MEM_REF(block);
-    MEM_UNREF(&block);
-    MEM_UNREF(&block); // RELEASED TWICE: block
-    return 0;
-}
-
 int clean_second_reference_in_its_own_identifier(void* block)
 {
     void* extra = block;

@@ -156,7 +156,7 @@ int leak_result_tested_by_switch(void)
 int leak_acquire_tested_by_while(void)
 {
     void* buf = NULL;
-    while (MEM_ALLOC(4, &buf) != 0)
+    while (MEM_ALLOC(4, &buf) != 0) // ACQUIRED WHILE HELD: buf
     {
         retry();
     }
@@ -166,7 +166,7 @@ int leak_acquire_tested_by_while(void)
 int leak_acquire_tested_by_for(void)
 {
     void* buf = NULL;
-    for (; MEM_ALLOC(4, &buf) != 0;)
+    for (; MEM_ALLOC(4, &buf) != 0;) // ACQUIRED WHILE HELD: buf
     {
         retry();
     }
@@ -292,7 +292,7 @@ int leak_other_event_on_the_identifier_between_call_and_test(void** kept)
 {
     void* buf = NULL;
     int ret = MEM_ALLOC(4, &buf);
-    MEM_REF(buf);
+    MEM_REF(buf); // ACQUIRED WHILE HELD: buf
     if (ret != SUCCESS)
     {
         return ret; // LEAK: buf

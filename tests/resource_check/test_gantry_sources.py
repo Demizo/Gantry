@@ -120,6 +120,27 @@ def test_breaking_a_release_promise_is_reported(tmp_path, library_annotations):
     )
 
 
+def test_allocating_over_a_held_block_is_reported(tmp_path, library_annotations):
+    alloc = (
+        "    if (MEM_ALLOC(client->schema->item_count * sizeof(struct item_state), &items) != SUCCESS)\n"
+        "    {\n"
+        "        return -ENOMEM;\n"
+        "    }\n"
+    )
+    findings = _check_mutated(
+        tmp_path,
+        library_annotations,
+        LIB / "stow" / "stow_client.c",
+        alloc,
+        alloc + alloc,
+    )
+
+    assert any(
+        "'items'" in finding.text and "while it may still hold" in finding.text
+        for finding in findings
+    )
+
+
 def test_sending_a_response_twice_is_reported(tmp_path, library_annotations):
     send = "stow_transport_send(session->transport, session->id, buf);"
     findings = _check_mutated(

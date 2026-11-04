@@ -17,7 +17,7 @@ int leak_backward_goto(int tries)
 {
     void* buf;
 retry:
-    MEM_ALLOC(4, &buf);
+    MEM_ALLOC(4, &buf); // ACQUIRED WHILE HELD: buf
     if (should_retry(tries))
     {
         tries--;

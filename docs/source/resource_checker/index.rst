@@ -5,7 +5,7 @@ Resource Checker
 Overview
 ========
 
-The resource checker reports a resource acquired in a function and not released on some path out of the function, a resource released a second time, and a resource used after its release. It covers Gantry's reference counted memory, events and Stow values, and common Zephyr resources such as IRQ locks, mutexes, spinlocks and ``net_buf``. It runs automatically when Gantry is included as a module.
+The resource checker reports a resource acquired in a function and not released on some path out of the function, a resource released a second time, a resource used after its release, and a resource acquired into an identifier that may still hold one. It covers Gantry's reference counted memory, events and Stow values, and common Zephyr resources such as IRQ locks, mutexes, spinlocks and ``net_buf``. It runs automatically when Gantry is included as a module.
 
 The checker is a Python tool built on `tree-sitter <https://tree-sitter.github.io/tree-sitter/>`_. It reads the unexpanded source, so it needs no build, include paths or compile flags. It lives in ``tools/resource_check`` as the standalone ``resource-check`` package and does not depend on Gantry, so it can be installed into other projects.
 
@@ -16,7 +16,7 @@ Usage
 
     uv run --project tools/resource_check resource-check <path>... [--annotations <file-or-dir>]...
 
-Each ``<path>`` is a ``.c`` file or a directory searched for ``.c`` files. The checker exits non-zero if it reports a leak, a second release, a use after release, a policy violation, an annotation error or code it could not parse.
+Each ``<path>`` is a ``.c`` file or a directory searched for ``.c`` files. The checker exits non-zero if it reports a leak, a second release, a use after release, an acquire while held, a policy violation, an annotation error or code it could not parse.
 
 Annotations are used to determine what function acquire or release resources. The resource checker includes annotation for common Zephyr functions that allocate or release resources. Annotations are read from functions in the checked source, ``--annotations`` provides additional files to read annotations from.
 
@@ -144,7 +144,9 @@ An identifier the function never acquired, such as a parameter or a local copied
 
 A second release and a use after release are only reported when every path to the call has already released the identifier. A release in a loop of something acquired before the loop is not reported.
 
-An identifier holds one reference. Two references held in the same identifier and released twice are reported as a second release; hold the second reference in its own variable.
+Assigning a value other than an acquire's result over an identifier that still holds a resource is not reported.
+
+A failed acquire is recognised only where an ``if`` tests its result. A retry tested by a loop condition, such as ``while ((buf = net_buf_alloc(pool, K_NO_WAIT)) == NULL)`` or a ``do``/``while`` loop, is reported as acquired while held; test the result with ``if`` instead.
 
 See :ref:`mem-leak-detection` for the memory rules.
 

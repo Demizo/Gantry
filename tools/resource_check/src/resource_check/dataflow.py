@@ -5,7 +5,7 @@ from typing import Literal, NamedTuple
 from tree_sitter import Node
 
 from .annotations import ANY_CLASS
-from .ast_nodes import text, written_identifier
+from .ast_nodes import find_calls, is_assignment, text, written_identifier
 from .cfg import CFG, BasicBlock
 
 
@@ -36,6 +36,14 @@ def affects(event: Event, key: Key) -> bool:
     return resource_class in (event.resource_class, ANY_CLASS)
 
 
+def _receives_acquire(write: Node, key: Key, events_of: EventsOf) -> bool:
+    return any(
+        event.kind == "acquire" and affects(event, key)
+        for call in find_calls(write)
+        for event in events_of(call)
+    )
+
+
 def _transfer(
     nodes: list[Node],
     fact: bool,
@@ -47,10 +55,15 @@ def _transfer(
 ) -> bool:
     """Whether `key` is released after `nodes`, given whether it was before.
 
-    `on_write` is the fact after an assignment to the identifier, or None to ignore assignments.
+    `on_write` is the fact after an assignment to the identifier, or None to ignore assignments. An assignment of an
+    acquire's result is the acquire itself, so it leaves the fact to the acquire.
     """
     for node in nodes:
-        if on_write is not None and text(written_identifier(node)) == key.identifier:
+        if (
+            on_write is not None
+            and text(written_identifier(node)) == key.identifier
+            and not (is_assignment(node) and _receives_acquire(node, key, events_of))
+        ):
             fact = on_write
         for event in events_of(node):
             if not affects(event, key):
@@ -110,6 +123,7 @@ def _edge_transfer(
     events_of: EventsOf,
     failure_edges: FailureEdges,
     empty_edges: Collection[Edge],
+    on_write: bool | None = None,
 ) -> EdgeTransfer:
     """Nothing is held along an empty edge, and a failure edge skips the acquire that failed."""
 
@@ -120,7 +134,12 @@ def _edge_transfer(
         if skipped is None:
             return None
         return _transfer(
-            _operations(predecessor), fact, key, events_of, skip_call=skipped
+            _operations(predecessor),
+            fact,
+            key,
+            events_of,
+            on_write=on_write,
+            skip_call=skipped,
         )
 
     return edge
@@ -150,14 +169,19 @@ def find_unmatched_exits(
     ]
 
 
+def _evaluation_order(node: Node) -> tuple[int, bool]:
+    # End offsets give evaluation order: arguments before their call, a call before the assignment of its result. A
+    # declaration starts its variable before the initializer runs.
+    if node.type == "init_declarator":
+        return node.child_by_field_name("declarator").end_byte, True
+    return node.end_byte, node.type != "call_expression"
+
+
 def _operations(block: BasicBlock) -> list[Node]:
-    # End offsets give evaluation order: arguments before their call, a call before the assignment of its result.
     nodes = [*block.calls, *block.writes]
     if block.return_node is not None:
         nodes.append(block.return_node)
-    return sorted(
-        nodes, key=lambda node: (node.end_byte, node.type != "call_expression")
-    )
+    return sorted(nodes, key=_evaluation_order)
 
 
 def find_released_calls(cfg: CFG, key: Key, events_of: EventsOf) -> list[Node]:
@@ -177,3 +201,33 @@ def find_released_calls(cfg: CFG, key: Key, events_of: EventsOf) -> list[Node]:
                 released.append(node)
             fact = _transfer([node], fact, key, events_of, on_write=False)
     return released
+
+
+def find_held_operations(
+    cfg: CFG,
+    key: Key,
+    events_of: EventsOf,
+    failure_edges: FailureEdges,
+    held_at_entry: bool,
+    empty_edges: Collection[Edge],
+) -> set[int]:
+    """Ids of the operations reached on some path where `key` may still be held.
+
+    "May hold" is "not free on every path": a release or an assignment frees the identifier, an acquire holds it.
+    """
+    in_fact = _solve(
+        cfg,
+        not held_at_entry,
+        lambda block, fact: _transfer(
+            _operations(block), fact, key, events_of, on_write=True
+        ),
+        _edge_transfer(key, events_of, failure_edges, empty_edges, on_write=True),
+    )
+    held: set[int] = set()
+    for block in cfg.blocks:
+        fact = in_fact[block.id]
+        for node in _operations(block):
+            if not fact:
+                held.add(node.id)
+            fact = _transfer([node], fact, key, events_of, on_write=True)
+    return held

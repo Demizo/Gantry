@@ -30,6 +30,7 @@ from .dataflow import (
     EventsOf,
     Key,
     affects,
+    find_held_operations,
     find_released_calls,
     find_unmatched_exits,
 )
@@ -255,6 +256,64 @@ class ReleasedRuleKind:
         return findings.values()
 
 
+class AcquiredWhileHeldRuleKind:
+    """Reports an acquire into an identifier that may still hold what an earlier acquire, or the caller, gave it."""
+
+    def __init__(self, annotations: Annotations):
+        self.annotations = annotations
+        self.events_of = partial(call_events, annotations)
+
+    def check(self, cfg: CFG, file_path: str) -> Iterable[Finding]:
+        obligations = _obligations_of(cfg, self.annotations, self.events_of)
+        events_of = partial(_with_hand_offs, obligations.contract, self.events_of, None)
+        for key, calls in obligations.acquires.items():
+            failure_edges = find_failure_edges(cfg, key, self.events_of)
+            null_edges = obligations.null_edges(cfg, key)
+
+            # Each origin is followed on its own, so a finding names the acquire it may still hold.
+            origins: list[Node | None] = sorted(calls, key=line)
+            if key in obligations.held_at_entry:
+                origins.insert(0, None)
+            held_by = [
+                (
+                    origin,
+                    find_held_operations(
+                        cfg,
+                        key,
+                        partial(_acquired_only_at, events_of, origin),
+                        failure_edges,
+                        held_at_entry=origin is None,
+                        empty_edges=null_edges,
+                    ),
+                )
+                for origin in origins
+            ]
+            for call in calls:
+                holders = [origin for origin, held in held_by if call.id in held]
+                if not holders:
+                    continue
+                call_line = line(call)
+                origin_line = line(
+                    holders[-1] if holders[-1] is not None else cfg.function
+                )
+                yield Finding(
+                    file=file_path,
+                    line=call_line,
+                    text=(
+                        f"[{file_path}:{call_line}] ERROR: Variable '{key.identifier}' acquired at line "
+                        f"{call_line} while it may still hold the resource acquired on line {origin_line}"
+                    ),
+                )
+
+
+def _acquired_only_at(
+    events_of: EventsOf, origin: Node | None, node: Node
+) -> list[Event]:
+    return [
+        event for event in events_of(node) if event.kind != "acquire" or node == origin
+    ]
+
+
 def _released_finding(file_path: str, call_line: int, key: Key, problem: str):
     return Finding(
         file=file_path,
@@ -334,6 +393,7 @@ def build_rule_kinds(annotations: Annotations) -> list[RuleKind]:
     return [
         LeakRuleKind(annotations),
         ReleasedRuleKind(annotations),
+        AcquiredWhileHeldRuleKind(annotations),
         IdentifierArgumentRuleKind(annotations),
         UncapturedResultRuleKind(annotations),
     ]

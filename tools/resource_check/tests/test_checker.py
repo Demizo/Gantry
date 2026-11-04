@@ -9,16 +9,17 @@ from resource_check.parser import make_parser
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 _EXPECTED_COMMENT = re.compile(
-    r"//\s*(LEAK|RELEASED TWICE|USED AFTER RELEASE|POLICY ERROR):\s*(\w+)"
+    r"//\s*(LEAK|RELEASED TWICE|USED AFTER RELEASE|ACQUIRED WHILE HELD|POLICY ERROR):\s*(\w+)"
 )
 _FINDING = re.compile(
     r"(?:Variable '(\w+)'|The result of (\w+)) "
-    r".*(was not released|released twice|used after release|must be assigned)"
+    r".*(was not released|released twice|used after release|while it may still hold|must be assigned)"
 )
 _KINDS = {
     "was not released": "LEAK",
     "released twice": "RELEASED TWICE",
     "used after release": "USED AFTER RELEASE",
+    "while it may still hold": "ACQUIRED WHILE HELD",
     "must be assigned": "POLICY ERROR",
 }
 
@@ -47,6 +48,32 @@ def _actual_findings(path: Path, annotations) -> set[tuple[int, str, str]]:
 )
 def test_fixture_matches_exactly(fixture: Path, library_annotations):
     assert _actual_findings(fixture, library_annotations) == _expected_findings(fixture)
+
+
+@pytest.mark.parametrize(
+    ("declaration", "acquire"),
+    [
+        ("void* block = NULL;", "MEM_ALLOC(4, &block);"),
+        ("struct net_buf* block = NULL;", "block = net_buf_alloc(pool, K_NO_WAIT);"),
+    ],
+)
+def test_acquire_while_held_names_the_latest_acquire_it_may_hold(
+    check_source, declaration, acquire
+):
+    findings = check_source(f"""
+        void f(struct net_buf_pool* pool) {{
+            {declaration}
+            {acquire}
+            {acquire}
+            {acquire}
+        }}
+    """)
+    held = sorted(
+        (finding.line, finding.text.rsplit(" ", 1)[-1])
+        for finding in findings
+        if "while it may still hold" in finding.text
+    )
+    assert held == [(5, "4"), (6, "5")]
 
 
 def test_identifier_argument_rule_flags_non_identifier_argument(check_source):

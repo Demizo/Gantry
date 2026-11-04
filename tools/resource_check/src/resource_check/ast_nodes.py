@@ -31,23 +31,32 @@ def is_assignment(node: Node) -> bool:
     )
 
 
+def _is_declarator(node: Node) -> bool:
+    parent = node.parent
+    return (
+        parent is not None
+        and parent.type == "declaration"
+        and node in parent.children_by_field_name("declarator")
+    )
+
+
 def written_identifier(node: Node) -> Node | None:
-    if node.type == "init_declarator":
-        return declarator_identifier(node.child_by_field_name("declarator"))
     if is_assignment(node):
         left = strip_parentheses(node.child_by_field_name("left"))
         return left if left is not None and left.type == "identifier" else None
+    if _is_declarator(node):
+        return declarator_identifier(node)
     return None
 
 
 def find_writes(node: Node | None) -> list[Node]:
-    """Declarations and assignments, to an identifier or through one."""
+    """Declarations, with or without a value, and assignments, to an identifier or through one."""
     if node is None:
         return []
     return [
         write
         for write in iter_nodes(node)
-        if write.type == "init_declarator" or is_assignment(write)
+        if is_assignment(write) or _is_declarator(write)
     ]
 
 
